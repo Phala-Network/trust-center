@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build:dcap-qvl": "cd external/dcap-qvl/cli && cargo build --release && mkdir -p ../../../bin && cp target/release/dcap-qvl ../../../bin/"
+    "build:dcap-qvl": "cd external/dcap-qvl/cli && cargo build --release && mkdir -p ../../../bin && cp target/release/dcap-qvl ../../../bin/",
+    "build:dstack-mr": "GOBIN=$(pwd)/bin go install github.com/kvinwang/dstack-mr@latest"
   },
   "devDependencies": {
     "@types/bun": "latest"
