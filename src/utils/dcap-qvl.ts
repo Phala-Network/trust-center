@@ -1,15 +1,20 @@
+import {rm, writeFile} from 'node:fs/promises'
+import {tmpdir} from 'node:os'
+import {join} from 'node:path'
 import {exec} from 'child_process'
 import * as path from 'path'
 import {promisify} from 'util'
+
+import type {DecodedQuoteResult, VerifyQuoteResult} from '../types'
 
 const execAsync = promisify(exec)
 
 const DCAP_QVL_CLI_PATH = path.join(__dirname, '../..//bin/dcap-qvl')
 
-export async function decodeQuote(
+export async function decodeQuoteFile(
   quoteFile: string,
   options?: {hex?: boolean; fmspc?: boolean},
-): Promise<string> {
+): Promise<DecodedQuoteResult> {
   let command = `${DCAP_QVL_CLI_PATH} decode`
   if (options?.hex) {
     command += ' --hex'
@@ -27,10 +32,10 @@ export async function decodeQuote(
   }
 }
 
-export async function verifyQuote(
+export async function verifyQuoteFile(
   quoteFile: string,
   options?: {hex?: boolean},
-): Promise<string> {
+): Promise<VerifyQuoteResult> {
   let command = `${DCAP_QVL_CLI_PATH} verify`
   if (options?.hex) {
     command += ' --hex'
@@ -43,4 +48,26 @@ export async function verifyQuote(
   } catch (error) {
     throw new Error(`Failed to verify quote: ${error.message}`)
   }
+}
+
+export async function decodeQuote(
+  quote: string,
+  options?: {hex?: boolean; fmspc?: boolean},
+): Promise<DecodedQuoteResult> {
+  const tmp = join(tmpdir(), `quote-${Date.now()}.hex`)
+  await writeFile(tmp, quote)
+  const decoded = await decodeQuoteFile(tmp, options)
+  await rm(tmp)
+  return decoded
+}
+
+export async function verifyQuote(
+  quote: string,
+  options?: {hex?: boolean},
+): Promise<VerifyQuoteResult> {
+  const tmp = join(tmpdir(), `quote-${Date.now()}.hex`)
+  await writeFile(tmp, quote)
+  const verified = await verifyQuoteFile(tmp, options)
+  await rm(tmp)
+  return verified
 }
