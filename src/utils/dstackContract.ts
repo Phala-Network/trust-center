@@ -18,10 +18,6 @@ export abstract class DstackContract {
 }
 
 export class DstackApp extends DstackContract {
-  constructor(address: `0x${string}`) {
-    super(address)
-  }
-
   async isComposeHashRegistered(composeHash: string): Promise<boolean> {
     return (await this.client.readContract({
       address: this.address,
@@ -40,10 +36,6 @@ export type KmsInfo = {
 }
 
 export class DstackKms extends DstackContract {
-  constructor(address: `0x${string}`) {
-    super(address)
-  }
-
   async gatewayAppId(): Promise<string> {
     return (await this.client.readContract({
       address: this.address,
@@ -66,7 +58,3 @@ export class DstackKms extends DstackContract {
     }
   }
 }
-
-console.log(
-  await new DstackKms('0xbfD2d557118fc650EA25a0E7D85355d335f259D8').kmsInfo(),
-)
