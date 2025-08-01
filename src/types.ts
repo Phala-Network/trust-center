@@ -81,7 +81,7 @@ export interface TcbInfo {
   compose_hash: string
   device_id: string
   event_log: EventLog
-  app_compose: AppCompose
+  app_compose: string
 }
 
 /**
@@ -216,4 +216,44 @@ export interface DecodedQuoteResult {
   header: DecodedQuoteHeader
   report: Report
   auth_data: AuthData
+}
+
+/**
+ * Types for calculation and measurement operations with event emission
+ */
+export interface CalculationEvent {
+  inputRef: string
+  outputRef: string
+  calcFunc: string
+}
+
+export interface MeasurementEvent {
+  passed: boolean
+  expected: unknown
+  actual: unknown
+}
+
+/**
+ * DataObject interface for report generation
+ */
+export interface DataObject {
+  id: string
+  name: string
+  description?: string
+  fields: Record<string, unknown>
+  layer: number
+  type: string
+  kind?: 'gateway' | 'kms' | 'app'
+  measuredBy?: {
+    objectId: string
+    fieldName?: string
+    selfFieldName?: string
+    calcOutputName?: string
+    selfCalcOutputName?: string
+  }[]
+  calculations?: Array<{
+    inputs: string[]
+    calcFunc: string
+    outputs: string[]
+  }>
 }

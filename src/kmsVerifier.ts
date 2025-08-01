@@ -1,4 +1,5 @@
-import * as path from 'path'
+import {createHash} from 'crypto'
+import path from 'path'
 import {DeepseekKmsInfo} from './consts'
 import {
   type AppInfo,
@@ -9,6 +10,7 @@ import {
 import {verifyQuote} from './utils/dcap-qvl'
 import {measureDstackImages} from './utils/dstack-mr'
 import {DstackKms} from './utils/dstackContract'
+import {calculate, getCollectedEvents, measure} from './utils/operations'
 import {Verifier} from './verifier'
 
 export class KmsVerifier extends Verifier {
@@ -60,24 +62,45 @@ export class KmsVerifier extends Verifier {
     const appInfo = await this.getAppInfo()
 
     const result = await measureDstackImages({
-      cpu: appInfo.vm_config.cpu_count,
-      memory: appInfo.vm_config.memory_size.toString(),
-      metadata: path.join(
+      image_folder: path.join(
         __dirname,
-        './utils/dstack-release/dstack-0.5.3/metadata.json',
+        '../external/dstack-images/dstack-0.5.3',
       ),
+      vm_config: appInfo.vm_config,
     })
-    // console.log(result)
 
-    // TODO: figure out why MRTD and RTMR0 do not match
-
-    return true
+    return (
+      result.mrtd === appInfo.tcb_info.mrtd &&
+      result.rtmr0 === appInfo.tcb_info.rtmr0 &&
+      result.rtmr1 === appInfo.tcb_info.rtmr1 &&
+      result.rtmr2 === appInfo.tcb_info.rtmr2
+    )
   }
 
   public async verifySourceCode(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
     const quote = await this.getQuote()
-    return true
+
+    const appCompose = appInfo.tcb_info.app_compose
+    const appComposeEvent = quote.eventlog.find(
+      (value) => value.event === 'compose-hash',
+    )
+
+    const hash = calculate(
+      'appInfo.tcb_info.app_compose',
+      appCompose,
+      'compose_hash',
+      'sha256',
+      () => createHash('sha256').update(appCompose).digest('hex'),
+    )
+
+    console.log(getCollectedEvents())
+
+    return measure(
+      appComposeEvent?.event_payload,
+      hash,
+      () => hash === appComposeEvent?.event_payload,
+    )
   }
 
   public async getMetadata(): Promise<any> {
@@ -85,9 +108,3 @@ export class KmsVerifier extends Verifier {
     return {}
   }
 }
-
-console.log(
-  await new KmsVerifier(
-    '0xbfD2d557118fc650EA25a0E7D85355d335f259D8',
-  ).verifyHardware(),
-)
