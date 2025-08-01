@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "build:dcap-qvl": "cd external/dcap-qvl/cli && cargo build --release && mkdir -p ../../../bin && cp target/release/dcap-qvl ../../../bin/",
-    "build:dstack-mr": "GOBIN=$(pwd)/bin go install github.com/kvinwang/dstack-mr@latest"
+    "download:dstack-0.5.3": "cd external/dstack-images && wget https://github.com/Dstack-TEE/meta-dstack/releases/download/v0.5.3/dstack-0.5.3.tar.gz && tar -xzf dstack-0.5.3.tar.gz && rm dstack-0.5.3.tar.gz"
   },
   "devDependencies": {
     "@biomejs/biome": "2.0.0-beta.6",
