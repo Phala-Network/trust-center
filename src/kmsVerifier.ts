@@ -1,5 +1,5 @@
-import {createHash} from 'crypto'
-import path from 'path'
+import {createHash} from 'node:crypto'
+import path from 'node:path'
 import {DeepseekKmsInfo} from './consts'
 import {
   type AppInfo,
@@ -54,7 +54,6 @@ export class KmsVerifier extends Verifier {
   public async verifyHardware(): Promise<boolean> {
     const quote = await this.getQuote()
     const result = await verifyQuote(quote.quote, {hex: true})
-    console.log(result)
     return result.status === 'UpToDate'
   }
 

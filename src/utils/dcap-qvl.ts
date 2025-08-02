@@ -1,9 +1,8 @@
+import {exec} from 'node:child_process'
 import {rm, writeFile} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
-import {join} from 'node:path'
-import {exec} from 'child_process'
-import * as path from 'path'
-import {promisify} from 'util'
+import * as path from 'node:path'
+import {promisify} from 'node:util'
 
 import type {DecodedQuoteResult, VerifyQuoteResult} from '../types'
 
@@ -54,7 +53,7 @@ export async function decodeQuote(
   quote: string,
   options?: {hex?: boolean; fmspc?: boolean},
 ): Promise<DecodedQuoteResult> {
-  const tmp = join(tmpdir(), `quote-${Date.now()}.hex`)
+  const tmp = path.join(tmpdir(), `quote-${Date.now()}.hex`)
   await writeFile(tmp, quote)
   const decoded = await decodeQuoteFile(tmp, options)
   await rm(tmp)
@@ -65,7 +64,7 @@ export async function verifyQuote(
   quote: string,
   options?: {hex?: boolean},
 ): Promise<VerifyQuoteResult> {
-  const tmp = join(tmpdir(), `quote-${Date.now()}.hex`)
+  const tmp = path.join(tmpdir(), `quote-${Date.now()}.hex`)
   await writeFile(tmp, quote)
   const verified = await verifyQuoteFile(tmp, options)
   await rm(tmp)
