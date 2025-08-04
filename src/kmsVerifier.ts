@@ -13,54 +13,116 @@ import {DstackKms} from './utils/dstackContract'
 import {calculate, getCollectedEvents, measure} from './utils/operations'
 import {Verifier} from './verifier'
 
+/**
+ * KMS (Key Management Service) verifier implementation for DStack TEE applications.
+ *
+ * This verifier retrieves attestation data from a smart contract and verifies
+ * the integrity of a KMS service running in a TEE environment.
+ */
 export class KmsVerifier extends Verifier {
+  /** Smart contract interface for retrieving KMS attestation data */
   public registrySmartContract: DstackKms
-  public caPubkey: `0x${string}` = '0x'
+  /** Certificate Authority public key extracted from the smart contract */
+  public certificateAuthorityPublicKey: `0x${string}` = '0x'
 
+  /**
+   * Creates a new KMS verifier instance.
+   *
+   * @param contractAddress - Ethereum address of the DStack KMS registry contract
+   */
   constructor(contractAddress: `0x${string}`) {
     super()
-
     this.registrySmartContract = new DstackKms(contractAddress)
   }
 
+  /**
+   * Retrieves the Gateway application identifier from the smart contract.
+   *
+   * This method returns the smart contract address of the Gateway governance
+   * contract that this KMS instance is configured to work with. The Gateway
+   * app ID is used to establish trust relationships between KMS and Gateway services.
+   *
+   * @returns Promise resolving to the Gateway governance contract address
+   */
+  public async getGatewatyAppId(): Promise<string> {
+    return this.registrySmartContract.gatewayAppId()
+  }
+
+  /**
+   * Retrieves the TEE quote and event log from the smart contract.
+   *
+   * The KMS publishes its attestation data on-chain for public verification.
+   *
+   * @returns Promise resolving to the quote and parsed event log
+   */
   protected async getQuote(): Promise<QuoteAndEventLog> {
-    // the quote and event log of KMS are published on the smart contract
     const kmsInfo = await this.registrySmartContract.kmsInfo()
-    const rawEventlog = Buffer.from(
+    const eventLogBuffer = Buffer.from(
       kmsInfo.eventlog.replace('0x', ''),
       'hex',
     ).toString('utf8')
 
-    this.caPubkey = kmsInfo.caPubkey
+    this.certificateAuthorityPublicKey = kmsInfo.caPubkey
 
-    return {quote: kmsInfo.quote, eventlog: JSON.parse(rawEventlog)}
+    return {
+      quote: kmsInfo.quote,
+      eventlog: JSON.parse(eventLogBuffer),
+    }
   }
 
+  /**
+   * Retrieves attestation bundle including GPU evidence.
+   *
+   * KMS services typically do not require GPU attestation.
+   *
+   * @returns Promise resolving to null as KMS doesn't use GPU attestation
+   */
   protected async getAttestation(): Promise<AttestationBundle | null> {
-    // KMS does not use GPU
     return null
   }
 
+  /**
+   * Retrieves application information for the KMS instance.
+   *
+   * Uses pre-configured KMS information from constants and parses JSON fields.
+   *
+   * @returns Promise resolving to parsed application information
+   */
   protected async getAppInfo(): Promise<AppInfo> {
-    const rawAppInfo = DeepseekKmsInfo
+    const rawKmsAppInfo = DeepseekKmsInfo
 
-    return parseJsonFields<AppInfo>(rawAppInfo, {
+    return parseJsonFields<AppInfo>(rawKmsAppInfo, {
       tcb_info: true,
       key_provider_info: true,
       vm_config: true,
     })
   }
 
+  /**
+   * Verifies the hardware attestation by validating the TDX quote.
+   *
+   * Uses DCAP-QVL to verify the cryptographic quote from the TEE.
+   *
+   * @returns Promise resolving to true if hardware attestation is valid and up-to-date
+   */
   public async verifyHardware(): Promise<boolean> {
-    const quote = await this.getQuote()
-    const result = await verifyQuote(quote.quote, {hex: true})
-    return result.status === 'UpToDate'
+    const quoteData = await this.getQuote()
+    const verificationResult = await verifyQuote(quoteData.quote, {hex: true})
+    return verificationResult.status === 'UpToDate'
   }
 
+  /**
+   * Verifies the operating system integrity by comparing measurement registers.
+   *
+   * Measures the DStack OS images and compares the results with the expected
+   * values from the TCB information.
+   *
+   * @returns Promise resolving to true if all measurement registers match
+   */
   public async verifyOperatingSystem(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
 
-    const result = await measureDstackImages({
+    const measurementResult = await measureDstackImages({
       image_folder: path.join(
         __dirname,
         '../external/dstack-images/dstack-0.5.3',
@@ -68,42 +130,61 @@ export class KmsVerifier extends Verifier {
       vm_config: appInfo.vm_config,
     })
 
+    const expectedTcb = appInfo.tcb_info
     return (
-      result.mrtd === appInfo.tcb_info.mrtd &&
-      result.rtmr0 === appInfo.tcb_info.rtmr0 &&
-      result.rtmr1 === appInfo.tcb_info.rtmr1 &&
-      result.rtmr2 === appInfo.tcb_info.rtmr2
+      measurementResult.mrtd === expectedTcb.mrtd &&
+      measurementResult.rtmr0 === expectedTcb.rtmr0 &&
+      measurementResult.rtmr1 === expectedTcb.rtmr1 &&
+      measurementResult.rtmr2 === expectedTcb.rtmr2
     )
   }
 
+  /**
+   * Verifies the source code authenticity by validating the compose hash.
+   *
+   * Calculates the SHA256 hash of the application composition and compares it
+   * with the hash recorded in the event log.
+   *
+   * @returns Promise resolving to true if the compose hash matches the event log
+   */
   public async verifySourceCode(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
-    const quote = await this.getQuote()
+    const quoteData = await this.getQuote()
 
-    const appCompose = appInfo.tcb_info.app_compose
-    const appComposeEvent = quote.eventlog.find(
-      (value) => value.event === 'compose-hash',
+    const appComposeConfig = appInfo.tcb_info.app_compose
+    const composeHashEvent = quoteData.eventlog.find(
+      (entry) => entry.event === 'compose-hash',
     )
 
-    const hash = calculate(
+    const calculatedHash = calculate(
       'appInfo.tcb_info.app_compose',
-      appCompose,
+      appComposeConfig,
       'compose_hash',
       'sha256',
-      () => createHash('sha256').update(appCompose).digest('hex'),
+      () => createHash('sha256').update(appComposeConfig).digest('hex'),
     )
 
     console.log(getCollectedEvents())
 
     return measure(
-      appComposeEvent?.event_payload,
-      hash,
-      () => hash === appComposeEvent?.event_payload,
+      composeHashEvent?.event_payload,
+      calculatedHash,
+      () => calculatedHash === composeHashEvent?.event_payload,
     )
   }
 
-  public async getMetadata(): Promise<any> {
-    // Implement metadata retrieval logic
-    return {}
+  /**
+   * Retrieves metadata about the KMS verification process and results.
+   *
+   * @returns Promise resolving to verification metadata including CA public key
+   */
+  public async getMetadata(): Promise<Record<string, unknown>> {
+    return {
+      verifierType: 'KMS',
+      contractAddress: this.registrySmartContract.address,
+      certificateAuthorityPublicKey: this.certificateAuthorityPublicKey,
+      supportedVerifications: ['hardware', 'operatingSystem', 'sourceCode'],
+      usesGpuAttestation: false,
+    }
   }
 }

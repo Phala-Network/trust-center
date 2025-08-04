@@ -3,57 +3,97 @@ import * as path from 'node:path'
 import {promisify} from 'node:util'
 import type {VmConfig} from '../types'
 
+/** Promisified version of child_process.exec for async/await usage */
 const execAsync = promisify(exec)
 
-const DOCKER_IMAGE = 'shelvenzhou49/dstack-mr-cli:latest'
+/** Docker image containing the DStack measurement CLI tool */
+const DSTACK_MR_DOCKER_IMAGE = 'shelvenzhou49/dstack-mr-cli:latest'
 
+/**
+ * Configuration options for DStack image measurement operations.
+ */
 export interface DstackMrOptions {
+  /** Path to the folder containing DStack OS images */
   image_folder: string
+  /** Virtual machine configuration for measurement */
   vm_config: VmConfig
 }
 
-function buildCliArgs(vm_config: VmConfig): string[] {
-  const args: string[] = []
+/**
+ * Builds CLI arguments array from VM configuration for the DStack measurement tool.
+ *
+ * @param vmConfiguration - Virtual machine configuration object
+ * @returns Array of CLI arguments
+ */
+function buildCliArgs(vmConfiguration: VmConfig): string[] {
+  const cliArguments: string[] = []
 
-  args.push('--cpu', vm_config.cpu_count.toString())
-  args.push('--memory', vm_config.memory_size.toString())
+  cliArguments.push('--cpu', vmConfiguration.cpu_count.toString())
+  cliArguments.push('--memory', vmConfiguration.memory_size.toString())
 
-  args.push(
+  cliArguments.push(
     '--two-pass-add-pages',
-    vm_config.qemu_single_pass_add_pages.toString(),
+    vmConfiguration.qemu_single_pass_add_pages.toString(),
   )
-  // TODO: this is hardcoded now
-  args.push('--pic', 'false')
 
-  if (vm_config.pci_hole64_size > 0) {
-    args.push('--pci-hole64-size', vm_config.pci_hole64_size.toString())
+  // TODO: PIC setting is currently hardcoded - should use vm_config.pic
+  cliArguments.push('--pic', 'false')
+
+  if (vmConfiguration.pci_hole64_size > 0) {
+    cliArguments.push(
+      '--pci-hole64-size',
+      vmConfiguration.pci_hole64_size.toString(),
+    )
   }
 
-  if (vm_config.hugepages) args.push('--hugepages')
+  if (vmConfiguration.hugepages) {
+    cliArguments.push('--hugepages')
+  }
 
-  args.push('--num-gpus', vm_config.num_gpus.toString())
-  args.push('--num-nvswitches', vm_config.num_nvswitches.toString())
-  args.push('--hotplug-off', vm_config.hotplug_off.toString())
+  cliArguments.push('--num-gpus', vmConfiguration.num_gpus.toString())
+  cliArguments.push(
+    '--num-nvswitches',
+    vmConfiguration.num_nvswitches.toString(),
+  )
+  cliArguments.push('--hotplug-off', vmConfiguration.hotplug_off.toString())
 
-  args.push('--json')
+  cliArguments.push('--json')
 
-  return args
+  return cliArguments
 }
 
+/**
+ * Measures DStack OS images using the measurement CLI tool in a Docker container.
+ *
+ * This function runs the DStack measurement tool in a privileged Docker container
+ * to calculate measurement registers (MRTD, RTMRs) for the specified OS images
+ * and VM configuration.
+ *
+ * @param measurementOptions - Configuration for the measurement operation
+ * @returns Promise resolving to measurement results containing MRTD and RTMR values
+ * @throws Error if the measurement process fails
+ */
 export async function measureDstackImages(
-  options: DstackMrOptions,
-): Promise<any> {
-  const cliArgs = buildCliArgs(options.vm_config)
-  const argsString = cliArgs.join(' ')
+  measurementOptions: DstackMrOptions,
+): Promise<{
+  mrtd: string
+  rtmr0: string
+  rtmr1: string
+  rtmr2: string
+  rtmr3: string
+}> {
+  const cliArguments = buildCliArgs(measurementOptions.vm_config)
+  const argumentsString = cliArguments.join(' ')
+  const absoluteImagePath = path.resolve(measurementOptions.image_folder)
 
-  const command = `docker run --privileged -v "${path.resolve(options.image_folder)}":/app/dstack-images ${DOCKER_IMAGE} measure /app/dstack-images/metadata.json ${argsString}`
+  const dockerCommand = `docker run --privileged -v "${absoluteImagePath}":/app/dstack-images ${DSTACK_MR_DOCKER_IMAGE} measure /app/dstack-images/metadata.json ${argumentsString}`
 
   try {
-    const {stdout} = await execAsync(command)
+    const {stdout} = await execAsync(dockerCommand)
     return JSON.parse(stdout)
-  } catch (error) {
-    const execError = error as {stderr?: string; message: string}
+  } catch (dockerError: unknown) {
+    const execError = dockerError as {stderr?: string; message: string}
     const errorMessage = execError.stderr || execError.message
-    throw new Error(`Failed to run dstack-mr: ${errorMessage}`)
+    throw new Error(`Failed to run DStack measurement tool: ${errorMessage}`)
   }
 }
