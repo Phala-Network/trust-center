@@ -6,67 +6,123 @@ import {promisify} from 'node:util'
 
 import type {DecodedQuoteResult, VerifyQuoteResult} from '../types'
 
+/** Promisified version of child_process.exec for async/await usage */
 const execAsync = promisify(exec)
 
+/** Path to the DCAP-QVL CLI binary */
 const DCAP_QVL_CLI_PATH = path.join(__dirname, '../..//bin/dcap-qvl')
 
+/**
+ * Decodes a TEE quote file using the DCAP-QVL CLI tool.
+ *
+ * @param quoteFilePath - Path to the quote file to decode
+ * @param options - Decoding options
+ * @param options.hex - Whether the quote is in hexadecimal format
+ * @param options.fmspc - Whether to include FMSPC information
+ * @returns Promise resolving to decoded quote structure
+ * @throws Error if decoding fails
+ */
 export async function decodeQuoteFile(
-  quoteFile: string,
+  quoteFilePath: string,
   options?: {hex?: boolean; fmspc?: boolean},
 ): Promise<DecodedQuoteResult> {
-  let command = `${DCAP_QVL_CLI_PATH} decode`
+  let cliCommand = `${DCAP_QVL_CLI_PATH} decode`
   if (options?.hex) {
-    command += ' --hex'
+    cliCommand += ' --hex'
   }
   if (options?.fmspc) {
-    command += ' --fmspc'
+    cliCommand += ' --fmspc'
   }
-  command += ` ${quoteFile}`
+  cliCommand += ` ${quoteFilePath}`
 
   try {
-    const {stdout} = await execAsync(command)
+    const {stdout} = await execAsync(cliCommand)
     return JSON.parse(stdout)
-  } catch (error) {
-    throw new Error(`Failed to decode quote: ${error.message}`)
+  } catch (cliError: unknown) {
+    const errorMessage =
+      cliError instanceof Error ? cliError.message : String(cliError)
+    throw new Error(`Failed to decode quote file: ${errorMessage}`)
   }
 }
 
+/**
+ * Verifies a TEE quote file using the DCAP-QVL CLI tool.
+ *
+ * @param quoteFilePath - Path to the quote file to verify
+ * @param options - Verification options
+ * @param options.hex - Whether the quote is in hexadecimal format
+ * @returns Promise resolving to quote verification result
+ * @throws Error if verification fails
+ */
 export async function verifyQuoteFile(
-  quoteFile: string,
+  quoteFilePath: string,
   options?: {hex?: boolean},
 ): Promise<VerifyQuoteResult> {
-  let command = `${DCAP_QVL_CLI_PATH} verify`
+  let cliCommand = `${DCAP_QVL_CLI_PATH} verify`
   if (options?.hex) {
-    command += ' --hex'
+    cliCommand += ' --hex'
   }
-  command += ` ${quoteFile}`
+  cliCommand += ` ${quoteFilePath}`
 
   try {
-    const {stdout} = await execAsync(command)
+    const {stdout} = await execAsync(cliCommand)
     return JSON.parse(stdout)
-  } catch (error) {
-    throw new Error(`Failed to verify quote: ${error.message}`)
+  } catch (cliError: unknown) {
+    const errorMessage =
+      cliError instanceof Error ? cliError.message : String(cliError)
+    throw new Error(`Failed to verify quote file: ${errorMessage}`)
   }
 }
 
+/**
+ * Decodes a TEE quote string by writing it to a temporary file.
+ *
+ * This is a convenience function that handles temporary file creation and cleanup.
+ *
+ * @param quoteString - The quote data as a string
+ * @param options - Decoding options
+ * @param options.hex - Whether the quote is in hexadecimal format
+ * @param options.fmspc - Whether to include FMSPC information
+ * @returns Promise resolving to decoded quote structure
+ * @throws Error if decoding fails
+ */
 export async function decodeQuote(
-  quote: string,
+  quoteString: string,
   options?: {hex?: boolean; fmspc?: boolean},
 ): Promise<DecodedQuoteResult> {
-  const tmp = path.join(tmpdir(), `quote-${Date.now()}.hex`)
-  await writeFile(tmp, quote)
-  const decoded = await decodeQuoteFile(tmp, options)
-  await rm(tmp)
-  return decoded
+  const temporaryFilePath = path.join(tmpdir(), `quote-${Date.now()}.hex`)
+  await writeFile(temporaryFilePath, quoteString)
+
+  try {
+    const decodedResult = await decodeQuoteFile(temporaryFilePath, options)
+    return decodedResult
+  } finally {
+    await rm(temporaryFilePath)
+  }
 }
 
+/**
+ * Verifies a TEE quote string by writing it to a temporary file.
+ *
+ * This is a convenience function that handles temporary file creation and cleanup.
+ *
+ * @param quoteString - The quote data as a string
+ * @param options - Verification options
+ * @param options.hex - Whether the quote is in hexadecimal format
+ * @returns Promise resolving to quote verification result
+ * @throws Error if verification fails
+ */
 export async function verifyQuote(
-  quote: string,
+  quoteString: string,
   options?: {hex?: boolean},
 ): Promise<VerifyQuoteResult> {
-  const tmp = path.join(tmpdir(), `quote-${Date.now()}.hex`)
-  await writeFile(tmp, quote)
-  const verified = await verifyQuoteFile(tmp, options)
-  await rm(tmp)
-  return verified
+  const temporaryFilePath = path.join(tmpdir(), `quote-${Date.now()}.hex`)
+  await writeFile(temporaryFilePath, quoteString)
+
+  try {
+    const verificationResult = await verifyQuoteFile(temporaryFilePath, options)
+    return verificationResult
+  } finally {
+    await rm(temporaryFilePath)
+  }
 }
