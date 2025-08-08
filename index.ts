@@ -22,6 +22,7 @@
 
 import {GatewayVerifier} from './src/gatewayVerifier'
 import {KmsVerifier} from './src/kmsVerifier'
+import {RedpillVerifier} from './src/redpillVerifier'
 
 export {GatewayVerifier} from './src/gatewayVerifier'
 export {KmsVerifier} from './src/kmsVerifier'
@@ -47,20 +48,59 @@ const kmsVerifier = new KmsVerifier(
   '0xbfd2d557118fc650ea25a0e7d85355d335f259d8',
 )
 
-console.log('[KMS] Hardware verification result:', await kmsVerifier.verifyHardware())
-console.log('[KMS] Operating system verification result:', await kmsVerifier.verifyOperatingSystem())
-console.log('[KMS] Source code verification result:', await kmsVerifier.verifySourceCode())
+console.log(
+  '[KMS] Hardware verification result:',
+  await kmsVerifier.verifyHardware(),
+)
+console.log(
+  '[KMS] Operating system verification result:',
+  await kmsVerifier.verifyOperatingSystem(),
+)
+console.log(
+  '[KMS] Source code verification result:',
+  await kmsVerifier.verifySourceCode(),
+)
 
 const gatewayVerifier = new GatewayVerifier(
   (await kmsVerifier.getGatewatyAppId()) as `0x${string}`,
   'https://gateway.llm-04.phala.network:9204/',
 )
 
-console.log('[GATEWAY] Hardware verification result:', await gatewayVerifier.verifyHardware())
-console.log('[GATEWAY] Operating system verification result:', await gatewayVerifier.verifyOperatingSystem())
-console.log('[GATEWAY] Source code verification result:', await gatewayVerifier.verifySourceCode())
+console.log(
+  '[GATEWAY] Hardware verification result:',
+  await gatewayVerifier.verifyHardware(),
+)
+console.log(
+  '[GATEWAY] Operating system verification result:',
+  await gatewayVerifier.verifyOperatingSystem(),
+)
+console.log(
+  '[GATEWAY] Source code verification result:',
+  await gatewayVerifier.verifySourceCode(),
+)
 
-console.log('[GATEWAY] TEE controlled key verification result:', await gatewayVerifier.verifyTeeControlledKey())
-console.log('[GATEWAY] Certificate key verification result:', await gatewayVerifier.verifyCertificateKey())
-console.log('[GATEWAY] DNS CAA verification result:', await gatewayVerifier.verifyDnsCAA())
-console.log('[GATEWAY] Certificate Transparency log verification result:', await gatewayVerifier.verifyCTLog())
+console.log(
+  '[GATEWAY] TEE controlled key verification result:',
+  await gatewayVerifier.verifyTeeControlledKey(),
+)
+console.log(
+  '[GATEWAY] Certificate key verification result:',
+  await gatewayVerifier.verifyCertificateKey(),
+)
+console.log(
+  '[GATEWAY] DNS CAA verification result:',
+  await gatewayVerifier.verifyDnsCAA(),
+)
+console.log(
+  '[GATEWAY] Certificate Transparency log verification result:',
+  await gatewayVerifier.verifyCTLog(),
+)
+
+const redpillVerifier = new RedpillVerifier(
+  '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
+  'phala/deepseek-chat-v3-0324',
+)
+
+console.log(await redpillVerifier.verifyHardware())
+console.log(await redpillVerifier.verifyOperatingSystem())
+console.log(await redpillVerifier.verifySourceCode())

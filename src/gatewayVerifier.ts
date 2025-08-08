@@ -156,6 +156,15 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       (entry) => entry.event === 'compose-hash',
     )
 
+    if (!composeHashEvent) {
+      return false
+    }
+
+    const isRegistered =
+      await this.registrySmartContract.isComposeHashRegistered(
+        `0x${composeHashEvent.event_payload}`,
+      )
+
     const calculatedHash = calculate(
       'appInfo.tcb_info.app_compose',
       appComposeConfig,
@@ -166,10 +175,13 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
 
     console.log(getCollectedEvents())
 
-    return measure(
-      composeHashEvent?.event_payload,
-      calculatedHash,
-      () => calculatedHash === composeHashEvent?.event_payload,
+    return (
+      isRegistered &&
+      measure(
+        composeHashEvent?.event_payload,
+        calculatedHash,
+        () => calculatedHash === composeHashEvent?.event_payload,
+      )
     )
   }
 
