@@ -156,6 +156,10 @@ export class KmsVerifier extends Verifier {
       (entry) => entry.event === 'compose-hash',
     )
 
+    if (!composeHashEvent) {
+      return false
+    }
+
     const calculatedHash = calculate(
       'appInfo.tcb_info.app_compose',
       appComposeConfig,
