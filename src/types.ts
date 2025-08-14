@@ -1,23 +1,29 @@
+import type {z} from 'zod'
+
 /**
- * Parses JSON fields in an object based on configuration.
+ * Parses JSON fields in an object based on configuration using Zod validation.
  *
  * @template T - The expected return type after parsing
  * @param rawObject - The raw object containing potential JSON strings
- * @param parseConfig - Configuration object mapping field names to boolean values indicating whether to parse
- * @returns The object with specified fields parsed from JSON strings
+ * @param parseConfig - Configuration object mapping field names to Zod schemas for validation
+ * @returns The object with specified fields parsed and validated from JSON strings
  */
 export function parseJsonFields<T>(
   rawObject: Record<string, unknown>,
-  parseConfig: Record<string, boolean> = {},
+  parseConfig: Record<string, z.ZodSchema> = {},
 ): T {
   const result = {...rawObject}
 
   Object.keys(parseConfig).forEach((fieldName) => {
     if (parseConfig[fieldName] && typeof result[fieldName] === 'string') {
       try {
-        result[fieldName] = JSON.parse(result[fieldName] as string)
+        const parsed = JSON.parse(result[fieldName] as string)
+        result[fieldName] = parseConfig[fieldName].parse(parsed)
       } catch (parseError) {
         console.error(`Failed to parse JSON field '${fieldName}':`, parseError)
+        throw new Error(
+          `Invalid JSON format in field '${fieldName}': ${parseError}`,
+        )
       }
     }
   })
@@ -26,9 +32,84 @@ export function parseJsonFields<T>(
 }
 
 /**
+ * Selectively parses known JSON string fields within the AppInfo structure
+ */
+function parseAppInfoJsonFields(obj: unknown): unknown {
+  if (!obj || typeof obj !== 'object') return obj
+
+  const result = {...(obj as Record<string, unknown>)}
+
+  // Parse vm_config if it's a JSON string
+  if (typeof result.vm_config === 'string') {
+    try {
+      result.vm_config = JSON.parse(result.vm_config)
+    } catch {
+      // Keep as string if parsing fails
+    }
+  }
+
+  // Parse tcb_info if it's a JSON string
+  if (typeof result.tcb_info === 'string') {
+    try {
+      const tcbData = JSON.parse(result.tcb_info)
+
+      // Parse event_log within tcb_info if it's a JSON string
+      if (typeof tcbData.event_log === 'string') {
+        try {
+          tcbData.event_log = JSON.parse(tcbData.event_log)
+        } catch {
+          // Keep as string if parsing fails
+        }
+      }
+
+      result.tcb_info = tcbData
+    } catch {
+      // Keep as string if parsing fails
+    }
+  }
+
+  // Parse key_provider_info if it's a JSON string
+  if (typeof result.key_provider_info === 'string') {
+    try {
+      result.key_provider_info = JSON.parse(result.key_provider_info)
+    } catch {
+      // Keep as string if parsing fails
+    }
+  }
+
+  return result
+}
+
+/**
+ * Elegantly parses AttestationBundle with automatic nested JSON handling
+ */
+export function parseAttestationBundle(
+  rawData: Record<string, unknown>,
+  schemas: {
+    nvidiaPayloadSchema: z.ZodSchema
+    eventLogSchema: z.ZodSchema
+    appInfoSchema: z.ZodSchema
+  },
+): AttestationBundle {
+  // First, parse the top-level JSON fields
+  const parsed = parseJsonFields<AttestationBundle>(rawData, {
+    nvidia_payload: schemas.nvidiaPayloadSchema,
+    event_log: schemas.eventLogSchema,
+  })
+
+  // Then selectively parse the info field's known JSON strings
+  if (parsed.info) {
+    const parsedInfo = parseAppInfoJsonFields(parsed.info)
+    parsed.info = schemas.appInfoSchema.parse(parsedInfo) as AppInfo
+  }
+
+  return parsed
+}
+
+/**
  * Represents a single entry in the TEE event log containing measurement data.
  */
-export interface EventLogEntry {
+export interface LogEntry {
   /** Index Measurement Register (IMR) number */
   imr: number
   /** Type of the event being logged */
@@ -44,7 +125,7 @@ export interface EventLogEntry {
 /**
  * Represents the complete event log as an array of measurement entries.
  */
-export type EventLog = EventLogEntry[]
+export type EventLog = LogEntry[]
 
 /**
  * Represents a cryptographic quote as a hexadecimal string with 0x prefix.
@@ -54,7 +135,7 @@ export type Quote = `0x${string}`
 /**
  * Combines a TEE quote with its corresponding event log for attestation.
  */
-export interface QuoteAndEventLog {
+export interface QuoteData {
   /** The cryptographic quote from the TEE */
   quote: Quote
   /** The complete event log with all measurements */
@@ -128,7 +209,7 @@ export interface TcbInfo {
 /**
  * Represents the key provider information for cryptographic operations.
  */
-export interface KeyProviderInfo {
+export interface KeyProvider {
   /** Human-readable name of the key provider */
   name: string
   /** Unique identifier for the key provider */
@@ -184,7 +265,7 @@ export interface AppInfo {
   /** Hash of the operating system image */
   os_image_hash: string
   /** Key provider configuration */
-  key_provider_info: KeyProviderInfo
+  key_provider_info: KeyProvider
   /** Hash of the Docker Compose configuration */
   compose_hash: string
   /** Virtual machine configuration */
@@ -226,7 +307,7 @@ export interface Attestation {
   /** NVIDIA GPU attestation payload */
   nvidia_payload: NvidiaPayload
   /** Event log entries for this attestation */
-  event_log: EventLogEntry[]
+  event_log: LogEntry[]
   /** Application information */
   info: AppInfo
 }
@@ -266,7 +347,7 @@ export interface VerifyQuoteResult {
   }
 }
 
-export interface DecodedQuoteHeader {
+export interface QuoteHeader {
   version: number
   attestation_key_type: number
   tee_type: number
@@ -280,7 +361,7 @@ export interface Report {
   TD10: TDReport10
 }
 
-export interface CertificationData {
+export interface CertData {
   cert_type: number
   body: string
 }
@@ -289,20 +370,20 @@ export interface AuthData {
   V4: {
     ecdsa_signature: string
     ecdsa_attestation_key: string
-    certification_data: CertificationData
-    qe_report_data: QEReportCertificationData
+    certification_data: CertData
+    qe_report_data: QEReportCert
   }
 }
 
-export interface QEReportCertificationData {
+export interface QEReportCert {
   qe_report: string
   qe_report_signature: string
   qe_auth_data: string
-  certification_data: CertificationData
+  certification_data: CertData
 }
 
-export interface DecodedQuoteResult {
-  header: DecodedQuoteHeader
+export interface QuoteResult {
+  header: QuoteHeader
   report: Report
   auth_data: AuthData
 }
@@ -310,13 +391,13 @@ export interface DecodedQuoteResult {
 /**
  * Types for calculation and measurement operations with event emission
  */
-export interface CalculationEvent {
+export interface CalcEvent {
   inputRef: string
   outputRef: string
   calcFunc: string
 }
 
-export interface MeasurementEvent {
+export interface MeasureEvent {
   passed: boolean
   expected: unknown
   actual: unknown
@@ -353,7 +434,7 @@ export interface CTLogEntry {
   result_count: number
 }
 
-export interface CTVerificationResult {
+export interface CTResult {
   domain: string
   tee_controlled: boolean
   certificates: CTLogEntry[]

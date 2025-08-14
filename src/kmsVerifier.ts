@@ -2,10 +2,16 @@ import {createHash} from 'node:crypto'
 import path from 'node:path'
 import {DeepseekKmsInfo} from './consts'
 import {
+  KeyProviderSchema,
+  safeParseEventLog,
+  TcbInfoSchema,
+  VmConfigSchema,
+} from './schemas'
+import {
   type AppInfo,
   type AttestationBundle,
   parseJsonFields,
-  type QuoteAndEventLog,
+  type QuoteData,
 } from './types'
 import {verifyQuote} from './utils/dcap-qvl'
 import {measureDstackImages} from './utils/dstack-mr'
@@ -55,7 +61,7 @@ export class KmsVerifier extends Verifier {
    *
    * @returns Promise resolving to the quote and parsed event log
    */
-  protected async getQuote(): Promise<QuoteAndEventLog> {
+  protected async getQuote(): Promise<QuoteData> {
     const kmsInfo = await this.registrySmartContract.kmsInfo()
     const eventLogBuffer = Buffer.from(
       kmsInfo.eventlog.replace('0x', ''),
@@ -66,7 +72,7 @@ export class KmsVerifier extends Verifier {
 
     return {
       quote: kmsInfo.quote,
-      eventlog: JSON.parse(eventLogBuffer),
+      eventlog: safeParseEventLog(eventLogBuffer),
     }
   }
 
@@ -92,9 +98,9 @@ export class KmsVerifier extends Verifier {
     const rawKmsAppInfo = DeepseekKmsInfo
 
     return parseJsonFields<AppInfo>(rawKmsAppInfo, {
-      tcb_info: true,
-      key_provider_info: true,
-      vm_config: true,
+      tcb_info: TcbInfoSchema,
+      key_provider_info: KeyProviderSchema,
+      vm_config: VmConfigSchema,
     })
   }
 

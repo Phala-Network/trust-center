@@ -1,12 +1,8 @@
 import {createHash} from 'node:crypto'
 import * as path from 'node:path'
-import type {
-  AppInfo,
-  AttestationBundle,
-  QuoteAndEventLog,
-  TcbInfo,
-} from './types'
-import {parseJsonFields} from './types'
+import {AppInfoSchema, EventLogSchema, NvidiaPayloadSchema} from './schemas'
+import type {AppInfo, AttestationBundle, QuoteData} from './types'
+import {parseAttestationBundle} from './types'
 import {verifyQuote} from './utils/dcap-qvl'
 import {measureDstackImages} from './utils/dstack-mr'
 import {DstackApp} from './utils/dstackContract'
@@ -45,17 +41,14 @@ export class RedpillVerifier extends Verifier {
       throw new Error('Invalid response format from API')
     }
 
-    return parseJsonFields<AttestationBundle>(
-      rawAppInfo as Record<string, unknown>,
-      {
-        nvidia_payload: true,
-        event_log: true,
-        info: true,
-      },
-    )
+    return parseAttestationBundle(rawAppInfo as Record<string, unknown>, {
+      nvidiaPayloadSchema: NvidiaPayloadSchema,
+      eventLogSchema: EventLogSchema,
+      appInfoSchema: AppInfoSchema,
+    })
   }
 
-  protected async getQuote(): Promise<QuoteAndEventLog> {
+  protected async getQuote(): Promise<QuoteData> {
     const attestations = await this.getAttestationBundle()
     const quote = attestations.intel_quote.startsWith('0x')
       ? (attestations.intel_quote as `0x${string}`)
@@ -89,10 +82,10 @@ export class RedpillVerifier extends Verifier {
         __dirname,
         '../external/dstack-images/dstack-nvidia-dev-0.5.3',
       ),
-      vm_config: JSON.parse(appInfo.vm_config),
+      vm_config: appInfo.vm_config,
     })
 
-    const expectedTcb = JSON.parse(appInfo.tcb_info) as TcbInfo
+    const expectedTcb = appInfo.tcb_info
     return (
       measurementResult.mrtd === expectedTcb.mrtd &&
       measurementResult.rtmr0 === expectedTcb.rtmr0 &&
@@ -105,7 +98,7 @@ export class RedpillVerifier extends Verifier {
     const appInfo = await this.getAppInfo()
     const quoteData = await this.getQuote()
 
-    const tcbInfo = JSON.parse(appInfo.tcb_info) as TcbInfo
+    const tcbInfo = appInfo.tcb_info
     const appComposeConfig = tcbInfo.app_compose
     const composeHashEvent = quoteData.eventlog.find(
       (entry) => entry.event === 'compose-hash',

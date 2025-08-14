@@ -1,6 +1,7 @@
 import {exec} from 'node:child_process'
 import * as path from 'node:path'
 import {promisify} from 'node:util'
+import {safeParseOsMeasurement} from '../schemas'
 import type {VmConfig} from '../types'
 
 /** Promisified version of child_process.exec for async/await usage */
@@ -80,7 +81,6 @@ export async function measureDstackImages(
   rtmr0: string
   rtmr1: string
   rtmr2: string
-  rtmr3: string
 }> {
   const cliArguments = buildCliArgs(measurementOptions.vm_config)
   const argumentsString = cliArguments.join(' ')
@@ -90,7 +90,7 @@ export async function measureDstackImages(
 
   try {
     const {stdout} = await execAsync(dockerCommand)
-    return JSON.parse(stdout)
+    return safeParseOsMeasurement(stdout)
   } catch (dockerError: unknown) {
     const execError = dockerError as {stderr?: string; message: string}
     const errorMessage = execError.stderr || execError.message

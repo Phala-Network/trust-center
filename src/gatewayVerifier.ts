@@ -1,13 +1,20 @@
 import {createHash, X509Certificate} from 'node:crypto'
 import path from 'node:path'
 import {
+  KeyProviderSchema,
+  safeParseEventLog,
+  safeParseQuoteExt,
+  TcbInfoSchema,
+  VmConfigSchema,
+} from './schemas'
+import {
   type AcmeInfo,
   type AppInfo,
   type AttestationBundle,
   type CTLogEntry,
-  type CTVerificationResult,
+  type CTResult,
   parseJsonFields,
-  type QuoteAndEventLog,
+  type QuoteData,
 } from './types'
 import {verifyQuote} from './utils/dcap-qvl'
 import {measureDstackImages} from './utils/dstack-mr'
@@ -55,13 +62,13 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    *
    * @returns Promise resolving to the quote and parsed event log
    */
-  protected async getQuote(): Promise<QuoteAndEventLog> {
+  protected async getQuote(): Promise<QuoteData> {
     const acmeInfo = await this.getAcmeInfo()
-    const extendedQuoteData = JSON.parse(acmeInfo.account_quote)
+    const extendedQuoteData = safeParseQuoteExt(acmeInfo.account_quote)
 
     return {
       quote: `0x${extendedQuoteData.quote}` as const,
-      eventlog: JSON.parse(extendedQuoteData.event_log),
+      eventlog: safeParseEventLog(extendedQuoteData.event_log),
     }
   }
 
@@ -91,10 +98,11 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
         `Failed to fetch Gateway app info: ${response.status} ${response.statusText}`,
       )
     }
-    return parseJsonFields(await response.json(), {
-      tcb_info: true,
-      key_provider_info: true,
-      vm_config: true,
+    const responseData = await response.json()
+    return parseJsonFields(responseData as Record<string, unknown>, {
+      tcb_info: TcbInfoSchema,
+      key_provider_info: KeyProviderSchema,
+      vm_config: VmConfigSchema,
     }) as AppInfo
   }
 
@@ -239,7 +247,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     const accountUri = acmeInfo.account_uri
     const accountQuote = acmeInfo.account_quote
 
-    const extendedQuoteData = JSON.parse(accountQuote)
+    const extendedQuoteData = safeParseQuoteExt(accountQuote)
     const verificationResult = await verifyQuote(
       `0x${extendedQuoteData.quote}`,
       {hex: true},
@@ -607,7 +615,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    *
    * @returns Promise resolving to detailed CT log verification results
    */
-  public async verifyCTLog(): Promise<CTVerificationResult> {
+  public async verifyCTLog(): Promise<CTResult> {
     const {base_domain: domainName, hist_keys: teePublicKeys} =
       await this.getAcmeInfo()
     const certificateHistory = await this.queryCTLogs(domainName)
