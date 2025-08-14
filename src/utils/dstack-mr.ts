@@ -86,7 +86,7 @@ export async function measureDstackImages(
   const argumentsString = cliArguments.join(' ')
   const absoluteImagePath = path.resolve(measurementOptions.image_folder)
 
-  const dockerCommand = `docker run --privileged -v "${absoluteImagePath}":/app/dstack-images ${DSTACK_MR_DOCKER_IMAGE} measure /app/dstack-images/metadata.json ${argumentsString}`
+  const dockerCommand = `docker run --rm --privileged -v "${absoluteImagePath}":/app/dstack-images ${DSTACK_MR_DOCKER_IMAGE} measure /app/dstack-images/metadata.json ${argumentsString}`
 
   try {
     const {stdout} = await execAsync(dockerCommand)
