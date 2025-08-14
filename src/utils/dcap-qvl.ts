@@ -4,7 +4,8 @@ import {tmpdir} from 'node:os'
 import * as path from 'node:path'
 import {promisify} from 'node:util'
 
-import type {DecodedQuoteResult, VerifyQuoteResult} from '../types'
+import {safeParseQuoteData, safeParseQuoteResult} from '../schemas'
+import type {QuoteResult, VerifyQuoteResult} from '../types'
 
 /** Promisified version of child_process.exec for async/await usage */
 const execAsync = promisify(exec)
@@ -25,7 +26,7 @@ const DCAP_QVL_CLI_PATH = path.join(__dirname, '../..//bin/dcap-qvl')
 export async function decodeQuoteFile(
   quoteFilePath: string,
   options?: {hex?: boolean; fmspc?: boolean},
-): Promise<DecodedQuoteResult> {
+): Promise<QuoteResult> {
   let cliCommand = `${DCAP_QVL_CLI_PATH} decode`
   if (options?.hex) {
     cliCommand += ' --hex'
@@ -37,7 +38,7 @@ export async function decodeQuoteFile(
 
   try {
     const {stdout} = await execAsync(cliCommand)
-    return JSON.parse(stdout)
+    return safeParseQuoteData(stdout)
   } catch (cliError: unknown) {
     const errorMessage =
       cliError instanceof Error ? cliError.message : String(cliError)
@@ -66,7 +67,7 @@ export async function verifyQuoteFile(
 
   try {
     const {stdout} = await execAsync(cliCommand)
-    return JSON.parse(stdout)
+    return safeParseQuoteResult(stdout)
   } catch (cliError: unknown) {
     const errorMessage =
       cliError instanceof Error ? cliError.message : String(cliError)
@@ -89,7 +90,7 @@ export async function verifyQuoteFile(
 export async function decodeQuote(
   quoteString: string,
   options?: {hex?: boolean; fmspc?: boolean},
-): Promise<DecodedQuoteResult> {
+): Promise<QuoteResult> {
   const temporaryFilePath = path.join(tmpdir(), `quote-${Date.now()}.hex`)
   await writeFile(temporaryFilePath, quoteString)
 

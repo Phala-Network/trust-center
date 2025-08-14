@@ -30,13 +30,11 @@ export type {
   AcmeInfo,
   AppInfo,
   AttestationBundle,
-  CTVerificationResult,
   DataObject,
-  DecodedQuoteResult,
   EventLog,
-  EventLogEntry,
   Quote,
-  QuoteAndEventLog,
+  QuoteData,
+  QuoteResult,
   VerifyQuoteResult,
 } from './src/types'
 // Re-export main classes and types for external use

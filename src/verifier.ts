@@ -2,8 +2,8 @@ import type {
   AcmeInfo,
   AppInfo,
   AttestationBundle,
-  CTVerificationResult,
-  QuoteAndEventLog,
+  CTResult,
+  QuoteData,
 } from './types'
 
 /**
@@ -18,7 +18,7 @@ export abstract class Verifier {
    *
    * @returns Promise resolving to the quote and event log data
    */
-  protected abstract getQuote(): Promise<QuoteAndEventLog>
+  protected abstract getQuote(): Promise<QuoteData>
 
   /**
    * Retrieves both Intel TDX and NVIDIA GPU attestation data.
@@ -115,5 +115,5 @@ export abstract class OwnDomain {
    *
    * @returns Promise resolving to detailed CT log verification results
    */
-  public abstract verifyCTLog(): Promise<CTVerificationResult>
+  public abstract verifyCTLog(): Promise<CTResult>
 }
