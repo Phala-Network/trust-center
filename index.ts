@@ -23,27 +23,73 @@
 import {GatewayVerifier} from './src/gatewayVerifier'
 import {KmsVerifier} from './src/kmsVerifier'
 import {RedpillVerifier} from './src/redpillVerifier'
+import type {
+  DataObjectEvent,
+  ObjectRelationship,
+  VerifierMetadata,
+} from './src/types'
+import {
+  addDataObjectEventListener,
+  clearAllDataObjects,
+  configureVerifierRelationships,
+  getAllDataObjects,
+} from './src/utils/dataObjectCollector'
 
 export {GatewayVerifier} from './src/gatewayVerifier'
 export {KmsVerifier} from './src/kmsVerifier'
+export {RedpillVerifier} from './src/redpillVerifier'
 export type {
   AcmeInfo,
   AppInfo,
   AttestationBundle,
   DataObject,
+  DataObjectEvent,
   EventLog,
+  ObjectRelationship,
   Quote,
   QuoteData,
   QuoteResult,
+  VerifierMetadata,
   VerifyQuoteResult,
 } from './src/types'
+// Export UI interface for easy consumption
+export {
+  createUIInterface,
+  type DataObjectEventCallback,
+  default as defaultUIInterface,
+  UIDataInterface,
+} from './src/ui-exports'
+// Export DataObject utilities
+export {
+  addDataObjectEventListener,
+  clearAllDataObjects,
+  configureVerifierRelationships,
+  getAllDataObjects,
+} from './src/utils/dataObjectCollector'
 // Re-export main classes and types for external use
 export {OwnDomain, Verifier} from './src/verifier'
 
 console.log('[INIT] DStack Verifier initialized successfully!')
 
+// Clear any existing DataObjects
+clearAllDataObjects()
+
+// Set up real-time DataObject event listener
+addDataObjectEventListener((event: DataObjectEvent) => {
+  console.log(
+    `[DataObject ${event.type.toUpperCase()}] ${event.objectId}: ${event.data.name}`,
+  )
+})
+
+// Create verifiers with metadata
+const metadata: VerifierMetadata = {
+  osVersion: '0.5.3',
+  gitRevision: 'c06e524bd460fd9c9add835b634d155d4b08d7e7',
+}
+
 const kmsVerifier = new KmsVerifier(
   '0xbfd2d557118fc650ea25a0e7d85355d335f259d8',
+  metadata,
 )
 
 console.log(
@@ -62,6 +108,7 @@ console.log(
 const gatewayVerifier = new GatewayVerifier(
   (await kmsVerifier.getGatewatyAppId()) as `0x${string}`,
   'https://gateway.llm-04.phala.network:9204/',
+  metadata,
 )
 
 console.log(
@@ -97,8 +144,65 @@ console.log(
 const redpillVerifier = new RedpillVerifier(
   '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
   'phala/deepseek-chat-v3-0324',
+  metadata,
 )
+
+// Configure relationships between verifiers
+const relationships: ObjectRelationship[] = [
+  // KMS -> Gateway relationships
+  {
+    sourceObjectId: 'kms-main',
+    targetObjectId: 'gateway-main',
+    sourceField: 'gateway_app_id',
+    targetField: 'app_id',
+  },
+  {
+    sourceObjectId: 'kms-main',
+    targetObjectId: 'gateway-main',
+    sourceField: 'cert_pubkey',
+    targetField: 'app_cert',
+  },
+  // Gateway -> App relationships
+  {
+    sourceObjectId: 'gateway-main',
+    targetObjectId: 'app-main',
+    sourceField: 'registered_apps',
+    targetField: 'app_id',
+  },
+  // KMS -> App relationships (through Gateway)
+  {
+    sourceObjectId: 'kms-main',
+    targetObjectId: 'app-main',
+    sourceField: 'cert_pubkey',
+    targetField: 'app_cert',
+  },
+]
+
+configureVerifierRelationships({relationships})
 
 console.log(await redpillVerifier.verifyHardware())
 console.log(await redpillVerifier.verifyOperatingSystem())
 console.log(await redpillVerifier.verifySourceCode())
+
+// Show final DataObject results
+console.log('\n[DATAOBJECTS] Final verification objects generated:')
+const allDataObjects = getAllDataObjects()
+console.log(`Total objects: ${allDataObjects.length}`)
+allDataObjects.forEach((obj, index) => {
+  console.log(
+    `${index + 1}. [${obj.kind?.toUpperCase()}] ${obj.name} (Layer ${obj.layer})`,
+  )
+})
+
+// Export the collected DataObjects for UI consumption
+export const generatedDataObjects = allDataObjects
+console.log(JSON.stringify(generatedDataObjects, null, 2))
+
+// Write DataObjects to JSON file
+const fs = await import('node:fs')
+await fs.promises.writeFile(
+  'verification-data-objects.json',
+  JSON.stringify(generatedDataObjects, null, 2),
+  'utf8',
+)
+console.log('\n[EXPORT] DataObjects exported to verification-data-objects.json')

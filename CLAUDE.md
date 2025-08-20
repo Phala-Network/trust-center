@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # DStack Verifier - TEE Attestation Verification System
 
 ## Project Overview
@@ -5,6 +9,17 @@
 The DStack Verifier is a comprehensive TypeScript-based system designed to verify Trusted Execution Environment (TEE) attestations in the DStack ecosystem. It provides robust verification capabilities for Key Management Service (KMS) and Gateway components using Intel TDX (Trust Domain Extensions), NVIDIA GPU attestations, and blockchain-based smart contract integration.
 
 The project implements a multi-layered verification approach encompassing hardware attestation, operating system integrity, source code authenticity, and domain ownership validation through Certificate Transparency logs and ACME certificate management.
+
+## Key Development Notes
+
+- **Runtime**: Uses Bun as the JavaScript runtime and package manager
+- **Type Safety**: Strict TypeScript with modular type definitions in `src/types/`
+- **Code Quality**: Biome for formatting and linting (single quotes, minimal semicolons)
+- **External Dependencies**: Rust DCAP-QVL tool and Docker containers for measurements
+- **Testing**: Rust test suite in `external/dcap-qvl/tests/`
+- **Blockchain**: Smart contract integration with Base network via viem
+- **Data Objects**: Structured verification data generation with UI interface
+- **Modular Verification**: Separate modules for hardware, OS, source code, and domain verification
 
 ## Architecture & Design
 
@@ -29,35 +44,55 @@ The project implements a multi-layered verification approach encompassing hardwa
 **KmsVerifier (`src/kmsVerifier.ts`)**
 - Implements TEE verification for Key Management Service instances
 - Retrieves attestation data from DStack KMS smart contracts on Base blockchain
-- Provides Certificate Authority public key extraction
-- Supports hardware quote verification using DCAP-QVL
-- Performs OS integrity validation through DStack image measurement
-- Validates source code authenticity via compose hash comparison
+- Uses `KmsDataObjectGenerator` for structured verification data
+- Integrates with modular verification functions for hardware, OS, and source code
 
 **GatewayVerifier (`src/gatewayVerifier.ts`)**
 - Extends KmsVerifier with domain ownership verification capabilities
 - Implements the `OwnDomain` interface for complete domain control validation
-- Retrieves attestation data from Gateway RPC endpoints
-- Performs comprehensive certificate chain validation
-- Analyzes Certificate Transparency logs for historical domain control evidence
-- Validates DNS CAA records for ACME account restrictions
-- Includes robust certificate parsing and trust chain verification
+- Uses `GatewayDataObjectGenerator` for comprehensive verification data
+- Integrates domain verification module for certificate and DNS validation
 
-### Type System & Data Structures
+**RedpillVerifier (`src/redpillVerifier.ts`)**
+- Application-specific verifier for ML workload verification
+- Uses `RedpillDataObjectGenerator` for ML-specific data objects
+- Supports NVIDIA GPU attestation verification
+- Includes model-specific verification capabilities
 
-#### Core Types (`src/types.ts`)
-- **`Quote`**: Hexadecimal TEE quotes with strict type safety (`0x${string}`)
-- **`EventLog`**: Array of measurement entries from TEE execution
-- **`AttestationBundle`**: Complete attestation with Intel and NVIDIA evidence
-- **`AppInfo`**: Comprehensive application metadata including TCB information
-- **`TcbInfo`**: Trusted Computing Base measurements and configuration
-- **`AcmeInfo`**: ACME account data for domain ownership verification
-- **`CTVerificationResult`**: Certificate Transparency analysis results
+### Data Object System
 
-#### Verification Events (`src/types.ts`)
-- **`CalculationEvent`**: Tracks calculation operations with input/output references
-- **`MeasurementEvent`**: Records measurement comparisons with pass/fail status
-- **`DataObject`**: Structured data representation for report generation
+#### Data Object Generators (`src/dataObjects/`)
+- **`BaseDataObjectGenerator`**: Abstract base class for generating structured verification data
+  - Common CPU hardware, quote, OS, and code object generation
+  - Type-specific object ID generation and field mapping
+  - Calculation and measurement relationship definitions
+- **`KmsDataObjectGenerator`**: KMS-specific data object generation
+- **`GatewayDataObjectGenerator`**: Gateway verification data with domain control
+- **`RedpillDataObjectGenerator`**: ML application verification data objects
+
+#### UI Interface (`src/ui-exports.ts`)
+- **`UIDataInterface`**: Complete interface for accessing verification data objects
+- Real-time event listening and data object updates
+- Filtering by type, kind, layer with statistics and relationship resolution
+- Export capabilities for visualization and external consumption
+
+### Modular Verification System
+
+#### Verification Modules (`src/verification/`)
+- **`hardwareVerification.ts`**: TEE quote verification using DCAP-QVL
+- **`osVerification.ts`**: Operating system integrity and measurement validation
+- **`sourceCodeVerification.ts`**: Source code authenticity via compose hash
+- **`domainVerification.ts`**: Domain ownership and certificate validation
+
+### Type System (`src/types/`)
+- **`core.ts`**: Base types for quotes, events, and verification results
+- **`attestation.ts`**: Intel and NVIDIA attestation bundle types
+- **`application.ts`**: Application metadata and TCB information
+- **`dataObjects.ts`**: Data object structure and relationship definitions
+- **`domain.ts`**: ACME and Certificate Transparency types
+- **`operations.ts`**: Calculation and measurement event types
+- **`quote.ts`**: Quote parsing and verification result types
+- **`utils.ts`**: Utility types for metadata and configuration
 
 ### Utility Modules
 
@@ -90,21 +125,49 @@ The project implements a multi-layered verification approach encompassing hardwa
 - Global event collection system with custom emitter support
 - Provides verification transparency and auditability
 
+#### Data Object Collection (`src/utils/dataObjectCollector.ts`)
+- Global data object collection and management system
+- Real-time event emission for data object creation and updates
+- Relationship configuration and resolution between verifiers
+- Filtering and querying capabilities for UI consumption
+
 ## Project Structure
 
 ```
 dstack-verifier/
 ├── src/                           # Core source code
-│   ├── types.ts                   # Type definitions and interfaces
+│   ├── types.ts                   # Legacy type definitions (being migrated)
+│   ├── types/                     # Modular type system
+│   │   ├── core.ts               # Base verification types
+│   │   ├── attestation.ts        # Attestation bundle types
+│   │   ├── application.ts        # App metadata and TCB types
+│   │   ├── dataObjects.ts        # Data object structure types
+│   │   ├── domain.ts             # Domain verification types
+│   │   ├── operations.ts         # Event and calculation types
+│   │   ├── quote.ts              # Quote verification types
+│   │   └── utils.ts              # Utility and metadata types
 │   ├── verifier.ts                # Abstract base classes
 │   ├── kmsVerifier.ts             # KMS verification implementation
 │   ├── gatewayVerifier.ts         # Gateway verification with domain validation
+│   ├── redpillVerifier.ts         # ML application verifier
+│   ├── dataObjects/               # Data object generation system
+│   │   ├── baseDataObjectGenerator.ts      # Base generator class
+│   │   ├── kmsDataObjectGenerator.ts       # KMS data objects
+│   │   ├── gatewayDataObjectGenerator.ts   # Gateway data objects
+│   │   └── redpillDataObjectGenerator.ts   # ML app data objects
+│   ├── verification/              # Modular verification functions
+│   │   ├── hardwareVerification.ts        # TEE hardware verification
+│   │   ├── osVerification.ts               # OS integrity verification
+│   │   ├── sourceCodeVerification.ts      # Source code verification
+│   │   └── domainVerification.ts          # Domain ownership verification
+│   ├── ui-exports.ts              # UI interface for data object access
 │   ├── consts.ts                  # Constants and configuration data
 │   └── utils/                     # Utility modules
 │       ├── dcap-qvl.ts           # Intel DCAP quote verification
 │       ├── dstack-mr.ts          # DStack measurement integration
 │       ├── dstackContract.ts     # Smart contract interactions
 │       ├── operations.ts         # Event-driven operations tracking
+│       ├── dataObjectCollector.ts # Global data object management
 │       └── abi/                  # Smart contract ABI definitions
 │           ├── DstackApp.json    # App registry contract ABI
 │           └── DstackKms.json    # KMS registry contract ABI
@@ -294,7 +357,7 @@ const valid = measure(expected, actual, () => expected === actual)
 const events = getCollectedEvents() // Audit trail
 ```
 
-## Development Commands
+## Essential Development Commands
 
 ```bash
 # Install dependencies
@@ -303,15 +366,22 @@ bun install
 # Run the main application with examples
 bun run index.ts
 
-# Build the DCAP-QVL CLI tool
-bun run build:dcap-qvl
+# Code quality and formatting
+bunx biome format --write .    # Format code
+bunx biome lint .              # Lint code
+bunx biome check --write .     # Format and lint in one command
 
-# Download DStack OS images for measurement
-bun run download:dstack-0.5.3
+# Build dependencies (run once or when needed)
+bun run build:dcap-qvl                    # Build Rust DCAP-QVL CLI tool
+bun run download:dstack-0.5.3             # Download DStack OS images
+bun run download:dstack-nvidia-0.5.3      # Download NVIDIA DStack images
+bun run download:dstack-nvidia-dev-0.5.3  # Download NVIDIA dev DStack images
 
-# Format and lint code
-bunx biome format --write .
-bunx biome lint .
+# Run Rust tests for DCAP-QVL
+cd external/dcap-qvl && cargo test
+
+# TypeScript type checking
+bunx tsc --noEmit
 ```
 
 ## Current Implementation Status

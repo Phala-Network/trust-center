@@ -1,12 +1,17 @@
-import {createHash} from 'node:crypto'
-import * as path from 'node:path'
+import {RedpillDataObjectGenerator} from './dataObjects/redpillDataObjectGenerator'
 import {AppInfoSchema, EventLogSchema, NvidiaPayloadSchema} from './schemas'
-import type {AppInfo, AttestationBundle, QuoteData} from './types'
+import type {
+  AppInfo,
+  AttestationBundle,
+  QuoteData,
+  VerifierMetadata,
+} from './types'
 import {parseAttestationBundle} from './types'
-import {verifyQuote} from './utils/dcap-qvl'
-import {measureDstackImages} from './utils/dstack-mr'
 import {DstackApp} from './utils/dstackContract'
-import {calculate, getCollectedEvents, measure} from './utils/operations'
+import {getCollectedEvents} from './utils/operations'
+import {isUpToDate, verifyTeeQuote} from './verification/hardwareVerification'
+import {getImageFolder, verifyOSIntegrity} from './verification/osVerification'
+import {verifyComposeHash} from './verification/sourceCodeVerification'
 import {Verifier} from './verifier'
 
 const BASE_URL = 'https://api.redpill.ai/v1/attestation/report'
@@ -14,11 +19,17 @@ const BASE_URL = 'https://api.redpill.ai/v1/attestation/report'
 export class RedpillVerifier extends Verifier {
   public registrySmartContract: DstackApp
   private appInfoUrl: string
+  private dataObjectGenerator: RedpillDataObjectGenerator
 
-  constructor(contractAddress: `0x${string}`, model: string) {
-    super()
+  constructor(
+    contractAddress: `0x${string}`,
+    model: string,
+    metadata: VerifierMetadata = {},
+  ) {
+    super(metadata, 'app')
     this.registrySmartContract = new DstackApp(contractAddress)
     this.appInfoUrl = `${BASE_URL}?model=${model}`
+    this.dataObjectGenerator = new RedpillDataObjectGenerator(metadata)
   }
 
   private async getAttestationBundle(): Promise<AttestationBundle> {
@@ -70,67 +81,58 @@ export class RedpillVerifier extends Verifier {
 
   public async verifyHardware(): Promise<boolean> {
     const quoteData = await this.getQuote()
-    const verificationResult = await verifyQuote(quoteData.quote, {hex: true})
-    return verificationResult.status === 'UpToDate'
+    const attestationBundle = await this.getAttestationBundle()
+    const verificationResult = await verifyTeeQuote(quoteData)
+
+    // Generate DataObjects for App hardware verification
+    const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
+      quoteData,
+      verificationResult,
+      attestationBundle,
+    )
+    dataObjects.forEach((obj) => this.createDataObject(obj))
+
+    return isUpToDate(verificationResult)
   }
 
   public async verifyOperatingSystem(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
+    const imageFolderName = getImageFolder('app')
 
-    const measurementResult = await measureDstackImages({
-      image_folder: path.join(
-        __dirname,
-        '../external/dstack-images/dstack-nvidia-dev-0.5.3',
-      ),
-      vm_config: appInfo.vm_config,
-    })
+    const isValid = await verifyOSIntegrity(appInfo, imageFolderName)
 
-    const expectedTcb = appInfo.tcb_info
-    return (
-      measurementResult.mrtd === expectedTcb.mrtd &&
-      measurementResult.rtmr0 === expectedTcb.rtmr0 &&
-      measurementResult.rtmr1 === expectedTcb.rtmr1 &&
-      measurementResult.rtmr2 === expectedTcb.rtmr2
+    // Generate DataObjects for App OS verification
+    const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
+      appInfo,
+      {} /* measurement result */,
     )
+    dataObjects.forEach((obj) => this.createDataObject(obj))
+
+    return isValid
   }
 
   public async verifySourceCode(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
     const quoteData = await this.getQuote()
 
-    const tcbInfo = appInfo.tcb_info
-    const appComposeConfig = tcbInfo.app_compose
-    const composeHashEvent = quoteData.eventlog.find(
-      (entry) => entry.event === 'compose-hash',
+    const {isValid, calculatedHash, isRegistered} = await verifyComposeHash(
+      appInfo,
+      quoteData,
+      this.registrySmartContract,
+      this.generateObjectId('code'),
     )
 
-    if (!composeHashEvent) {
-      return false
-    }
-
-    const isRegistered =
-      await this.registrySmartContract.isComposeHashRegistered(
-        `0x${composeHashEvent.event_payload}`,
-      )
-
-    const calculatedHash = calculate(
-      'appInfo.tcb_info.app_compose',
-      appComposeConfig,
-      'compose_hash',
-      'sha256',
-      () => createHash('sha256').update(appComposeConfig).digest('hex'),
+    // Generate DataObjects for App source code verification
+    const dataObjects = this.dataObjectGenerator.generateSourceCodeDataObjects(
+      appInfo,
+      quoteData,
+      calculatedHash,
+      isRegistered ?? false,
     )
+    dataObjects.forEach((obj) => this.createDataObject(obj))
 
     console.log(getCollectedEvents())
-
-    return (
-      isRegistered &&
-      measure(
-        composeHashEvent?.event_payload,
-        calculatedHash,
-        () => calculatedHash === composeHashEvent?.event_payload,
-      )
-    )
+    return isValid
   }
 
   public async getMetadata(): Promise<Record<string, unknown>> {
@@ -139,7 +141,14 @@ export class RedpillVerifier extends Verifier {
       contractAddress: this.registrySmartContract.address,
       appInfoUrl: this.appInfoUrl,
       supportedVerifications: ['hardware', 'sourceCode'],
-      usesGpuAttestation: false,
+      usesGpuAttestation: true,
     }
+  }
+
+  /**
+   * Generate DataObjects specific to App verifier.
+   */
+  protected async generateDataObjects(): Promise<void> {
+    // Individual verification methods handle their own DataObject generation
   }
 }
