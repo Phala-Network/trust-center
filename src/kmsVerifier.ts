@@ -1,6 +1,5 @@
-import {createHash} from 'node:crypto'
-import path from 'node:path'
 import {DeepseekKmsInfo} from './consts'
+import {KmsDataObjectGenerator} from './dataObjects/kmsDataObjectGenerator'
 import {
   KeyProviderSchema,
   safeParseEventLog,
@@ -12,11 +11,13 @@ import {
   type AttestationBundle,
   parseJsonFields,
   type QuoteData,
+  type VerifierMetadata,
 } from './types'
-import {verifyQuote} from './utils/dcap-qvl'
-import {measureDstackImages} from './utils/dstack-mr'
 import {DstackKms} from './utils/dstackContract'
-import {calculate, getCollectedEvents, measure} from './utils/operations'
+import {getCollectedEvents} from './utils/operations'
+import {isUpToDate, verifyTeeQuote} from './verification/hardwareVerification'
+import {getImageFolder, verifyOSIntegrity} from './verification/osVerification'
+import {verifyComposeHash} from './verification/sourceCodeVerification'
 import {Verifier} from './verifier'
 
 /**
@@ -30,25 +31,20 @@ export class KmsVerifier extends Verifier {
   public registrySmartContract: DstackKms
   /** Certificate Authority public key extracted from the smart contract */
   public certificateAuthorityPublicKey: `0x${string}` = '0x'
+  /** Data object generator for KMS-specific objects */
+  private dataObjectGenerator: KmsDataObjectGenerator
 
   /**
    * Creates a new KMS verifier instance.
-   *
-   * @param contractAddress - Ethereum address of the DStack KMS registry contract
    */
-  constructor(contractAddress: `0x${string}`) {
-    super()
+  constructor(contractAddress: `0x${string}`, metadata: VerifierMetadata = {}) {
+    super(metadata, 'kms')
     this.registrySmartContract = new DstackKms(contractAddress)
+    this.dataObjectGenerator = new KmsDataObjectGenerator(metadata)
   }
 
   /**
    * Retrieves the Gateway application identifier from the smart contract.
-   *
-   * This method returns the smart contract address of the Gateway governance
-   * contract that this KMS instance is configured to work with. The Gateway
-   * app ID is used to establish trust relationships between KMS and Gateway services.
-   *
-   * @returns Promise resolving to the Gateway governance contract address
    */
   public async getGatewatyAppId(): Promise<string> {
     return this.registrySmartContract.gatewayAppId()
@@ -56,10 +52,6 @@ export class KmsVerifier extends Verifier {
 
   /**
    * Retrieves the TEE quote and event log from the smart contract.
-   *
-   * The KMS publishes its attestation data on-chain for public verification.
-   *
-   * @returns Promise resolving to the quote and parsed event log
    */
   protected async getQuote(): Promise<QuoteData> {
     const kmsInfo = await this.registrySmartContract.kmsInfo()
@@ -78,10 +70,6 @@ export class KmsVerifier extends Verifier {
 
   /**
    * Retrieves attestation bundle including GPU evidence.
-   *
-   * KMS services typically do not require GPU attestation.
-   *
-   * @returns Promise resolving to null as KMS doesn't use GPU attestation
    */
   protected async getAttestation(): Promise<AttestationBundle | null> {
     return null
@@ -89,15 +77,9 @@ export class KmsVerifier extends Verifier {
 
   /**
    * Retrieves application information for the KMS instance.
-   *
-   * Uses pre-configured KMS information from constants and parses JSON fields.
-   *
-   * @returns Promise resolving to parsed application information
    */
   protected async getAppInfo(): Promise<AppInfo> {
-    const rawKmsAppInfo = DeepseekKmsInfo
-
-    return parseJsonFields<AppInfo>(rawKmsAppInfo, {
+    return parseJsonFields<AppInfo>(DeepseekKmsInfo, {
       tcb_info: TcbInfoSchema,
       key_provider_info: KeyProviderSchema,
       vm_config: VmConfigSchema,
@@ -106,87 +88,71 @@ export class KmsVerifier extends Verifier {
 
   /**
    * Verifies the hardware attestation by validating the TDX quote.
-   *
-   * Uses DCAP-QVL to verify the cryptographic quote from the TEE.
-   *
-   * @returns Promise resolving to true if hardware attestation is valid and up-to-date
    */
   public async verifyHardware(): Promise<boolean> {
     const quoteData = await this.getQuote()
-    const verificationResult = await verifyQuote(quoteData.quote, {hex: true})
-    return verificationResult.status === 'UpToDate'
+    const verificationResult = await verifyTeeQuote(quoteData)
+
+    // Generate DataObjects for KMS hardware verification
+    const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
+      quoteData,
+      verificationResult,
+    )
+    dataObjects.forEach((obj) => this.createDataObject(obj))
+
+    return isUpToDate(verificationResult)
   }
 
   /**
    * Verifies the operating system integrity by comparing measurement registers.
-   *
-   * Measures the DStack OS images and compares the results with the expected
-   * values from the TCB information.
-   *
-   * @returns Promise resolving to true if all measurement registers match
    */
   public async verifyOperatingSystem(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
+    const imageFolderName = getImageFolder('kms')
 
-    const measurementResult = await measureDstackImages({
-      image_folder: path.join(
-        __dirname,
-        '../external/dstack-images/dstack-0.5.3',
-      ),
-      vm_config: appInfo.vm_config,
-    })
+    const measurementResult = await verifyOSIntegrity(appInfo, imageFolderName)
 
-    const expectedTcb = appInfo.tcb_info
-    return (
-      measurementResult.mrtd === expectedTcb.mrtd &&
-      measurementResult.rtmr0 === expectedTcb.rtmr0 &&
-      measurementResult.rtmr1 === expectedTcb.rtmr1 &&
-      measurementResult.rtmr2 === expectedTcb.rtmr2
+    // Generate DataObjects for KMS OS verification
+    const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
+      appInfo,
+      measurementResult,
     )
+    dataObjects.forEach((obj) => this.createDataObject(obj))
+
+    return measurementResult
   }
 
   /**
    * Verifies the source code authenticity by validating the compose hash.
-   *
-   * Calculates the SHA256 hash of the application composition and compares it
-   * with the hash recorded in the event log.
-   *
-   * @returns Promise resolving to true if the compose hash matches the event log
    */
   public async verifySourceCode(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
     const quoteData = await this.getQuote()
 
-    const appComposeConfig = appInfo.tcb_info.app_compose
-    const composeHashEvent = quoteData.eventlog.find(
-      (entry) => entry.event === 'compose-hash',
+    const {isValid, calculatedHash} = await verifyComposeHash(
+      appInfo,
+      quoteData,
+      undefined, // KMS doesn't use registry validation
+      this.generateObjectId('code'),
     )
 
-    if (!composeHashEvent) {
-      return false
-    }
-
-    const calculatedHash = calculate(
-      'appInfo.tcb_info.app_compose',
-      appComposeConfig,
-      'compose_hash',
-      'sha256',
-      () => createHash('sha256').update(appComposeConfig).digest('hex'),
+    // Generate DataObjects for KMS source code verification
+    const dataObjects = this.dataObjectGenerator.generateSourceCodeDataObjects(
+      appInfo,
+      quoteData,
+      calculatedHash,
+      this.registrySmartContract.address,
+      await this.getGatewatyAppId(),
+      this.certificateAuthorityPublicKey,
     )
+    dataObjects.forEach((obj) => this.createDataObject(obj))
 
     console.log(getCollectedEvents())
-
-    return measure(
-      composeHashEvent?.event_payload,
-      calculatedHash,
-      () => calculatedHash === composeHashEvent?.event_payload,
-    )
+    return isValid
   }
 
   /**
    * Retrieves metadata about the KMS verification process and results.
-   *
-   * @returns Promise resolving to verification metadata including CA public key
    */
   public async getMetadata(): Promise<Record<string, unknown>> {
     return {
@@ -196,5 +162,12 @@ export class KmsVerifier extends Verifier {
       supportedVerifications: ['hardware', 'operatingSystem', 'sourceCode'],
       usesGpuAttestation: false,
     }
+  }
+
+  /**
+   * Generate DataObjects specific to KMS verifier.
+   */
+  protected async generateDataObjects(): Promise<void> {
+    // Individual verification methods handle their own DataObject generation
   }
 }

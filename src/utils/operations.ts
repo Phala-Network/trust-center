@@ -38,6 +38,7 @@ export function clearCollectedEvents(): void {
 
 /**
  * Emits an event to both the internal collector and custom emitter if set.
+ * Also hooks into DataObject generation for visualization.
  *
  * @param event - The calculation or measurement event to emit
  */
@@ -46,28 +47,44 @@ function emitEvent(event: CalculationEvent | MeasurementEvent): void {
   if (customEventEmitter) {
     customEventEmitter(event)
   }
+
+  // Hook into DataObject generation
+  hookDataObjectGeneration(event)
+}
+
+/**
+ * Hook function that processes calculation and measurement events
+ * to generate or update DataObjects for visualization
+ */
+function hookDataObjectGeneration(
+  event: CalculationEvent | MeasurementEvent,
+): void {
+  // This will be extended by verifiers to create specific DataObjects
+  // For now, we just ensure the hook is in place
 }
 
 /**
  * Executes a calculation function and emits a calculation event for tracking.
  *
  * This function wraps calculation operations to provide event emission for
- * verification tracking and audit trails.
+ * verification tracking and audit trails, and hooks into DataObject generation.
  *
  * @template T - The return type of the calculation function
  * @param inputReference - Reference identifier for the input data
- * @param _inputValue - The actual input value (unused, reserved for future use)
+ * @param inputValue - The actual input value
  * @param outputReference - Reference identifier for the output result
  * @param calculationFunctionName - Name/description of the calculation function
  * @param calculationFunction - The actual calculation function to execute
+ * @param objectId - Optional DataObject ID to associate this calculation with
  * @returns The result of the calculation function
  */
 export function calculate<T>(
   inputReference: string,
-  _inputValue: unknown,
+  inputValue: unknown,
   outputReference: string,
   calculationFunctionName: string,
   calculationFunction: () => T,
+  objectId?: string,
 ): T {
   const calculationResult = calculationFunction()
 
@@ -75,6 +92,13 @@ export function calculate<T>(
     inputRef: inputReference,
     outputRef: outputReference,
     calcFunc: calculationFunctionName,
+  }
+
+  // Store additional context for DataObject generation
+  if (objectId) {
+    ;(calculationEvent as any).objectId = objectId
+    ;(calculationEvent as any).inputValue = inputValue
+    ;(calculationEvent as any).outputValue = calculationResult
   }
 
   emitEvent(calculationEvent)
@@ -85,17 +109,21 @@ export function calculate<T>(
  * Executes a measurement function and emits a measurement event for tracking.
  *
  * This function wraps measurement/comparison operations to provide event emission
- * for verification tracking and audit trails.
+ * for verification tracking and audit trails, and hooks into DataObject generation.
  *
  * @param expectedValue - The expected value for the measurement
  * @param actualValue - The actual value being measured
  * @param measurementFunction - Function that performs the measurement/comparison
+ * @param objectId - Optional DataObject ID to associate this measurement with
+ * @param fieldName - Optional field name being measured
  * @returns The boolean result of the measurement function
  */
 export function measure(
   expectedValue: unknown,
   actualValue: unknown,
   measurementFunction: () => boolean,
+  objectId?: string,
+  fieldName?: string,
 ): boolean {
   const measurementResult = measurementFunction()
 
@@ -103,6 +131,12 @@ export function measure(
     passed: measurementResult,
     expected: expectedValue,
     actual: actualValue,
+  }
+
+  // Store additional context for DataObject generation
+  if (objectId) {
+    ;(measurementEvent as any).objectId = objectId
+    ;(measurementEvent as any).fieldName = fieldName
   }
 
   emitEvent(measurementEvent)
