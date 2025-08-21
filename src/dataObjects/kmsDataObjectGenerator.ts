@@ -21,7 +21,7 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
     // KMS hardware object
     objects.push(this.generateCpuHardwareObject(verificationResult, 1))
 
-    // KMS quote object  
+    // KMS quote object
     objects.push(this.generateQuoteObject(verificationResult, 2))
 
     // Event log objects
@@ -33,7 +33,10 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
   /**
    * Generates all DataObjects for KMS OS verification.
    */
-  generateOSDataObjects(appInfo: AppInfo, measurementResult: any): DataObject[] {
+  generateOSDataObjects(
+    appInfo: AppInfo,
+    measurementResult: any,
+  ): DataObject[] {
     return [this.generateOSObject(appInfo, measurementResult, 3)]
   }
 

@@ -1,4 +1,11 @@
-import type {AcmeInfo, AppInfo, CTResult, DataObject, QuoteData, VerifyQuoteResult} from '../types'
+import type {
+  AcmeInfo,
+  AppInfo,
+  CTResult,
+  DataObject,
+  QuoteData,
+  VerifyQuoteResult,
+} from '../types'
 import {BaseDataObjectGenerator} from './baseDataObjectGenerator'
 
 /**
@@ -33,8 +40,11 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
   /**
    * Generates all DataObjects for Gateway OS verification.
    */
-  generateOSDataObjects(appInfo: AppInfo, measurementResult: any): DataObject[] {
-    return [this.generateOSObject(appInfo, measurementResult, 3)]
+  generateOSDataObjects(
+    appInfo: AppInfo,
+    measurementResult: any,
+  ): DataObject[] {
+    return [this.generateOSObject(appInfo, measurementResult, 2)]
   }
 
   /**
@@ -48,6 +58,9 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
     contractAddress: string,
     gatewayRpcEndpoint: string,
     activeCertificate: string,
+    allowedComposeHashes?: string[],
+    guardedDomains?: string[],
+    registeredApps?: string[],
   ): DataObject[] {
     const objects: DataObject[] = []
 
@@ -59,18 +72,41 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
         "Details and attestation information for the gateway. This represents the gateway's role in securely connecting and registering applications within the network.",
       fields: {
         app_id: contractAddress,
+        gateway_app_id: this.metadata.gatewayAppId || contractAddress,
         registry_smart_contract: `https://basescan.org/address/${contractAddress}`,
         attestation_report: quoteData.quote,
         event_log: JSON.stringify(quoteData.eventlog),
         app_cert: activeCertificate,
-        allowed_compose_hashes: '["hash1", "hash2"]', // Placeholder
-        guarded_domains: '*.example.com', // Placeholder
-        registered_apps: '["app1", "app2"]', // Placeholder
+        allowed_compose_hashes: allowedComposeHashes
+          ? JSON.stringify(allowedComposeHashes)
+          : undefined,
+        guarded_domains: guardedDomains
+          ? JSON.stringify(guardedDomains)
+          : undefined,
+        registered_apps: registeredApps
+          ? JSON.stringify(registeredApps)
+          : undefined,
         endpoint: gatewayRpcEndpoint,
       },
       layer: 3,
       type: 'network_report',
       kind: 'gateway',
+      measuredBy: [
+        {
+          selfFieldName: 'app_id',
+          objectId: 'kms',
+          fieldName: 'gateway_app_id',
+        },
+        ...(registeredApps && registeredApps.length > 0
+          ? [
+              {
+                selfFieldName: 'registered_apps',
+                objectId: 'app-main',
+                fieldName: 'app_id',
+              },
+            ]
+          : []),
+      ],
     }
 
     // Gateway code object
@@ -95,10 +131,13 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
       fields: {
         domain: ctResult.domain,
         tee_controlled: ctResult.tee_controlled,
-        certificates_checked: ctResult.verification_details.certificates_checked,
+        certificates_checked:
+          ctResult.verification_details.certificates_checked,
         tee_certificates: ctResult.verification_details.tee_certificates,
-        non_tee_certificates: ctResult.verification_details.non_tee_certificates,
-        earliest_certificate: ctResult.verification_details.earliest_certificate,
+        non_tee_certificates:
+          ctResult.verification_details.non_tee_certificates,
+        earliest_certificate:
+          ctResult.verification_details.earliest_certificate,
         latest_certificate: ctResult.verification_details.latest_certificate,
         acme_account_uri: acmeInfo.account_uri,
         historical_keys: acmeInfo.hist_keys,

@@ -144,7 +144,10 @@ console.log(
 const redpillVerifier = new RedpillVerifier(
   '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
   'phala/deepseek-chat-v3-0324',
-  metadata,
+  {
+    osVersion: '0.5.3',
+    gitRevision: '92aa6f0b03337949e3e41618a4f9a65c7648bae6',
+  },
 )
 
 // Configure relationships between verifiers
@@ -196,7 +199,6 @@ allDataObjects.forEach((obj, index) => {
 
 // Export the collected DataObjects for UI consumption
 export const generatedDataObjects = allDataObjects
-console.log(JSON.stringify(generatedDataObjects, null, 2))
 
 // Write DataObjects to JSON file
 const fs = await import('node:fs')

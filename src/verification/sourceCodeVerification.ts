@@ -1,7 +1,6 @@
 import {createHash} from 'node:crypto'
 import type {AppInfo, EventLog, QuoteData} from '../types'
 import type {DstackApp} from '../utils/dstackContract'
-import {calculate, measure} from '../utils/operations'
 
 /**
  * Verifies source code authenticity by validating compose hash.
@@ -16,7 +15,6 @@ export async function verifyComposeHash(
   appInfo: AppInfo,
   quoteData: QuoteData,
   registryContract?: DstackApp,
-  objectId?: string,
 ): Promise<{isValid: boolean; calculatedHash: string; isRegistered?: boolean}> {
   const appComposeConfig = appInfo.tcb_info.app_compose
   const composeHashEvent = findComposeHashEvent(quoteData.eventlog)
@@ -33,24 +31,15 @@ export async function verifyComposeHash(
     )
   }
 
-  const calculatedHash = calculate(
-    'appInfo.tcb_info.app_compose',
-    appComposeConfig,
-    'compose_hash',
-    'sha256',
-    () => createHash('sha256').update(appComposeConfig).digest('hex'),
-    objectId,
-  )
+  const calculatedHash = createHash('sha256')
+    .update(appComposeConfig)
+    .digest('hex')
 
-  const hashMatches = measure(
-    composeHashEvent.event_payload,
-    calculatedHash,
-    () => calculatedHash === composeHashEvent.event_payload,
-    objectId,
-    'compose_hash',
-  )
+  const hashMatches = calculatedHash === composeHashEvent.event_payload
 
-  const isValid = registryContract ? (isRegistered ?? false) && hashMatches : hashMatches
+  const isValid = registryContract
+    ? (isRegistered ?? false) && hashMatches
+    : hashMatches
 
   return {
     isValid,

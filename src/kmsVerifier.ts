@@ -14,7 +14,6 @@ import {
   type VerifierMetadata,
 } from './types'
 import {DstackKms} from './utils/dstackContract'
-import {getCollectedEvents} from './utils/operations'
 import {isUpToDate, verifyTeeQuote} from './verification/hardwareVerification'
 import {getImageFolder, verifyOSIntegrity} from './verification/osVerification'
 import {verifyComposeHash} from './verification/sourceCodeVerification'
@@ -133,7 +132,6 @@ export class KmsVerifier extends Verifier {
       appInfo,
       quoteData,
       undefined, // KMS doesn't use registry validation
-      this.generateObjectId('code'),
     )
 
     // Generate DataObjects for KMS source code verification
@@ -147,7 +145,6 @@ export class KmsVerifier extends Verifier {
     )
     dataObjects.forEach((obj) => this.createDataObject(obj))
 
-    console.log(getCollectedEvents())
     return isValid
   }
 
@@ -162,12 +159,5 @@ export class KmsVerifier extends Verifier {
       supportedVerifications: ['hardware', 'operatingSystem', 'sourceCode'],
       usesGpuAttestation: false,
     }
-  }
-
-  /**
-   * Generate DataObjects specific to KMS verifier.
-   */
-  protected async generateDataObjects(): Promise<void> {
-    // Individual verification methods handle their own DataObject generation
   }
 }

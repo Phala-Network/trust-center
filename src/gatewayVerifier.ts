@@ -16,7 +16,6 @@ import {
   type VerifierMetadata,
 } from './types'
 import {DstackApp} from './utils/dstackContract'
-import {getCollectedEvents} from './utils/operations'
 import {
   verifyCertificateKey,
   verifyCTLog,
@@ -138,7 +137,6 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       appInfo,
       quoteData,
       this.registrySmartContract,
-      this.generateObjectId('code'),
     )
 
     // Generate DataObjects for Gateway source code verification
@@ -154,7 +152,6 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     )
     dataObjects.forEach((obj) => this.createDataObject(obj))
 
-    console.log(getCollectedEvents())
     return isValid
   }
 
@@ -230,12 +227,5 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     dataObjects.forEach((obj) => this.createDataObject(obj))
 
     return result
-  }
-
-  /**
-   * Generate DataObjects specific to Gateway verifier.
-   */
-  protected async generateDataObjects(): Promise<void> {
-    // Individual verification methods handle their own DataObject generation
   }
 }

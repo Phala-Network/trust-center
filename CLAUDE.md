@@ -90,9 +90,10 @@ The project implements a multi-layered verification approach encompassing hardwa
 - **`application.ts`**: Application metadata and TCB information
 - **`dataObjects.ts`**: Data object structure and relationship definitions
 - **`domain.ts`**: ACME and Certificate Transparency types
-- **`operations.ts`**: Calculation and measurement event types
 - **`quote.ts`**: Quote parsing and verification result types
 - **`utils.ts`**: Utility types for metadata and configuration
+- **`schemas.ts`**: Zod validation schemas for runtime type safety
+- **`index.ts`**: Centralized type exports
 
 ### Utility Modules
 
@@ -118,13 +119,6 @@ The project implements a multi-layered verification approach encompassing hardwa
 - **`DstackApp`**: Application registry for compose hash validation
 - Type-safe contract interactions with comprehensive ABI support
 
-#### Operations & Event System (`src/utils/operations.ts`)
-- Event-driven calculation and measurement tracking
-- **`calculate()`**: Wraps calculations with event emission for audit trails
-- **`measure()`**: Wraps comparisons with detailed pass/fail tracking
-- Global event collection system with custom emitter support
-- Provides verification transparency and auditability
-
 #### Data Object Collection (`src/utils/dataObjectCollector.ts`)
 - Global data object collection and management system
 - Real-time event emission for data object creation and updates
@@ -137,15 +131,16 @@ The project implements a multi-layered verification approach encompassing hardwa
 dstack-verifier/
 ├── src/                           # Core source code
 │   ├── types.ts                   # Legacy type definitions (being migrated)
+│   ├── schemas.ts                 # Zod validation schemas for runtime type safety
 │   ├── types/                     # Modular type system
 │   │   ├── core.ts               # Base verification types
 │   │   ├── attestation.ts        # Attestation bundle types
 │   │   ├── application.ts        # App metadata and TCB types
 │   │   ├── dataObjects.ts        # Data object structure types
 │   │   ├── domain.ts             # Domain verification types
-│   │   ├── operations.ts         # Event and calculation types
 │   │   ├── quote.ts              # Quote verification types
-│   │   └── utils.ts              # Utility and metadata types
+│   │   ├── utils.ts              # Utility and metadata types
+│   │   └── index.ts              # Centralized type exports
 │   ├── verifier.ts                # Abstract base classes
 │   ├── kmsVerifier.ts             # KMS verification implementation
 │   ├── gatewayVerifier.ts         # Gateway verification with domain validation
@@ -166,7 +161,6 @@ dstack-verifier/
 │       ├── dcap-qvl.ts           # Intel DCAP quote verification
 │       ├── dstack-mr.ts          # DStack measurement integration
 │       ├── dstackContract.ts     # Smart contract interactions
-│       ├── operations.ts         # Event-driven operations tracking
 │       ├── dataObjectCollector.ts # Global data object management
 │       └── abi/                  # Smart contract ABI definitions
 │           ├── DstackApp.json    # App registry contract ABI
@@ -178,7 +172,9 @@ dstack-verifier/
 │   │   ├── sample/               # Sample quotes for testing
 │   │   └── tests/                # Comprehensive test suite
 │   └── dstack-images/            # DStack OS images and metadata
-│       └── dstack-0.5.3/         # Specific version artifacts
+│       ├── dstack-0.5.3/         # CPU version artifacts
+│       ├── dstack-nvidia-0.5.3/  # NVIDIA GPU version artifacts  
+│       └── dstack-nvidia-dev-0.5.3/ # NVIDIA dev version artifacts
 ├── shared/                       # Shared configuration and scripts
 │   ├── config-qemu.sh           # QEMU configuration for measurement
 │   ├── pin-packages.sh          # Package pinning for reproducibility
@@ -348,13 +344,14 @@ const dnsValid = await gatewayVerifier.verifyDnsCAA()
 const ctResult = await gatewayVerifier.verifyCTLog()
 ```
 
-### Event Tracking
+### Data Object Access and UI Integration
 ```typescript
-import { calculate, measure, getCollectedEvents } from './src/utils/operations'
+import { UIDataInterface } from './src/ui-exports'
 
-const hash = calculate('input', data, 'output', 'sha256', () => sha256(data))
-const valid = measure(expected, actual, () => expected === actual)
-const events = getCollectedEvents() // Audit trail
+const ui = new UIDataInterface()
+const allObjects = ui.getAllDataObjects()
+const filteredObjects = ui.filterDataObjects({ type: 'hardware' })
+const relationships = ui.getObjectRelationships()
 ```
 
 ## Essential Development Commands
@@ -395,24 +392,29 @@ bunx tsc --noEmit
 - ✅ Certificate Transparency log analysis and verification
 - ✅ TEE-controlled key validation and certificate matching
 - ✅ DNS CAA record verification for domain control
-- ✅ Event-driven architecture with comprehensive audit trails
+- ✅ Data object system with structured verification data generation
+- ✅ UI interface for data object access and visualization
 - ✅ Smart contract integration with Base network
 - ✅ Docker-based measurement tool integration
-- ✅ Comprehensive type system with strict TypeScript
+- ✅ Comprehensive type system with Zod validation schemas
+- ✅ Modular verification functions with clean separation
+- ✅ NVIDIA GPU attestation support for ML workloads
 
 ### Architecture Strengths
 - **Modular Design**: Clean separation between verification types and utilities
-- **Type Safety**: Comprehensive TypeScript interfaces with runtime validation
-- **Event Transparency**: Complete audit trail for all verification operations
+- **Type Safety**: Comprehensive TypeScript interfaces with Zod runtime validation
+- **Data Object System**: Structured verification data with UI access layer
 - **External Integration**: Robust handling of external tools and services
 - **Error Handling**: Comprehensive error management with detailed messages
 - **Security Focus**: Production-grade cryptographic verification tools
+- **NVIDIA Support**: Complete GPU attestation verification for ML workloads
 
 ### Development Notes
 - The `consts.ts` file contains extensive configuration data and may benefit from modularization
 - DCAP-QVL verification requires privileged Docker containers for measurement operations
 - Smart contract addresses and configurations are currently hardcoded for the Base network
-- NVIDIA GPU attestation support is implemented but may require additional testing
-- Certificate Transparency log analysis includes rate limiting considerations for production use
+- Event-driven operations system has been refactored into data object collection system
+- The `operations.ts` module has been removed in favor of integrated data object tracking
+- Zod schemas provide comprehensive runtime validation for all JSON parsing operations
 
 This comprehensive verification system provides enterprise-grade TEE attestation validation with complete transparency, auditability, and security for the DStack ecosystem.

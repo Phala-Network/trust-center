@@ -41,8 +41,6 @@ export class RedpillDataObjectGenerator extends BaseDataObjectGenerator {
         switch: 'NVLink Switch x 4',
         memory: '141GB x 8',
         security_feature: 'Confidential Computing mode',
-        evidence_count:
-          attestationBundle.nvidia_payload.evidence_list?.length || 0,
       },
       layer: 3,
       type: 'hardware_report',
@@ -109,6 +107,7 @@ export class RedpillDataObjectGenerator extends BaseDataObjectGenerator {
     quoteData: QuoteData,
     calculatedHash: string,
     isRegistered: boolean,
+    attestationBundle?: AttestationBundle,
   ): DataObject[] {
     const objects: DataObject[] = []
 
@@ -123,7 +122,9 @@ export class RedpillDataObjectGenerator extends BaseDataObjectGenerator {
         instance_id: appInfo.instance_id || '',
         sig_pubkey: '0x12C2CE9007DC00158FB17c6BCAd3f9c4e3C226Ba',
         intel_attestation_report: quoteData.quote,
-        nvidia_attestation_report: '...', // Truncated for display
+        nvidia_attestation_report: attestationBundle?.nvidia_payload
+          ? JSON.stringify(attestationBundle.nvidia_payload)
+          : undefined,
         event_log: JSON.stringify(quoteData.eventlog),
         app_cert: appInfo.app_cert || 'N/A',
         device_id: appInfo.device_id,
