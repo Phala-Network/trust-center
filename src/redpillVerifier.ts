@@ -8,7 +8,6 @@ import type {
 } from './types'
 import {parseAttestationBundle} from './types'
 import {DstackApp} from './utils/dstackContract'
-import {getCollectedEvents} from './utils/operations'
 import {isUpToDate, verifyTeeQuote} from './verification/hardwareVerification'
 import {getImageFolder, verifyOSIntegrity} from './verification/osVerification'
 import {verifyComposeHash} from './verification/sourceCodeVerification'
@@ -112,26 +111,25 @@ export class RedpillVerifier extends Verifier {
   }
 
   public async verifySourceCode(): Promise<boolean> {
-    const appInfo = await this.getAppInfo()
+    const attestationBundle = await this.getAttestationBundle()
     const quoteData = await this.getQuote()
 
     const {isValid, calculatedHash, isRegistered} = await verifyComposeHash(
-      appInfo,
+      attestationBundle.info,
       quoteData,
       this.registrySmartContract,
-      this.generateObjectId('code'),
     )
 
     // Generate DataObjects for App source code verification
     const dataObjects = this.dataObjectGenerator.generateSourceCodeDataObjects(
-      appInfo,
+      attestationBundle.info,
       quoteData,
       calculatedHash,
       isRegistered ?? false,
+      attestationBundle,
     )
     dataObjects.forEach((obj) => this.createDataObject(obj))
 
-    console.log(getCollectedEvents())
     return isValid
   }
 
@@ -143,12 +141,5 @@ export class RedpillVerifier extends Verifier {
       supportedVerifications: ['hardware', 'sourceCode'],
       usesGpuAttestation: true,
     }
-  }
-
-  /**
-   * Generate DataObjects specific to App verifier.
-   */
-  protected async generateDataObjects(): Promise<void> {
-    // Individual verification methods handle their own DataObject generation
   }
 }

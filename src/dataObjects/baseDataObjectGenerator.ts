@@ -20,7 +20,8 @@ export abstract class BaseDataObjectGenerator {
    * Generates a unique object ID for a given component type.
    */
   protected generateObjectId(component: string): string {
-    return `${this.verifierType}_${component}`
+    // Use kebab-case to match tee-visualization TRUST_ITEMS
+    return `${this.verifierType}-${component}`
   }
 
   /**
@@ -37,27 +38,23 @@ export abstract class BaseDataObjectGenerator {
     }
 
     return {
-      id: this.generateObjectId('hardware'),
+      id: this.generateObjectId('cpu'),
       name: `${this.verifierType.toUpperCase()} TEE Hardware`,
       description: `Hardware platform details for the ${this.verifierType} Trusted Execution Environment, including manufacturer, model, and supported security features.`,
       fields: {
-        manufacturer: 'Intel Corporation',
-        model: 'Intel(R) Xeon(R) CPU',
-        security_feature: 'Intel Trust Domain Extensions (TDX)',
+        manufacturer: this.metadata.cpuManufacturer || 'N/A',
+        model: this.metadata.cpuModel || 'N/A',
+        security_feature: this.metadata.securityFeature || 'N/A',
         verification_status: verificationResult.status,
-        advisory_ids: verificationResult.advisory_ids || [],
       },
       layer,
       type: typeMap[this.verifierType],
       kind: this.verifierType,
-      measuredBy:
-        this.verifierType === 'kms'
-          ? [
-              {
-                objectId: this.generateObjectId('quote'),
-              },
-            ]
-          : undefined,
+      measuredBy: [
+        {
+          objectId: this.generateObjectId('quote'),
+        },
+      ],
     }
   }
 
@@ -136,7 +133,11 @@ export abstract class BaseDataObjectGenerator {
         os: `dstack v${osVersion}${isNvidiaVariant ? ' (nvidia)' : ''}`,
         version: osVersion,
         git_revision: gitRevision,
-        artifacts: `https://github.com/Dstack-TEE/meta-dstack/releases/tag/v${osVersion}`,
+        artifacts:
+          this.metadata.osArtifacts ||
+          (this.verifierType === 'app'
+            ? `https://github.com/nearai/private-ml-sdk/releases/tag/v${osVersion}`
+            : `https://github.com/Dstack-TEE/meta-dstack/releases/tag/v${osVersion}`),
         shared_ro: true,
         is_dev: true,
         bios: 'ovmf.fd',
@@ -210,16 +211,34 @@ export abstract class BaseDataObjectGenerator {
   }
 
   /**
-   * Generates event log DataObjects.
+   * Generates event log DataObjects with verifier-specific configuration.
    */
   protected generateEventLogObjects(
     eventlog: QuoteData['eventlog'],
   ): DataObject[] {
+    // Configure object ID prefix based on verifier type
+    const objectIdPrefix = this.generateObjectId('event-logs')
+
+    // Configure layer based on verifier type
+    const layerMap = {
+      kms: 4,
+      gateway: 4,
+      app: 4,
+    }
+
+    // Configure type mapping based on verifier type
+    const typeMap = {
+      kms: 'trust_authority',
+      gateway: 'network_report',
+      app: 'application_report',
+    }
+
     return createEventLogDataObjects(
       eventlog,
-      'event_logs',
-      4,
+      objectIdPrefix,
+      layerMap[this.verifierType],
       this.verifierType,
+      typeMap[this.verifierType],
     )
   }
 
@@ -237,19 +256,21 @@ export abstract class BaseDataObjectGenerator {
       app: 'application_report',
     }
 
-    const repoMap = {
+    const defaultRepoMap = {
       kms: 'https://github.com/Dstack-TEE/dstack/tree/main/kms',
       gateway: 'https://github.com/Dstack-TEE/dstack/tree/main/gateway',
       app: 'https://github.com/nearai/private-ml-sdk/tree/main',
     }
 
     const fields: Record<string, unknown> = {
-      github_repo: repoMap[this.verifierType],
-      git_commit: this.metadata.gitRevision || '',
+      github_repo:
+        this.metadata.githubRepo || defaultRepoMap[this.verifierType],
+      git_commit: this.metadata.gitCommit || this.metadata.gitRevision || '',
       version:
-        this.verifierType === 'app'
+        this.metadata.version ||
+        (this.verifierType === 'app'
           ? 'dev'
-          : this.metadata.osVersion || 'v0.5.3',
+          : this.metadata.osVersion || 'v0.5.3'),
       compose_file: appInfo.tcb_info.app_compose,
     }
 
@@ -258,7 +279,8 @@ export abstract class BaseDataObjectGenerator {
     }
 
     if (this.verifierType === 'app') {
-      fields.model_name = 'deepseek/deepseek-chat-v3-0324'
+      fields.model_name =
+        this.metadata.modelName || 'deepseek/deepseek-chat-v3-0324'
     }
 
     return {
@@ -279,8 +301,8 @@ export abstract class BaseDataObjectGenerator {
       measuredBy: [
         {
           selfCalcOutputName: 'compose_hash',
-          objectId: this.generateObjectId('main'),
-          fieldName: 'event_log',
+          objectId: `${this.verifierType}-event-logs-imr3`,
+          fieldName: 'compose-hash',
         },
       ],
     }

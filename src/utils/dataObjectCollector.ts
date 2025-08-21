@@ -296,7 +296,7 @@ export function groupEventLogsByIMR(
       groups[imr].push(entry)
       return groups
     },
-    {} as Record<number, Array<{imr: number; [key: string]: unknown}>>,
+    {} as Record<number, LogEntry[]>,
   )
 }
 
@@ -307,6 +307,7 @@ export function groupEventLogsByIMR(
  * @param objectIdPrefix - Prefix for generating object IDs
  * @param layer - Layer number for the DataObjects
  * @param kind - Kind of verifier ('kms', 'gateway', or 'app')
+ * @param type - Type of DataObject based on verifier context
  * @returns Array of DataObjects representing grouped event logs
  */
 export function createEventLogDataObjects(
@@ -314,6 +315,7 @@ export function createEventLogDataObjects(
   objectIdPrefix: string,
   layer: number,
   kind: 'gateway' | 'kms' | 'app',
+  type?: string,
 ): DataObject[] {
   const groupedLogs = groupEventLogsByIMR(eventLog)
   const dataObjects: DataObject[] = []
@@ -322,9 +324,11 @@ export function createEventLogDataObjects(
     const imrNumber = Number(imr)
     const fields: Record<string, unknown> = {}
 
-    // Create numbered event log fields
+    // Create numbered event log fields, using event names for RTMR3
     logs.forEach((log, index) => {
-      fields[`event_log_${index}`] = JSON.stringify(log)
+      const fieldName =
+        imrNumber === 3 && log.event ? log.event : `event_log_${index}`
+      fields[fieldName] = JSON.stringify(log)
     })
 
     // Get description based on IMR number
@@ -344,12 +348,12 @@ export function createEventLogDataObjects(
     }
 
     const dataObject: DataObject = {
-      id: `${objectIdPrefix}_logs_imr${imr}`,
+      id: `${objectIdPrefix}-imr${imr}`,
       name: `Event Logs for RTMR${imr}`,
       description: getIMRDescription(imrNumber),
       fields,
       layer,
-      type: 'application_report',
+      type: type || 'application_report',
       kind,
       calculations: [
         {
@@ -360,7 +364,7 @@ export function createEventLogDataObjects(
       ],
       measuredBy: [
         {
-          objectId: kind,
+          objectId: `${kind}-main`,
           fieldName: 'event_log',
         },
         {
@@ -369,15 +373,6 @@ export function createEventLogDataObjects(
           fieldName: `rtmr${imr}`,
         },
       ],
-    }
-
-    // Add special measurement for compose-hash in RTMR3
-    if (imrNumber === 3 && logs.some((log) => log.event === 'compose-hash')) {
-      dataObject.measuredBy?.push({
-        selfFieldName: 'compose-hash',
-        objectId: kind,
-        fieldName: 'compose_hash',
-      })
     }
 
     dataObjects.push(dataObject)

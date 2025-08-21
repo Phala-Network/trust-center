@@ -66,11 +66,6 @@ export abstract class Verifier {
   }
 
   /**
-   * Abstract method for generating DataObjects specific to this verifier.
-   * Subclasses should implement this to create their specific DataObjects.
-   */
-  protected abstract generateDataObjects(): Promise<void>
-  /**
    * Retrieves the cryptographic quote and event log from the TDX environment.
    *
    * @returns Promise resolving to the quote and event log data
