@@ -177,7 +177,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   /**
    * Retrieves ACME account information from the Gateway service.
    */
-  protected async getAcmeInfo(): Promise<AcmeInfo> {
+  public async getAcmeInfo(): Promise<AcmeInfo> {
     const response = await fetch(`${this.gatewayRpcEndpoint}/.dstack/acme-info`)
     if (!response.ok) {
       throw new Error(
