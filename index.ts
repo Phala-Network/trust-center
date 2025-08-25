@@ -10,6 +10,11 @@
  * - GatewayVerifier: Verifies Gateway service attestations with domain ownership verification
  * - DCAP-QVL: Intel TDX/SGX quote verification library
  * - Smart Contract Integration: Retrieves attestation data from blockchain
+ * - Backend API Server: HTTP REST API for verification operations
+ *
+ * Usage:
+ * - Script mode: `bun run index.ts` (runs verification examples)
+ * - Server mode: `bun run index.ts --server` (starts API server)
  *
  * @example
  * ```typescript
@@ -20,14 +25,12 @@
  * ```
  */
 
+import {DEFAULT_CONFIGS} from './src/config'
 import {GatewayVerifier} from './src/gatewayVerifier'
 import {KmsVerifier} from './src/kmsVerifier'
 import {RedpillVerifier} from './src/redpillVerifier'
-import type {
-  DataObjectEvent,
-  ObjectRelationship,
-  VerifierMetadata,
-} from './src/types'
+import {startServer} from './src/server'
+import type {DataObjectEvent, ObjectRelationship} from './src/types'
 import {
   addDataObjectEventListener,
   clearAllDataObjects,
@@ -69,142 +72,152 @@ export {
 // Re-export main classes and types for external use
 export {OwnDomain, Verifier} from './src/verifier'
 
-console.log('[INIT] DStack Verifier initialized successfully!')
+// Check command line arguments for mode
+const args = process.argv.slice(2)
+const isServerMode = args.includes('--server')
 
-// Clear any existing DataObjects
-clearAllDataObjects()
+if (isServerMode) {
+  // Server mode - start the HTTP API server
+  console.log('[INIT] Starting DStack Verifier API server...')
+  const server = await startServer()
 
-// Set up real-time DataObject event listener
-addDataObjectEventListener((event: DataObjectEvent) => {
+  // Graceful shutdown handlers are already set up in server.ts
+  console.log('[INIT] DStack Verifier API server is ready!')
+} else {
+  // Script mode - run verification examples using default configuration
   console.log(
-    `[DataObject ${event.type.toUpperCase()}] ${event.objectId}: ${event.data.name}`,
+    '[INIT] DStack Verifier initialized successfully! Running examples...',
   )
-})
 
-// Create verifiers with metadata
-const metadata: VerifierMetadata = {
-  osVersion: '0.5.3',
-  gitRevision: 'c06e524bd460fd9c9add835b634d155d4b08d7e7',
+  // Clear any existing DataObjects
+  clearAllDataObjects()
+
+  // Set up real-time DataObject event listener
+  addDataObjectEventListener((event: DataObjectEvent) => {
+    console.log(
+      `[DataObject ${event.type.toUpperCase()}] ${event.objectId}: ${event.data.name}`,
+    )
+  })
+
+  // Use default configurations
+  const kmsVerifier = new KmsVerifier(
+    DEFAULT_CONFIGS.kms!.contractAddress,
+    DEFAULT_CONFIGS.kms!.metadata,
+  )
+
+  console.log(
+    '[KMS] Hardware verification result:',
+    await kmsVerifier.verifyHardware(),
+  )
+  console.log(
+    '[KMS] Operating system verification result:',
+    await kmsVerifier.verifyOperatingSystem(),
+  )
+  console.log(
+    '[KMS] Source code verification result:',
+    await kmsVerifier.verifySourceCode(),
+  )
+
+  const gatewayVerifier = new GatewayVerifier(
+    (await kmsVerifier.getGatewatyAppId()) as `0x${string}`,
+    DEFAULT_CONFIGS.gateway!.rpcEndpoint,
+    DEFAULT_CONFIGS.gateway!.metadata,
+  )
+
+  console.log(
+    '[GATEWAY] Hardware verification result:',
+    await gatewayVerifier.verifyHardware(),
+  )
+  console.log(
+    '[GATEWAY] Operating system verification result:',
+    await gatewayVerifier.verifyOperatingSystem(),
+  )
+  console.log(
+    '[GATEWAY] Source code verification result:',
+    await gatewayVerifier.verifySourceCode(),
+  )
+
+  console.log(
+    '[GATEWAY] TEE controlled key verification result:',
+    await gatewayVerifier.verifyTeeControlledKey(),
+  )
+  console.log(
+    '[GATEWAY] Certificate key verification result:',
+    await gatewayVerifier.verifyCertificateKey(),
+  )
+  console.log(
+    '[GATEWAY] DNS CAA verification result:',
+    await gatewayVerifier.verifyDnsCAA(),
+  )
+  console.log(
+    '[GATEWAY] Certificate Transparency log verification result:',
+    await gatewayVerifier.verifyCTLog(),
+  )
+
+  const redpillVerifier = new RedpillVerifier(
+    DEFAULT_CONFIGS.redpill!.contractAddress,
+    DEFAULT_CONFIGS.redpill!.model,
+    DEFAULT_CONFIGS.redpill!.metadata,
+  )
+
+  // Configure relationships between verifiers
+  const relationships: ObjectRelationship[] = [
+    // KMS -> Gateway relationships
+    {
+      sourceObjectId: 'kms-main',
+      targetObjectId: 'gateway-main',
+      sourceField: 'gateway_app_id',
+      targetField: 'app_id',
+    },
+    {
+      sourceObjectId: 'kms-main',
+      targetObjectId: 'gateway-main',
+      sourceField: 'cert_pubkey',
+      targetField: 'app_cert',
+    },
+    // Gateway -> App relationships
+    {
+      sourceObjectId: 'gateway-main',
+      targetObjectId: 'app-main',
+      sourceField: 'registered_apps',
+      targetField: 'app_id',
+    },
+    // KMS -> App relationships (through Gateway)
+    {
+      sourceObjectId: 'kms-main',
+      targetObjectId: 'app-main',
+      sourceField: 'cert_pubkey',
+      targetField: 'app_cert',
+    },
+  ]
+
+  configureVerifierRelationships({relationships})
+
+  console.log(await redpillVerifier.verifyHardware())
+  console.log(await redpillVerifier.verifyOperatingSystem())
+  console.log(await redpillVerifier.verifySourceCode())
+
+  // Show final DataObject results
+  console.log('\n[DATAOBJECTS] Final verification objects generated:')
+  const allDataObjects = getAllDataObjects()
+  console.log(`Total objects: ${allDataObjects.length}`)
+  allDataObjects.forEach((obj, index) => {
+    console.log(
+      `${index + 1}. [${obj.kind?.toUpperCase()}] ${obj.name} (Layer ${obj.layer})`,
+    )
+  })
+
+  // Export the collected DataObjects for UI consumption
+  const generatedDataObjects = allDataObjects
+
+  // Write DataObjects to JSON file
+  const fs = await import('node:fs')
+  await fs.promises.writeFile(
+    'verification-data-objects.json',
+    JSON.stringify(generatedDataObjects, null, 2),
+    'utf8',
+  )
+  console.log(
+    '\n[EXPORT] DataObjects exported to verification-data-objects.json',
+  )
 }
-
-const kmsVerifier = new KmsVerifier(
-  '0xbfd2d557118fc650ea25a0e7d85355d335f259d8',
-  metadata,
-)
-
-console.log(
-  '[KMS] Hardware verification result:',
-  await kmsVerifier.verifyHardware(),
-)
-console.log(
-  '[KMS] Operating system verification result:',
-  await kmsVerifier.verifyOperatingSystem(),
-)
-console.log(
-  '[KMS] Source code verification result:',
-  await kmsVerifier.verifySourceCode(),
-)
-
-const gatewayVerifier = new GatewayVerifier(
-  (await kmsVerifier.getGatewatyAppId()) as `0x${string}`,
-  'https://gateway.llm-04.phala.network:9204/',
-  metadata,
-)
-
-console.log(
-  '[GATEWAY] Hardware verification result:',
-  await gatewayVerifier.verifyHardware(),
-)
-console.log(
-  '[GATEWAY] Operating system verification result:',
-  await gatewayVerifier.verifyOperatingSystem(),
-)
-console.log(
-  '[GATEWAY] Source code verification result:',
-  await gatewayVerifier.verifySourceCode(),
-)
-
-console.log(
-  '[GATEWAY] TEE controlled key verification result:',
-  await gatewayVerifier.verifyTeeControlledKey(),
-)
-console.log(
-  '[GATEWAY] Certificate key verification result:',
-  await gatewayVerifier.verifyCertificateKey(),
-)
-console.log(
-  '[GATEWAY] DNS CAA verification result:',
-  await gatewayVerifier.verifyDnsCAA(),
-)
-console.log(
-  '[GATEWAY] Certificate Transparency log verification result:',
-  await gatewayVerifier.verifyCTLog(),
-)
-
-const redpillVerifier = new RedpillVerifier(
-  '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
-  'phala/deepseek-chat-v3-0324',
-  {
-    osVersion: '0.5.3',
-    gitRevision: '92aa6f0b03337949e3e41618a4f9a65c7648bae6',
-  },
-)
-
-// Configure relationships between verifiers
-const relationships: ObjectRelationship[] = [
-  // KMS -> Gateway relationships
-  {
-    sourceObjectId: 'kms-main',
-    targetObjectId: 'gateway-main',
-    sourceField: 'gateway_app_id',
-    targetField: 'app_id',
-  },
-  {
-    sourceObjectId: 'kms-main',
-    targetObjectId: 'gateway-main',
-    sourceField: 'cert_pubkey',
-    targetField: 'app_cert',
-  },
-  // Gateway -> App relationships
-  {
-    sourceObjectId: 'gateway-main',
-    targetObjectId: 'app-main',
-    sourceField: 'registered_apps',
-    targetField: 'app_id',
-  },
-  // KMS -> App relationships (through Gateway)
-  {
-    sourceObjectId: 'kms-main',
-    targetObjectId: 'app-main',
-    sourceField: 'cert_pubkey',
-    targetField: 'app_cert',
-  },
-]
-
-configureVerifierRelationships({relationships})
-
-console.log(await redpillVerifier.verifyHardware())
-console.log(await redpillVerifier.verifyOperatingSystem())
-console.log(await redpillVerifier.verifySourceCode())
-
-// Show final DataObject results
-console.log('\n[DATAOBJECTS] Final verification objects generated:')
-const allDataObjects = getAllDataObjects()
-console.log(`Total objects: ${allDataObjects.length}`)
-allDataObjects.forEach((obj, index) => {
-  console.log(
-    `${index + 1}. [${obj.kind?.toUpperCase()}] ${obj.name} (Layer ${obj.layer})`,
-  )
-})
-
-// Export the collected DataObjects for UI consumption
-export const generatedDataObjects = allDataObjects
-
-// Write DataObjects to JSON file
-const fs = await import('node:fs')
-await fs.promises.writeFile(
-  'verification-data-objects.json',
-  JSON.stringify(generatedDataObjects, null, 2),
-  'utf8',
-)
-console.log('\n[EXPORT] DataObjects exported to verification-data-objects.json')

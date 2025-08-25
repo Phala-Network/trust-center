@@ -148,7 +148,7 @@ export abstract class OwnDomain {
    *
    * @returns Promise resolving to ACME account details and key information
    */
-  protected abstract getAcmeInfo(): Promise<AcmeInfo>
+  public abstract getAcmeInfo(): Promise<AcmeInfo>
 
   /**
    * Verifies that the public key is controlled by the TEE by checking quote report_data.

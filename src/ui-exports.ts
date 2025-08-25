@@ -143,7 +143,7 @@ export class UIDataInterface {
     metadata: {
       timestamp: number
       totalObjects: number
-      stats: ReturnType<typeof this.getVerificationStats>
+      stats: ReturnType<UIDataInterface['getVerificationStats']>
     }
   } {
     const dataObjects = this.getAllDataObjects()
