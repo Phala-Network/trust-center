@@ -1,23 +1,23 @@
-import {DeepseekKmsInfo} from './consts'
-import {KmsDataObjectGenerator} from './dataObjects/kmsDataObjectGenerator'
+import {DeepseekKmsInfo} from '../consts'
+import {KmsDataObjectGenerator} from '../dataObjects/kmsDataObjectGenerator'
 import {
   KeyProviderSchema,
   safeParseEventLog,
   TcbInfoSchema,
   VmConfigSchema,
-} from './schemas'
+} from '../schemas'
 import {
   type AppInfo,
   type AttestationBundle,
   parseJsonFields,
   type QuoteData,
   type VerifierMetadata,
-} from './types'
-import {DstackKms} from './utils/dstackContract'
-import {isUpToDate, verifyTeeQuote} from './verification/hardwareVerification'
-import {getImageFolder, verifyOSIntegrity} from './verification/osVerification'
-import {verifyComposeHash} from './verification/sourceCodeVerification'
-import {Verifier} from './verifier'
+} from '../types'
+import {DstackKms} from '../utils/dstackContract'
+import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
+import {getImageFolder, verifyOSIntegrity} from '../verification/osVerification'
+import {verifyComposeHash} from '../verification/sourceCodeVerification'
+import {Verifier} from '../verifier'
 
 /**
  * KMS (Key Management Service) verifier implementation for DStack TEE applications.
