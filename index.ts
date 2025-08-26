@@ -26,9 +26,6 @@
  */
 
 import {DEFAULT_CONFIGS} from './src/config'
-import {GatewayVerifier} from './src/gatewayVerifier'
-import {KmsVerifier} from './src/kmsVerifier'
-import {RedpillVerifier} from './src/redpillVerifier'
 import {startServer} from './src/server'
 import type {DataObjectEvent, ObjectRelationship} from './src/types'
 import {
@@ -37,10 +34,10 @@ import {
   configureVerifierRelationships,
   getAllDataObjects,
 } from './src/utils/dataObjectCollector'
+import {GatewayVerifier} from './src/verifiers/gatewayVerifier'
+import {KmsVerifier} from './src/verifiers/kmsVerifier'
+import {RedpillVerifier} from './src/verifiers/redpillVerifier'
 
-export {GatewayVerifier} from './src/gatewayVerifier'
-export {KmsVerifier} from './src/kmsVerifier'
-export {RedpillVerifier} from './src/redpillVerifier'
 export type {
   AcmeInfo,
   AppInfo,
@@ -71,6 +68,9 @@ export {
 } from './src/utils/dataObjectCollector'
 // Re-export main classes and types for external use
 export {OwnDomain, Verifier} from './src/verifier'
+export {GatewayVerifier} from './src/verifiers/gatewayVerifier'
+export {KmsVerifier} from './src/verifiers/kmsVerifier'
+export {RedpillVerifier} from './src/verifiers/redpillVerifier'
 
 // Check command line arguments for mode
 const args = process.argv.slice(2)

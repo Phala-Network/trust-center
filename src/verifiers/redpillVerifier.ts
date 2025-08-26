@@ -1,24 +1,24 @@
-import {RedpillDataObjectGenerator} from './dataObjects/redpillDataObjectGenerator'
-import {AppInfoSchema, EventLogSchema, NvidiaPayloadSchema} from './schemas'
+import {AppDataObjectGenerator} from '../dataObjects/appDataObjectGenerator'
+import {AppInfoSchema, EventLogSchema, NvidiaPayloadSchema} from '../schemas'
 import type {
   AppInfo,
   AttestationBundle,
   QuoteData,
   VerifierMetadata,
-} from './types'
-import {parseAttestationBundle} from './types'
-import {DstackApp} from './utils/dstackContract'
-import {isUpToDate, verifyTeeQuote} from './verification/hardwareVerification'
-import {getImageFolder, verifyOSIntegrity} from './verification/osVerification'
-import {verifyComposeHash} from './verification/sourceCodeVerification'
-import {Verifier} from './verifier'
+} from '../types'
+import {parseAttestationBundle} from '../types'
+import {DstackApp} from '../utils/dstackContract'
+import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
+import {getImageFolder, verifyOSIntegrity} from '../verification/osVerification'
+import {verifyComposeHash} from '../verification/sourceCodeVerification'
+import {Verifier} from '../verifier'
 
 const BASE_URL = 'https://api.redpill.ai/v1/attestation/report'
 
 export class RedpillVerifier extends Verifier {
   public registrySmartContract: DstackApp
-  private appInfoUrl: string
-  private dataObjectGenerator: RedpillDataObjectGenerator
+  private rpcEndpoint: string
+  private dataObjectGenerator: AppDataObjectGenerator
 
   constructor(
     contractAddress: `0x${string}`,
@@ -27,12 +27,12 @@ export class RedpillVerifier extends Verifier {
   ) {
     super(metadata, 'app')
     this.registrySmartContract = new DstackApp(contractAddress)
-    this.appInfoUrl = `${BASE_URL}?model=${model}`
-    this.dataObjectGenerator = new RedpillDataObjectGenerator(metadata)
+    this.rpcEndpoint = `${BASE_URL}?model=${model}`
+    this.dataObjectGenerator = new AppDataObjectGenerator(metadata)
   }
 
   private async getAttestationBundle(): Promise<AttestationBundle> {
-    const response = await fetch(this.appInfoUrl, {
+    const response = await fetch(this.rpcEndpoint, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -137,7 +137,7 @@ export class RedpillVerifier extends Verifier {
     return {
       verifierType: 'App',
       contractAddress: this.registrySmartContract.address,
-      appInfoUrl: this.appInfoUrl,
+      rpcEndpoint: this.rpcEndpoint,
       supportedVerifications: ['hardware', 'sourceCode'],
       usesGpuAttestation: true,
     }

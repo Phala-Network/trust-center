@@ -10,14 +10,12 @@ export type * from './application'
 export type * from './attestation'
 // Core types
 export type * from './core'
-// Data objects types
-export type * from './dataObjects'
-
 // Domain types
 export type * from './domain'
-
 // Quote types
 export type * from './quote'
+// Data objects types
+export type * from './ui'
 
 // Utility functions
 export * from './utils'
