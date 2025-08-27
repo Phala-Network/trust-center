@@ -1,4 +1,4 @@
-import type {EventLog} from './core'
+import type {EventLog, Quote} from './core'
 
 /**
  * Types related to application configuration and deployment.
@@ -132,4 +132,48 @@ export interface AppInfo {
   compose_hash: string
   /** Virtual machine configuration */
   vm_config: VmConfig
+}
+
+/**
+ * Information about KMS (Key Management Service) for a DStack application.
+ */
+export interface KmsInfo {
+  /** Contract address of the KMS */
+  contract_address: string
+  /** Chain ID where the contract is deployed */
+  chain_id: number
+  /** Version of the KMS software */
+  version: string
+  /** URL endpoint for the KMS service */
+  url: string
+  /** Gateway application ID associated with this KMS */
+  gateway_app_id: string
+  /** URL endpoint for the associated Gateway service */
+  gateway_app_url: string
+}
+
+/**
+ * Instance information containing attestation data.
+ */
+export interface DstackInstance {
+  /** Cryptographic quote from the TEE */
+  quote: Quote
+  /** Event log containing measurement data */
+  eventlog: EventLog
+  /** Version of the DStack OS image */
+  image_version: string
+}
+
+/**
+ * Complete DStack information including KMS details and attestation instances.
+ */
+export interface DstackInfo {
+  /** Application ID (contract address without 0x prefix) */
+  app_id: string
+  /** Contract address with 0x prefix */
+  contract_address: string
+  /** KMS configuration and endpoints */
+  kms_info: KmsInfo
+  /** Array of attestation instances */
+  instances: DstackInstance[]
 }
