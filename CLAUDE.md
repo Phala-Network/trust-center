@@ -31,7 +31,6 @@ The project implements a multi-layered verification approach encompassing hardwa
   - `verifyOperatingSystem()`: OS integrity verification through measurement registers
   - `verifySourceCode()`: Source code authenticity via compose hash validation
   - `getQuote()`, `getAttestation()`, `getAppInfo()`: Data retrieval abstractions
-  - `getMetadata()`: Verification metadata and capabilities
 
 - **`OwnDomain` (`src/verifier.ts`)**: Abstract class for TEE-controlled domain ownership verification
   - `verifyTeeControlledKey()`: Validates TEE-controlled cryptographic keys
@@ -319,9 +318,39 @@ dstack-verifier/
 
 ## Usage Examples
 
-### Basic KMS Verification
+#### HTTP API Server Mode
+```bash
+# Start the API server
+bun run index.ts --server
+
+# Verify an application via HTTP API
+curl -X POST http://localhost:3000/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app": {
+      "contractAddress": "0x78601222ada762fa7cdcbc167aa66dd7a5f57ece",
+      "model": "phala/deepseek-chat-v3-0324"
+    },
+    "flags": {
+      "hardware": true,
+      "os": true,
+      "sourceCode": true
+    }
+  }'
+```
+
+#### Script Mode with Configuration
+```bash
+# Run with default examples
+bun run index.ts
+
+# Run with environment configuration
+KMS_CONTRACT_ADDRESS=0x... GATEWAY_RPC_ENDPOINT=https://... bun run index.ts
+```
+
+#### Basic KMS Verification
 ```typescript
-import { KmsVerifier } from './src/kmsVerifier'
+import { KmsVerifier } from './src/verifiers/kmsVerifier'
 
 const kmsVerifier = new KmsVerifier('0xbfd2d557118fc650ea25a0e7d85355d335f259d8')
 const hardwareValid = await kmsVerifier.verifyHardware()
@@ -329,9 +358,9 @@ const osValid = await kmsVerifier.verifyOperatingSystem()
 const sourceValid = await kmsVerifier.verifySourceCode()
 ```
 
-### Gateway Domain Verification
+#### Gateway Domain Verification
 ```typescript
-import { GatewayVerifier } from './src/gatewayVerifier'
+import { GatewayVerifier } from './src/verifiers/gatewayVerifier'
 
 const gatewayVerifier = new GatewayVerifier(
   '0x...',
@@ -344,7 +373,23 @@ const dnsValid = await gatewayVerifier.verifyDnsCAA()
 const ctResult = await gatewayVerifier.verifyCTLog()
 ```
 
-### Data Object Access and UI Integration
+#### Phala Cloud Application Verification
+```typescript
+import { PhalaCloudVerifier } from './src/verifiers/phalaCloudVerifier'
+
+const phalaVerifier = new PhalaCloudVerifier(
+  '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
+  'phala.network'
+)
+
+// Get DStack information directly from Phala Cloud API
+const dstackInfo = await phalaVerifier.getDstackInfo('78601222ada762fa7cdcbc167aa66dd7a5f57ece')
+const hardwareValid = await phalaVerifier.verifyHardware()
+const osValid = await phalaVerifier.verifyOperatingSystem()
+const sourceValid = await phalaVerifier.verifySourceCode()
+```
+
+#### Data Object Access and UI Integration
 ```typescript
 import { UIDataInterface } from './src/ui-exports'
 
@@ -352,6 +397,20 @@ const ui = new UIDataInterface()
 const allObjects = ui.getAllDataObjects()
 const filteredObjects = ui.filterDataObjects({ type: 'hardware' })
 const relationships = ui.getObjectRelationships()
+```
+
+#### Verification Service Integration
+```typescript
+import { VerificationService } from './src/verificationService'
+import { loadConfigFromEnv, FAST_VERIFICATION_FLAGS } from './src/config'
+
+const service = new VerificationService()
+const config = loadConfigFromEnv()
+const response = await service.verify(config, FAST_VERIFICATION_FLAGS)
+
+console.log('Success:', response.success)
+console.log('DataObjects:', response.dataObjects.length)
+console.log('Errors:', response.errors)
 ```
 
 ## Essential Development Commands

@@ -26,9 +26,10 @@ export class RedpillVerifier extends Verifier implements DstackInfoProvider {
     contractAddress: `0x${string}`,
     model: string,
     metadata: VerifierMetadata = {},
+    chainId: number,
   ) {
     super(metadata, 'app')
-    this.registrySmartContract = new DstackApp(contractAddress)
+    this.registrySmartContract = new DstackApp(contractAddress, chainId)
     this.rpcEndpoint = `${BASE_URL}?model=${model}`
     this.dataObjectGenerator = new AppDataObjectGenerator(metadata)
   }
@@ -133,16 +134,6 @@ export class RedpillVerifier extends Verifier implements DstackInfoProvider {
     dataObjects.forEach((obj) => this.createDataObject(obj))
 
     return isValid
-  }
-
-  public async getMetadata(): Promise<Record<string, unknown>> {
-    return {
-      verifierType: 'App',
-      contractAddress: this.registrySmartContract.address,
-      rpcEndpoint: this.rpcEndpoint,
-      supportedVerifications: ['hardware', 'sourceCode'],
-      usesGpuAttestation: true,
-    }
   }
 
   public async getDstackInfo(appId: string): Promise<DstackInfo> {

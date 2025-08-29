@@ -9,86 +9,63 @@ import {z} from 'zod'
 import type {DataObject} from './index'
 
 /**
- * Verifier type enumeration
+ * Verification flags to control which steps to execute
  */
-export type VerifierType = 'kms' | 'gateway' | 'redpill'
+export interface VerificationFlags {
+  hardware?: boolean
+  os?: boolean
+  sourceCode?: boolean
+  teeControlledKey?: boolean
+  certificateKey?: boolean
+  dnsCAA?: boolean
+  ctLog?: boolean
+}
 
 /**
- * Verification request payload
+ * Verification request payload for Redpill verifier
  */
-export interface VerificationRequest {
-  /** Type of verifier to run */
-  verifierType: VerifierType
-  /** Configuration overrides (optional) */
-  config?: {
-    kms?: {
-      contractAddress?: `0x${string}`
-      metadata?: {
-        osVersion?: string
-        gitRevision?: string
-      }
-    }
-    gateway?: {
-      contractAddress?: `0x${string}`
-      rpcEndpoint?: string
-      metadata?: {
-        osVersion?: string
-        gitRevision?: string
-      }
-    }
-    redpill?: {
-      contractAddress?: `0x${string}`
-      model?: string
-      metadata?: {
-        osVersion?: string
-        gitRevision?: string
-      }
+export interface RedpillVerificationRequest {
+  app: {
+    contractAddress: `0x${string}`
+    model: string
+    metadata?: {
+      osVersion?: string
+      gitRevision?: string
     }
   }
   /** Verification flags to control which steps to execute */
-  flags?: {
-    hardware?: boolean
-    os?: boolean
-    sourceCode?: boolean
-    teeControlledKey?: boolean
-    certificateKey?: boolean
-    dnsCAA?: boolean
-    ctLog?: boolean
-  }
+  flags?: VerificationFlags
 }
 
 /**
- * Execution metadata for verification steps
+ * Verification request payload for PhalaCloud verifier
  */
-export interface ExecutionMetadata {
-  /** Total execution time in milliseconds */
-  totalTimeMs: number
-  /** Execution time per step */
-  stepTimes: {
-    [stepName: string]: number
+export interface PhalaCloudVerificationRequest {
+  app: {
+    contractAddress: `0x${string}`
+    domain: string
+    metadata?: {
+      osVersion?: string
+      gitRevision?: string
+    }
   }
-  /** Which steps were executed */
-  executedSteps: string[]
-  /** Which steps were skipped */
-  skippedSteps: string[]
-  /** Timestamp when verification started */
-  startedAt: string
-  /** Timestamp when verification completed */
-  completedAt: string
+  /** Verification flags to control which steps to execute */
+  flags?: VerificationFlags
 }
+
+/**
+ * Union type for verification requests
+ */
+export type VerificationRequest =
+  | RedpillVerificationRequest
+  | PhalaCloudVerificationRequest
 
 /**
  * Verification error information
  */
 export interface VerificationError {
-  /** Step where error occurred */
-  step: string
   /** Error message */
   message: string
-  /** Error code (optional) */
-  code?: string
-  /** Additional error details */
-  details?: unknown
 }
 
 /**
@@ -97,8 +74,8 @@ export interface VerificationError {
 export interface VerificationResponse {
   /** Generated data objects */
   dataObjects: DataObject[]
-  /** Execution metadata */
-  metadata: ExecutionMetadata
+  /** Timestamp when verification completed */
+  completedAt: string
   /** Any errors that occurred during verification */
   errors: VerificationError[]
   /** Overall success status */
@@ -123,38 +100,6 @@ const VerifierMetadataSchema = z
   .optional()
 
 /**
- * Zod schema for KMS configuration
- */
-const KmsConfigSchema = z
-  .object({
-    contractAddress: HexStringSchema.optional(),
-    metadata: VerifierMetadataSchema,
-  })
-  .optional()
-
-/**
- * Zod schema for Gateway configuration
- */
-const GatewayConfigSchema = z
-  .object({
-    contractAddress: HexStringSchema.optional(),
-    rpcEndpoint: z.string().url().optional(),
-    metadata: VerifierMetadataSchema,
-  })
-  .optional()
-
-/**
- * Zod schema for Redpill configuration
- */
-const RedpillConfigSchema = z
-  .object({
-    contractAddress: HexStringSchema.optional(),
-    model: z.string().optional(),
-    metadata: VerifierMetadataSchema,
-  })
-  .optional()
-
-/**
  * Zod schema for verification flags
  */
 const VerificationFlagsSchema = z
@@ -170,40 +115,42 @@ const VerificationFlagsSchema = z
   .optional()
 
 /**
- * Zod schema for verification request
+ * Zod schema for Redpill verification request
  */
-export const VerificationRequestSchema = z.object({
-  verifierType: z.enum(['kms', 'gateway', 'redpill']),
-  config: z
-    .object({
-      kms: KmsConfigSchema,
-      gateway: GatewayConfigSchema,
-      redpill: RedpillConfigSchema,
-    })
-    .optional(),
+const RedpillVerificationRequestSchema = z.object({
+  app: z.object({
+    contractAddress: HexStringSchema,
+    model: z.string(),
+    metadata: VerifierMetadataSchema,
+  }),
   flags: VerificationFlagsSchema,
 })
 
 /**
- * Zod schema for execution metadata
+ * Zod schema for PhalaCloud verification request
  */
-export const ExecutionMetadataSchema = z.object({
-  totalTimeMs: z.number(),
-  stepTimes: z.record(z.string(), z.number()),
-  executedSteps: z.array(z.string()),
-  skippedSteps: z.array(z.string()),
-  startedAt: z.string(),
-  completedAt: z.string(),
+const PhalaCloudVerificationRequestSchema = z.object({
+  app: z.object({
+    contractAddress: HexStringSchema,
+    domain: z.string(),
+    metadata: VerifierMetadataSchema,
+  }),
+  flags: VerificationFlagsSchema,
 })
+
+/**
+ * Zod schema for verification request (discriminated union)
+ */
+export const VerificationRequestSchema = z.union([
+  RedpillVerificationRequestSchema,
+  PhalaCloudVerificationRequestSchema,
+])
 
 /**
  * Zod schema for verification error
  */
 export const VerificationErrorSchema = z.object({
-  step: z.string(),
   message: z.string(),
-  code: z.string().optional(),
-  details: z.unknown().optional(),
 })
 
 /**
@@ -211,7 +158,7 @@ export const VerificationErrorSchema = z.object({
  */
 export const VerificationResponseSchema = z.object({
   dataObjects: z.array(z.unknown()), // DataObject schema would be complex, using unknown for now
-  metadata: ExecutionMetadataSchema,
+  completedAt: z.string(),
   errors: z.array(VerificationErrorSchema),
   success: z.boolean(),
 })

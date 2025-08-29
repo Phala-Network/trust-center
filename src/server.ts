@@ -6,8 +6,8 @@
  */
 
 import type {ServerConfig} from './config'
-import {DEFAULT_SERVER_CONFIG, loadConfigFromEnv} from './config'
-import type {ApiErrorResponse, VerificationRequest} from './types'
+import {DEFAULT_SERVER_CONFIG} from './config'
+import type {ApiErrorResponse} from './types'
 import {VerificationRequestSchema} from './types/api'
 import {VerificationService} from './verificationService'
 
@@ -143,15 +143,18 @@ export class DStackVerifierServer {
       )
     }
 
-    const verificationRequest = validationResult.data as VerificationRequest
+    const verificationRequest = validationResult.data
 
     try {
-      // Merge request config with defaults
-      const baseConfigs = loadConfigFromEnv()
-      const mergedConfigs = this.mergeConfigs(
-        baseConfigs,
-        verificationRequest.config,
-      )
+      // Create app config from request
+      const appConfig = {
+        contractAddress: verificationRequest.app
+          .contractAddress as `0x${string}`,
+        ...('model' in verificationRequest.app
+          ? {model: verificationRequest.app.model}
+          : {domain: verificationRequest.app.domain}),
+        metadata: verificationRequest.app.metadata || {},
+      }
 
       // Parse verification flags with proper defaults
       const flags = {
@@ -164,12 +167,8 @@ export class DStackVerifierServer {
         ctLog: verificationRequest.flags?.ctLog ?? false,
       }
 
-      // Execute verification
-      const response = await this.verificationService.verify(
-        verificationRequest.verifierType,
-        mergedConfigs,
-        flags,
-      )
+      // Execute verification with app config only
+      const response = await this.verificationService.verify(appConfig, flags)
 
       return this.createJsonResponse(response)
     } catch (error) {
@@ -180,55 +179,6 @@ export class DStackVerifierServer {
         error instanceof Error ? error.message : 'Unknown verification error',
       )
     }
-  }
-
-  /**
-   * Merge request configuration with base configuration
-   */
-  private mergeConfigs(baseConfigs: any, requestConfig?: any): any {
-    if (!requestConfig) {
-      return baseConfigs
-    }
-
-    const merged = {...baseConfigs}
-
-    // Merge KMS config
-    if (requestConfig.kms) {
-      merged.kms = {
-        ...merged.kms,
-        ...requestConfig.kms,
-        metadata: {
-          ...merged.kms?.metadata,
-          ...requestConfig.kms.metadata,
-        },
-      }
-    }
-
-    // Merge Gateway config
-    if (requestConfig.gateway) {
-      merged.gateway = {
-        ...merged.gateway,
-        ...requestConfig.gateway,
-        metadata: {
-          ...merged.gateway?.metadata,
-          ...requestConfig.gateway.metadata,
-        },
-      }
-    }
-
-    // Merge Redpill config
-    if (requestConfig.redpill) {
-      merged.redpill = {
-        ...merged.redpill,
-        ...requestConfig.redpill,
-        metadata: {
-          ...merged.redpill?.metadata,
-          ...requestConfig.redpill.metadata,
-        },
-      }
-    }
-
-    return merged
   }
 
   /**
