@@ -3,6 +3,7 @@ import {AppInfoSchema, EventLogSchema, NvidiaPayloadSchema} from '../schemas'
 import type {
   AppInfo,
   AttestationBundle,
+  DstackInfo,
   QuoteData,
   VerifierMetadata,
 } from '../types'
@@ -11,11 +12,12 @@ import {DstackApp} from '../utils/dstackContract'
 import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
 import {getImageFolder, verifyOSIntegrity} from '../verification/osVerification'
 import {verifyComposeHash} from '../verification/sourceCodeVerification'
+import type {DstackInfoProvider} from '../verifier'
 import {Verifier} from '../verifier'
 
 const BASE_URL = 'https://api.redpill.ai/v1/attestation/report'
 
-export class RedpillVerifier extends Verifier {
+export class RedpillVerifier extends Verifier implements DstackInfoProvider {
   public registrySmartContract: DstackApp
   private rpcEndpoint: string
   private dataObjectGenerator: AppDataObjectGenerator
@@ -140,6 +142,31 @@ export class RedpillVerifier extends Verifier {
       rpcEndpoint: this.rpcEndpoint,
       supportedVerifications: ['hardware', 'sourceCode'],
       usesGpuAttestation: true,
+    }
+  }
+
+  public async getDstackInfo(appId: string): Promise<DstackInfo> {
+    const quoteData = await this.getQuote()
+    return {
+      app_id: appId,
+      contract_address: appId.startsWith('0x')
+        ? (appId as `0x${string}`)
+        : (`0x${appId}` as `0x${string}`),
+      kms_info: {
+        contract_address: '0xbfd2d557118fc650ea25a0e7d85355d335f259d8',
+        chain_id: 8453,
+        version: 'v0.5.3 (git:c06e524bd460fd9c9add)',
+        url: '',
+        gateway_app_id: '0x39F2f3373CEcFf85BD8BBd985adeeF32547a302c',
+        gateway_app_url: 'https://gateway.llm-04.phala.network:9204',
+      },
+      instances: [
+        {
+          quote: quoteData.quote,
+          eventlog: quoteData.eventlog,
+          image_version: 'dstack-0.5.3',
+        },
+      ],
     }
   }
 }
