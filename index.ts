@@ -25,12 +25,12 @@
  * ```
  */
 
-import {DEFAULT_CONFIGS} from './src/config'
-import {GatewayVerifier} from './src/gatewayVerifier'
-import {KmsVerifier} from './src/kmsVerifier'
-import {RedpillVerifier} from './src/redpillVerifier'
-import {startServer} from './src/server'
-import type {DataObjectEvent, ObjectRelationship} from './src/types'
+import { DEFAULT_CONFIGS } from './src/config'
+import { GatewayVerifier } from './src/gatewayVerifier'
+import { KmsVerifier } from './src/kmsVerifier'
+import { RedpillVerifier } from './src/redpillVerifier'
+import { startServer } from './src/server'
+import type { DataObjectEvent, ObjectRelationship } from './src/types'
 import {
   addDataObjectEventListener,
   clearAllDataObjects,
@@ -38,9 +38,9 @@ import {
   getAllDataObjects,
 } from './src/utils/dataObjectCollector'
 
-export {GatewayVerifier} from './src/gatewayVerifier'
-export {KmsVerifier} from './src/kmsVerifier'
-export {RedpillVerifier} from './src/redpillVerifier'
+export { GatewayVerifier } from './src/gatewayVerifier'
+export { KmsVerifier } from './src/kmsVerifier'
+export { RedpillVerifier } from './src/redpillVerifier'
 export type {
   AcmeInfo,
   AppInfo,
@@ -70,7 +70,7 @@ export {
   getAllDataObjects,
 } from './src/utils/dataObjectCollector'
 // Re-export main classes and types for external use
-export {OwnDomain, Verifier} from './src/verifier'
+export { OwnDomain, Verifier } from './src/verifier'
 
 // Check command line arguments for mode
 const args = process.argv.slice(2)
@@ -101,8 +101,8 @@ if (isServerMode) {
 
   // Use default configurations
   const kmsVerifier = new KmsVerifier(
-    DEFAULT_CONFIGS.kms!.contractAddress,
-    DEFAULT_CONFIGS.kms!.metadata,
+    DEFAULT_CONFIGS.kms.contractAddress,
+    DEFAULT_CONFIGS.kms.metadata,
   )
 
   console.log(
@@ -120,8 +120,8 @@ if (isServerMode) {
 
   const gatewayVerifier = new GatewayVerifier(
     (await kmsVerifier.getGatewatyAppId()) as `0x${string}`,
-    DEFAULT_CONFIGS.gateway!.rpcEndpoint,
-    DEFAULT_CONFIGS.gateway!.metadata,
+    DEFAULT_CONFIGS.gateway.rpcEndpoint,
+    DEFAULT_CONFIGS.gateway.metadata,
   )
 
   console.log(
@@ -155,9 +155,9 @@ if (isServerMode) {
   )
 
   const redpillVerifier = new RedpillVerifier(
-    DEFAULT_CONFIGS.redpill!.contractAddress,
-    DEFAULT_CONFIGS.redpill!.model,
-    DEFAULT_CONFIGS.redpill!.metadata,
+    DEFAULT_CONFIGS.redpill.contractAddress,
+    DEFAULT_CONFIGS.redpill.model,
+    DEFAULT_CONFIGS.redpill.metadata,
   )
 
   // Configure relationships between verifiers
@@ -191,7 +191,7 @@ if (isServerMode) {
     },
   ]
 
-  configureVerifierRelationships({relationships})
+  configureVerifierRelationships({ relationships })
 
   console.log(await redpillVerifier.verifyHardware())
   console.log(await redpillVerifier.verifyOperatingSystem())

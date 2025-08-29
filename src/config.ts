@@ -5,7 +5,8 @@
  * and granular control over verification steps that may take long time.
  */
 
-import type {VerifierMetadata} from './types'
+import { env } from './env'
+import type { VerifierMetadata } from './types'
 
 /**
  * Configuration for KMS verifier
@@ -45,9 +46,9 @@ export interface RedpillConfig {
  * Grouped verifier configurations
  */
 export interface VerifierConfigs {
-  kms?: KmsConfig
-  gateway?: GatewayConfig
-  redpill?: RedpillConfig
+  kms: KmsConfig
+  gateway: GatewayConfig
+  redpill: RedpillConfig
 }
 
 /**
@@ -97,82 +98,32 @@ export const FAST_VERIFICATION_FLAGS: VerificationFlags = {
 }
 
 /**
- * Default configurations based on current hardcoded values
+ * Load configuration from environment variables with defaults
  */
 export const DEFAULT_CONFIGS: VerifierConfigs = {
   kms: {
-    contractAddress: '0xbfd2d557118fc650ea25a0e7d85355d335f259d8',
+    contractAddress: env.KMS_CONTRACT_ADDRESS,
     metadata: {
-      osVersion: '0.5.3',
-      gitRevision: 'c06e524bd460fd9c9add835b634d155d4b08d7e7',
+      osVersion: env.KMS_OS_VERSION,
+      gitRevision: env.KMS_GIT_REVISION,
     },
   },
   gateway: {
-    contractAddress: '0x', // Will be populated from KMS
-    rpcEndpoint: 'https://gateway.llm-04.phala.network:9204/',
+    contractAddress: env.GATEWAY_CONTRACT_ADDRESS,
+    rpcEndpoint: env.GATEWAY_RPC_ENDPOINT,
     metadata: {
-      osVersion: '0.5.3',
-      gitRevision: 'c06e524bd460fd9c9add835b634d155d4b08d7e7',
+      osVersion: env.GATEWAY_OS_VERSION,
+      gitRevision: env.GATEWAY_GIT_REVISION,
     },
   },
   redpill: {
-    contractAddress: '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
-    model: 'phala/deepseek-chat-v3-0324',
+    contractAddress: env.REDPILL_CONTRACT_ADDRESS,
+    model: env.REDPILL_MODEL,
     metadata: {
-      osVersion: '0.5.3',
-      gitRevision: '92aa6f0b03337949e3e41618a4f9a65c7648bae6',
+      osVersion: env.REDPILL_OS_VERSION,
+      gitRevision: env.REDPILL_GIT_REVISION,
     },
   },
-}
-
-/**
- * Load configuration from environment variables with defaults
- */
-export function loadConfigFromEnv(): VerifierConfigs {
-  return {
-    kms: {
-      contractAddress:
-        (process.env.KMS_CONTRACT_ADDRESS as `0x${string}`) ||
-        DEFAULT_CONFIGS.kms!.contractAddress,
-      metadata: {
-        osVersion:
-          process.env.KMS_OS_VERSION || DEFAULT_CONFIGS.kms!.metadata.osVersion,
-        gitRevision:
-          process.env.KMS_GIT_REVISION ||
-          DEFAULT_CONFIGS.kms!.metadata.gitRevision,
-      },
-    },
-    gateway: {
-      contractAddress:
-        (process.env.GATEWAY_CONTRACT_ADDRESS as `0x${string}`) ||
-        DEFAULT_CONFIGS.gateway!.contractAddress,
-      rpcEndpoint:
-        process.env.GATEWAY_RPC_ENDPOINT ||
-        DEFAULT_CONFIGS.gateway!.rpcEndpoint,
-      metadata: {
-        osVersion:
-          process.env.GATEWAY_OS_VERSION ||
-          DEFAULT_CONFIGS.gateway!.metadata.osVersion,
-        gitRevision:
-          process.env.GATEWAY_GIT_REVISION ||
-          DEFAULT_CONFIGS.gateway!.metadata.gitRevision,
-      },
-    },
-    redpill: {
-      contractAddress:
-        (process.env.REDPILL_CONTRACT_ADDRESS as `0x${string}`) ||
-        DEFAULT_CONFIGS.redpill!.contractAddress,
-      model: process.env.REDPILL_MODEL || DEFAULT_CONFIGS.redpill!.model,
-      metadata: {
-        osVersion:
-          process.env.REDPILL_OS_VERSION ||
-          DEFAULT_CONFIGS.redpill!.metadata.osVersion,
-        gitRevision:
-          process.env.REDPILL_GIT_REVISION ||
-          DEFAULT_CONFIGS.redpill!.metadata.gitRevision,
-      },
-    },
-  }
 }
 
 /**
@@ -188,7 +139,7 @@ export function parseVerificationFlags(flagsStr?: string): VerificationFlags {
     return FAST_VERIFICATION_FLAGS
   }
 
-  const flags = {...DEFAULT_VERIFICATION_FLAGS}
+  const flags = { ...DEFAULT_VERIFICATION_FLAGS }
   const enabledFlags = flagsStr.split(',').map((f) => f.trim())
 
   // Disable all flags first, then enable specified ones
@@ -219,6 +170,6 @@ export interface ServerConfig {
  * Default server configuration
  */
 export const DEFAULT_SERVER_CONFIG: ServerConfig = {
-  port: parseInt(process.env.PORT || '3000'),
-  host: process.env.HOST || 'localhost',
+  port: env.PORT,
+  host: env.HOST,
 }
