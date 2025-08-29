@@ -1,31 +1,46 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.0.0-beta.6/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.2.2/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": false,
-    "includes": ["**", "!src/components/ui/*"]
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!**/*.test.js",
+      "**/special.test.js",
+      "!test",
+      "!**/components/ui",
+      "!**/components/magicui"
+    ]
   },
   "formatter": {
     "enabled": true,
     "indentStyle": "space"
   },
+  "json": {
+    "parser": {
+      "allowComments": true,
+      "allowTrailingCommas": true
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
-      "nursery": {
-        "useSortedClasses": "warn"
+      "correctness": {
+        "noUnusedImports": {
+          "level": "error",
+          "fix": "safe"
+        }
       }
     }
   },
   "javascript": {
     "formatter": {
       "quoteStyle": "single",
-      "bracketSpacing": false,
       "semicolons": "asNeeded"
     }
   },
@@ -33,7 +48,17 @@
     "enabled": true,
     "actions": {
       "source": {
-        "organizeImports": "on"
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [
+              ":PACKAGE:",
+              ":PACKAGE_WITH_PROTOCOL:",
+              ":BLANK_LINE:",
+              "**"
+            ]
+          }
+        }
       }
     }
   }
