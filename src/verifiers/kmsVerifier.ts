@@ -36,9 +36,13 @@ export class KmsVerifier extends Verifier {
   /**
    * Creates a new KMS verifier instance.
    */
-  constructor(contractAddress: `0x${string}`, metadata: VerifierMetadata = {}) {
+  constructor(
+    contractAddress: `0x${string}`,
+    metadata: VerifierMetadata = {},
+    chainId: number,
+  ) {
     super(metadata, 'kms')
-    this.registrySmartContract = new DstackKms(contractAddress)
+    this.registrySmartContract = new DstackKms(contractAddress, chainId)
     this.dataObjectGenerator = new KmsDataObjectGenerator(metadata)
   }
 
@@ -146,18 +150,5 @@ export class KmsVerifier extends Verifier {
     dataObjects.forEach((obj) => this.createDataObject(obj))
 
     return isValid
-  }
-
-  /**
-   * Retrieves metadata about the KMS verification process and results.
-   */
-  public async getMetadata(): Promise<Record<string, unknown>> {
-    return {
-      verifierType: 'KMS',
-      contractAddress: this.registrySmartContract.address,
-      certificateAuthorityPublicKey: this.certificateAuthorityPublicKey,
-      supportedVerifications: ['hardware', 'operatingSystem', 'sourceCode'],
-      usesGpuAttestation: false,
-    }
   }
 }

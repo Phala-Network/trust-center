@@ -45,9 +45,10 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     contractAddress: `0x${string}`,
     rpcEndpoint: string,
     metadata: VerifierMetadata = {},
+    chainId: number,
   ) {
     super(metadata, 'gateway')
-    this.registrySmartContract = new DstackApp(contractAddress)
+    this.registrySmartContract = new DstackApp(contractAddress, chainId)
     this.rpcEndpoint = rpcEndpoint
     this.dataObjectGenerator = new GatewayDataObjectGenerator(metadata)
   }
@@ -153,25 +154,6 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     dataObjects.forEach((obj) => this.createDataObject(obj))
 
     return isValid
-  }
-
-  /**
-   * Retrieves metadata about the Gateway verification process and results.
-   */
-  public async getMetadata(): Promise<Record<string, unknown>> {
-    return {
-      verifierType: 'Gateway',
-      contractAddress: this.registrySmartContract.address,
-      gatewayEndpoint: this.rpcEndpoint,
-      supportedVerifications: [
-        'hardware',
-        'operatingSystem',
-        'sourceCode',
-        'domainOwnership',
-      ],
-      usesGpuAttestation: false,
-      implementsOwnDomain: true,
-    }
   }
 
   /**
