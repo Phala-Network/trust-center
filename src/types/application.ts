@@ -165,9 +165,9 @@ export interface DstackInstance {
 }
 
 /**
- * Complete DStack information including KMS details and attestation instances.
+ * Complete system information including KMS details and attestation instances.
  */
-export interface DstackInfo {
+export interface SystemInfo {
   /** Application ID (contract address without 0x prefix) */
   app_id: string
   /** Contract address with 0x prefix */

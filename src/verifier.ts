@@ -4,7 +4,6 @@ import type {
   AttestationBundle,
   CTResult,
   DataObject,
-  DstackInfo,
   ObjectRelationship,
   QuoteData,
   VerifierMetadata,
@@ -111,7 +110,6 @@ export abstract class Verifier {
    */
   public abstract verifySourceCode(): Promise<boolean>
 
-
   /**
    * Get the verifier's metadata.
    *
@@ -181,20 +179,4 @@ export abstract class OwnDomain {
    * @returns Promise resolving to detailed CT log verification results
    */
   public abstract verifyCTLog(): Promise<CTResult>
-}
-
-/**
- * Interface for verifiers that can retrieve DStack information from various sources.
- *
- * This interface provides access to KMS and Gateway information based on the
- * application contract address.
- */
-export interface DstackInfoProvider {
-  /**
-   * Retrieves DStack information including KMS details and attestation instances.
-   *
-   * @param appId - Application contract address (with or without 0x prefix)
-   * @returns Promise resolving to complete DStack information
-   */
-  getDstackInfo(appId: string): Promise<DstackInfo>
 }

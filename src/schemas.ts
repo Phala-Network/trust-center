@@ -34,7 +34,7 @@ export const DstackInstanceSchema = z.object({
   image_version: z.string(),
 })
 
-export const DstackInfoSchema = z.object({
+export const SystemInfoSchema = z.object({
   app_id: z.string(),
   contract_address: z.string(),
   kms_info: KmsInfoSchema,

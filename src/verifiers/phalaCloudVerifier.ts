@@ -1,11 +1,5 @@
 import {AppDataObjectGenerator} from '../dataObjects/appDataObjectGenerator'
-import {
-  DstackInfoSchema,
-  KeyProviderSchema,
-  TcbInfoSchema,
-  VmConfigSchema,
-} from '../schemas'
-import type {DstackInfo} from '../types'
+import {KeyProviderSchema, TcbInfoSchema, VmConfigSchema} from '../schemas'
 import {
   type AppInfo,
   type AttestationBundle,
@@ -17,10 +11,9 @@ import {DstackApp} from '../utils/dstackContract'
 import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
 import {getImageFolder, verifyOSIntegrity} from '../verification/osVerification'
 import {verifyComposeHash} from '../verification/sourceCodeVerification'
-import type {DstackInfoProvider} from '../verifier'
 import {Verifier} from '../verifier'
 
-export class PhalaCloudVerifier extends Verifier implements DstackInfoProvider {
+export class PhalaCloudVerifier extends Verifier {
   public registrySmartContract: DstackApp
   private rpcEndpoint: string
   private dataObjectGenerator: AppDataObjectGenerator
@@ -118,50 +111,5 @@ export class PhalaCloudVerifier extends Verifier implements DstackInfoProvider {
     dataObjects.forEach((obj) => this.createDataObject(obj))
 
     return isValid
-  }
-
-  public async getDstackInfo(appId: string): Promise<DstackInfo> {
-    // Remove 0x prefix if present for the API call
-    const cleanAppId = appId.startsWith('0x') ? appId.slice(2) : appId
-
-    const apiUrl = `https://cloud-api.phala.network/api/v1/apps/${cleanAppId}/attestations`
-
-    const response = await fetch(apiUrl)
-    if (!response.ok) {
-      if (response.status === 500) {
-        throw new Error(
-          `App '${appId}' not found or is currently down on Phala Cloud`,
-        )
-      }
-      throw new Error(
-        `Failed to fetch DStack info from Phala Cloud: ${response.status} ${response.statusText}`,
-      )
-    }
-
-    const rawData = await response.json()
-    if (typeof rawData !== 'object' || rawData === null) {
-      throw new Error('Invalid response format from Phala Cloud API')
-    }
-
-    // Parse and validate the response using Zod schema
-    const parseResult = DstackInfoSchema.safeParse(rawData)
-    if (!parseResult.success) {
-      throw new Error(
-        `Failed to parse Phala Cloud response: ${parseResult.error.message}`,
-      )
-    }
-
-    // Transform quotes to ensure they have 0x prefix
-    const transformedData: DstackInfo = {
-      ...parseResult.data,
-      instances: parseResult.data.instances.map((instance) => ({
-        ...instance,
-        quote: instance.quote.startsWith('0x')
-          ? (instance.quote as `0x${string}`)
-          : (`0x${instance.quote}` as `0x${string}`),
-      })),
-    }
-
-    return transformedData
   }
 }

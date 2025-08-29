@@ -8,8 +8,8 @@
 import type {PhalaCloudConfig, RedpillConfig, VerificationFlags} from './config'
 import {DEFAULT_VERIFICATION_FLAGS} from './config'
 import type {
-  DstackInfo,
   ObjectRelationship,
+  SystemInfo,
   VerificationError,
   VerificationResponse,
 } from './types'
@@ -18,6 +18,7 @@ import {
   configureVerifierRelationships,
   getAllDataObjects,
 } from './utils/dataObjectCollector'
+import {getPhalaCloudInfo, getRedpillInfo} from './utils/systemInfo'
 import type {OwnDomain, Verifier} from './verifier'
 import {GatewayVerifier} from './verifiers/gatewayVerifier'
 import {KmsVerifier} from './verifiers/kmsVerifier'
@@ -32,7 +33,7 @@ export class VerificationService {
 
   /**
    * Execute verification based on app configuration and flags
-   * Automatically fetches KMS and Gateway info using getDstackInfo()
+   * Automatically fetches KMS and Gateway info using getSystemInfo()
    */
   async verify(
     appConfig: RedpillConfig | PhalaCloudConfig,
@@ -45,16 +46,16 @@ export class VerificationService {
 
     try {
       // Get complete DStack info from the app
-      const dstackInfo = await this.getDstackInfo(appConfig)
+      const systemInfo = await this.getSystemInfo(appConfig)
 
       // Run KMS verification
-      await this.verifyKms(dstackInfo, flags)
+      await this.verifyKms(systemInfo, flags)
 
       // Run Gateway verification
-      await this.verifyGateway(dstackInfo, flags)
+      await this.verifyGateway(systemInfo, flags)
 
       // Run App verification
-      await this.verifyApp(appConfig, flags, dstackInfo.kms_info.chain_id)
+      await this.verifyApp(appConfig, flags, systemInfo.kms_info.chain_id)
 
       return this.buildResponse()
     } catch (error) {
@@ -67,13 +68,13 @@ export class VerificationService {
    * Execute KMS verification
    */
   private async verifyKms(
-    dstackInfo: DstackInfo,
+    systemInfo: SystemInfo,
     flags: VerificationFlags,
   ): Promise<void> {
     const kmsVerifier = new KmsVerifier(
-      dstackInfo.kms_info.contract_address as `0x${string}`,
+      systemInfo.kms_info.contract_address as `0x${string}`,
       {},
-      dstackInfo.kms_info.chain_id,
+      systemInfo.kms_info.chain_id,
     )
 
     // Execute verification steps based on flags
@@ -84,14 +85,14 @@ export class VerificationService {
    * Execute Gateway verification
    */
   private async verifyGateway(
-    dstackInfo: DstackInfo,
+    systemInfo: SystemInfo,
     flags: VerificationFlags,
   ): Promise<void> {
     const gatewayVerifier = new GatewayVerifier(
-      dstackInfo.kms_info.gateway_app_id as `0x${string}`,
-      dstackInfo.kms_info.gateway_app_url,
+      systemInfo.kms_info.gateway_app_id as `0x${string}`,
+      systemInfo.kms_info.gateway_app_url,
       {},
-      dstackInfo.kms_info.chain_id,
+      systemInfo.kms_info.chain_id,
     )
 
     // Execute verification steps based on flags
@@ -249,31 +250,18 @@ export class VerificationService {
   }
 
   /**
-   * Get DStack info by creating appropriate verifier and calling getDstackInfo()
+   * Get DStack info using extracted utility functions
    */
-  private async getDstackInfo(
+  private async getSystemInfo(
     appConfig: RedpillConfig | PhalaCloudConfig,
-  ): Promise<DstackInfo> {
-    // Create verifier instance to call getDstackInfo
-    let verifier: PhalaCloudVerifier | RedpillVerifier
-
+  ): Promise<SystemInfo> {
     if ('model' in appConfig) {
       // RedpillConfig
-      verifier = new RedpillVerifier(
-        appConfig.contractAddress,
-        appConfig.model,
-        appConfig.metadata,
-      )
+      return await getRedpillInfo(appConfig.contractAddress, appConfig.model)
     } else {
       // PhalaCloudConfig
-      verifier = new PhalaCloudVerifier(
-        appConfig.contractAddress,
-        appConfig.domain,
-        appConfig.metadata,
-      )
+      return await getPhalaCloudInfo(appConfig.contractAddress)
     }
-
-    return await verifier.getDstackInfo(appConfig.contractAddress)
   }
 
   /**
