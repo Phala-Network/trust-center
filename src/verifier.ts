@@ -111,13 +111,6 @@ export abstract class Verifier {
   public abstract verifySourceCode(): Promise<boolean>
 
   /**
-   * Retrieves metadata about the verification process and results.
-   *
-   * @returns Promise resolving to verification metadata
-   */
-  public abstract getMetadata(): Promise<Record<string, unknown>>
-
-  /**
    * Get the verifier's metadata.
    *
    * @returns The metadata object

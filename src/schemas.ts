@@ -19,6 +19,28 @@ export const QuoteSchema = z
     'Quote must be a hex string starting with 0x',
   )
 
+export const KmsInfoSchema = z.object({
+  contract_address: z.string(),
+  chain_id: z.number(),
+  version: z.string(),
+  url: z.string(),
+  gateway_app_id: z.string(),
+  gateway_app_url: z.string(),
+})
+
+export const DstackInstanceSchema = z.object({
+  quote: z.string(),
+  eventlog: EventLogSchema,
+  image_version: z.string(),
+})
+
+export const SystemInfoSchema = z.object({
+  app_id: z.string(),
+  contract_address: z.string(),
+  kms_info: KmsInfoSchema,
+  instances: z.array(DstackInstanceSchema),
+})
+
 export const AppComposeSchema = z.object({
   manifest_version: z.number(),
   name: z.string(),

@@ -1,11 +1,11 @@
-import {GatewayDataObjectGenerator} from './dataObjects/gatewayDataObjectGenerator'
+import {GatewayDataObjectGenerator} from '../dataObjects/gatewayDataObjectGenerator'
 import {
   KeyProviderSchema,
   safeParseEventLog,
   safeParseQuoteExt,
   TcbInfoSchema,
   VmConfigSchema,
-} from './schemas'
+} from '../schemas'
 import {
   type AcmeInfo,
   type AppInfo,
@@ -14,18 +14,18 @@ import {
   parseJsonFields,
   type QuoteData,
   type VerifierMetadata,
-} from './types'
-import {DstackApp} from './utils/dstackContract'
+} from '../types'
+import {DstackApp} from '../utils/dstackContract'
 import {
   verifyCertificateKey,
   verifyCTLog,
   verifyDnsCAA,
   verifyTeeControlledKey,
-} from './verification/domainVerification'
-import {isUpToDate, verifyTeeQuote} from './verification/hardwareVerification'
-import {getImageFolder, verifyOSIntegrity} from './verification/osVerification'
-import {verifyComposeHash} from './verification/sourceCodeVerification'
-import {type OwnDomain, Verifier} from './verifier'
+} from '../verification/domainVerification'
+import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
+import {getImageFolder, verifyOSIntegrity} from '../verification/osVerification'
+import {verifyComposeHash} from '../verification/sourceCodeVerification'
+import {type OwnDomain, Verifier} from '../verifier'
 
 /**
  * Gateway verifier implementation for DStack TEE applications with domain verification.
@@ -34,7 +34,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   /** Smart contract interface for retrieving Gateway application data */
   public registrySmartContract: DstackApp
   /** RPC endpoint URL for the Gateway service */
-  public gatewayRpcEndpoint: string
+  public rpcEndpoint: string
   /** Data object generator for Gateway-specific objects */
   private dataObjectGenerator: GatewayDataObjectGenerator
 
@@ -43,12 +43,14 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    */
   constructor(
     contractAddress: `0x${string}`,
-    gatewayRpcEndpoint: string,
+    rpcEndpoint: string,
     metadata: VerifierMetadata = {},
+    chainId: number,
   ) {
     super(metadata, 'gateway')
-    this.registrySmartContract = new DstackApp(contractAddress)
-    this.gatewayRpcEndpoint = gatewayRpcEndpoint
+    this.registrySmartContract = new DstackApp(contractAddress, chainId)
+    console.log('gateway rpcEndpoint', rpcEndpoint)
+    this.rpcEndpoint = rpcEndpoint
     this.dataObjectGenerator = new GatewayDataObjectGenerator(metadata)
   }
 
@@ -76,18 +78,28 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    * Retrieves application information from the Gateway RPC endpoint.
    */
   protected async getAppInfo(): Promise<AppInfo> {
-    const response = await fetch(`${this.gatewayRpcEndpoint}/.dstack/app-info`)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch Gateway app info: ${response.status} ${response.statusText}`,
-      )
+    const appInfoUrl = `${this.rpcEndpoint}/.dstack/app-info`
+    try {
+      const response = await fetch(appInfoUrl)
+      if (!response.ok) {
+        throw new Error(
+          `Gateway app-info request failed: ${response.status} ${response.statusText} (URL: ${appInfoUrl})`,
+        )
+      }
+      const responseData = await response.json()
+      console.log('Gateway app-info response:', responseData)
+      return parseJsonFields(responseData as Record<string, unknown>, {
+        tcb_info: TcbInfoSchema,
+        key_provider_info: KeyProviderSchema,
+        vm_config: VmConfigSchema,
+      }) as AppInfo
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching Gateway app info from ${appInfoUrl}`
+      throw new Error(`Failed to fetch Gateway app info: ${errorMessage}`)
     }
-    const responseData = await response.json()
-    return parseJsonFields(responseData as Record<string, unknown>, {
-      tcb_info: TcbInfoSchema,
-      key_provider_info: KeyProviderSchema,
-      vm_config: VmConfigSchema,
-    }) as AppInfo
   }
 
   /**
@@ -147,7 +159,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       calculatedHash,
       isRegistered ?? false,
       this.registrySmartContract.address,
-      this.gatewayRpcEndpoint,
+      this.rpcEndpoint,
       acmeInfo.active_cert,
     )
     dataObjects.forEach((obj) => this.createDataObject(obj))
@@ -156,35 +168,25 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   }
 
   /**
-   * Retrieves metadata about the Gateway verification process and results.
-   */
-  public async getMetadata(): Promise<Record<string, unknown>> {
-    return {
-      verifierType: 'Gateway',
-      contractAddress: this.registrySmartContract.address,
-      gatewayEndpoint: this.gatewayRpcEndpoint,
-      supportedVerifications: [
-        'hardware',
-        'operatingSystem',
-        'sourceCode',
-        'domainOwnership',
-      ],
-      usesGpuAttestation: false,
-      implementsOwnDomain: true,
-    }
-  }
-
-  /**
    * Retrieves ACME account information from the Gateway service.
    */
   public async getAcmeInfo(): Promise<AcmeInfo> {
-    const response = await fetch(`${this.gatewayRpcEndpoint}/.dstack/acme-info`)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch ACME info from Gateway: ${response.status} ${response.statusText}`,
-      )
+    const acmeInfoUrl = `${this.rpcEndpoint}/.dstack/acme-info`
+    try {
+      const response = await fetch(acmeInfoUrl)
+      if (!response.ok) {
+        throw new Error(
+          `Gateway ACME info request failed: ${response.status} ${response.statusText} (URL: ${acmeInfoUrl})`,
+        )
+      }
+      return (await response.json()) as AcmeInfo
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching ACME info from ${acmeInfoUrl}`
+      throw new Error(`Failed to fetch ACME info from Gateway: ${errorMessage}`)
     }
-    return (await response.json()) as AcmeInfo
   }
 
   /**

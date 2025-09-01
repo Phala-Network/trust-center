@@ -5,67 +5,80 @@
  * configuration and flags, collecting DataObjects and tracking execution metadata.
  */
 
-import type {VerificationFlags, VerifierConfigs} from './config'
+import type {PhalaCloudConfig, RedpillConfig, VerificationFlags} from './config'
 import {DEFAULT_VERIFICATION_FLAGS} from './config'
-import {GatewayVerifier} from './gatewayVerifier'
-import {KmsVerifier} from './kmsVerifier'
-import {RedpillVerifier} from './redpillVerifier'
 import type {
-  ExecutionMetadata,
   ObjectRelationship,
+  SystemInfo,
   VerificationError,
   VerificationResponse,
-  VerifierType,
 } from './types'
 import {
   clearAllDataObjects,
   configureVerifierRelationships,
   getAllDataObjects,
 } from './utils/dataObjectCollector'
+import {getPhalaCloudInfo, getRedpillInfo} from './utils/systemInfo'
+import type {OwnDomain, Verifier} from './verifier'
+import {GatewayVerifier} from './verifiers/gatewayVerifier'
+import {KmsVerifier} from './verifiers/kmsVerifier'
+import {PhalaCloudVerifier} from './verifiers/phalaCloudVerifier'
+import {RedpillVerifier} from './verifiers/redpillVerifier'
 
 /**
  * Service class for orchestrating verification operations
  */
 export class VerificationService {
-  private startTime: number = 0
-  private stepTimes: {[stepName: string]: number} = {}
-  private executedSteps: string[] = []
-  private skippedSteps: string[] = []
   private errors: VerificationError[] = []
 
   /**
-   * Execute verification based on type, configuration, and flags
+   * Execute verification based on app configuration and flags
+   * Automatically fetches KMS and Gateway info using getSystemInfo()
    */
   async verify(
-    verifierType: VerifierType,
-    configs: VerifierConfigs,
+    appConfig: RedpillConfig | PhalaCloudConfig,
     flags: VerificationFlags = DEFAULT_VERIFICATION_FLAGS,
   ): Promise<VerificationResponse> {
-    this.startTime = Date.now()
-    this.stepTimes = {}
-    this.executedSteps = []
-    this.skippedSteps = []
     this.errors = []
 
     // Clear any existing DataObjects
     clearAllDataObjects()
 
     try {
-      switch (verifierType) {
-        case 'kms':
-          return await this.verifyKms(configs, flags)
-        case 'gateway':
-          return await this.verifyGateway(configs, flags)
-        case 'redpill':
-          return await this.verifyRedpill(configs, flags)
-        default:
-          throw new Error(`Unknown verifier type: ${verifierType}`)
-      }
+      // Get complete DStack info from the app
+      const systemInfo = await this.getSystemInfo(appConfig)
+
+      // Run KMS verification
+      await this.verifyKms(systemInfo, flags)
+
+      // Run Gateway verification
+      await this.verifyGateway(systemInfo, flags)
+
+      // Run App verification
+      await this.verifyApp(appConfig, flags, systemInfo.kms_info.chain_id)
+
+      return this.buildResponse()
     } catch (error) {
-      this.addError(
-        'initialization',
-        error instanceof Error ? error.message : 'Unknown error',
+      let errorMessage: string
+      if (error instanceof Error) {
+        // Provide context for common error patterns
+        if (error.message === 'fetch() URL is invalid') {
+          errorMessage =
+            'Verification failed due to invalid URL configuration - check your app configuration or endpoint URLs'
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = `Network error during verification: ${error.message}`
+        } else {
+          errorMessage = error.message
+        }
+      } else {
+        errorMessage = 'Unknown verification error occurred'
+      }
+
+      console.error(
+        '[VERIFICATION_SERVICE] Top-level verification error:',
+        error,
       )
+      this.addError(errorMessage)
       return this.buildResponse()
     }
   }
@@ -74,184 +87,176 @@ export class VerificationService {
    * Execute KMS verification
    */
   private async verifyKms(
-    configs: VerifierConfigs,
+    systemInfo: SystemInfo,
     flags: VerificationFlags,
-  ): Promise<VerificationResponse> {
-    if (!configs.kms) {
-      throw new Error('KMS configuration is required')
-    }
-
+  ): Promise<void> {
     const kmsVerifier = new KmsVerifier(
-      configs.kms.contractAddress,
-      configs.kms.metadata,
+      systemInfo.kms_info.contract_address as `0x${string}`,
+      {},
+      systemInfo.kms_info.chain_id,
     )
 
     // Execute verification steps based on flags
-    await this.executeStep('hardware', flags.hardware, () =>
-      kmsVerifier.verifyHardware(),
-    )
-    await this.executeStep('os', flags.os, () =>
-      kmsVerifier.verifyOperatingSystem(),
-    )
-    await this.executeStep('sourceCode', flags.sourceCode, () =>
-      kmsVerifier.verifySourceCode(),
-    )
-
-    return this.buildResponse()
+    await this.verifyCommon(kmsVerifier, flags)
   }
 
   /**
    * Execute Gateway verification
    */
   private async verifyGateway(
-    configs: VerifierConfigs,
+    systemInfo: SystemInfo,
     flags: VerificationFlags,
-  ): Promise<VerificationResponse> {
-    if (!configs.gateway) {
-      throw new Error('Gateway configuration is required')
-    }
-
-    // If gateway contract address is not provided, try to get it from KMS
-    let gatewayContractAddress = configs.gateway.contractAddress
-    if (!gatewayContractAddress || gatewayContractAddress === '0x') {
-      if (!configs.kms) {
-        throw new Error(
-          'KMS configuration is required to resolve Gateway contract address',
-        )
-      }
-
-      const kmsVerifier = new KmsVerifier(
-        configs.kms.contractAddress,
-        configs.kms.metadata,
-      )
-
-      try {
-        gatewayContractAddress =
-          (await kmsVerifier.getGatewatyAppId()) as `0x${string}`
-      } catch (error) {
-        this.addError(
-          'gateway-address-resolution',
-          error instanceof Error
-            ? error.message
-            : 'Failed to resolve Gateway contract address',
-        )
-        return this.buildResponse()
-      }
-    }
-
+  ): Promise<void> {
     const gatewayVerifier = new GatewayVerifier(
-      gatewayContractAddress,
-      configs.gateway.rpcEndpoint,
-      configs.gateway.metadata,
-    )
-
-    // Execute basic verification steps
-    await this.executeStep('hardware', flags.hardware, () =>
-      gatewayVerifier.verifyHardware(),
-    )
-    await this.executeStep('os', flags.os, () =>
-      gatewayVerifier.verifyOperatingSystem(),
-    )
-    await this.executeStep('sourceCode', flags.sourceCode, () =>
-      gatewayVerifier.verifySourceCode(),
-    )
-
-    // Execute domain verification steps
-    await this.executeStep('teeControlledKey', flags.teeControlledKey, () =>
-      gatewayVerifier.verifyTeeControlledKey(),
-    )
-    await this.executeStep('certificateKey', flags.certificateKey, () =>
-      gatewayVerifier.verifyCertificateKey(),
-    )
-    await this.executeStep('dnsCAA', flags.dnsCAA, () =>
-      gatewayVerifier.verifyDnsCAA(),
-    )
-    await this.executeStep('ctLog', flags.ctLog, () =>
-      gatewayVerifier.verifyCTLog(),
-    )
-
-    // Configure relationships if KMS was provided
-    if (configs.kms) {
-      this.configureKmsGatewayRelationships()
-    }
-
-    return this.buildResponse()
-  }
-
-  /**
-   * Execute Redpill verification
-   */
-  private async verifyRedpill(
-    configs: VerifierConfigs,
-    flags: VerificationFlags,
-  ): Promise<VerificationResponse> {
-    if (!configs.redpill) {
-      throw new Error('Redpill configuration is required')
-    }
-
-    const redpillVerifier = new RedpillVerifier(
-      configs.redpill.contractAddress,
-      configs.redpill.model,
-      configs.redpill.metadata,
+      systemInfo.kms_info.gateway_app_id as `0x${string}`,
+      systemInfo.kms_info.gateway_app_url,
+      {},
+      systemInfo.kms_info.chain_id,
     )
 
     // Execute verification steps based on flags
-    await this.executeStep('hardware', flags.hardware, () =>
-      redpillVerifier.verifyHardware(),
-    )
-    await this.executeStep('os', flags.os, () =>
-      redpillVerifier.verifyOperatingSystem(),
-    )
-    await this.executeStep('sourceCode', flags.sourceCode, () =>
-      redpillVerifier.verifySourceCode(),
-    )
+    await this.verifyCommon(gatewayVerifier, flags)
+    await this.verifyDomain(gatewayVerifier, flags)
 
-    return this.buildResponse()
+    // Configure KMS-Gateway relationships
+    this.configureKmsGatewayRelationships()
   }
 
   /**
-   * Execute a verification step with timing and error handling
+   * Execute App verification (Redpill or PhalaCloud based on config)
+   */
+  private async verifyApp(
+    appConfig: RedpillConfig | PhalaCloudConfig,
+    flags: VerificationFlags,
+    chainId: number,
+  ): Promise<void> {
+    // Determine verifier type based on config properties
+    let verifier: RedpillVerifier | PhalaCloudVerifier
+
+    if ('model' in appConfig) {
+      // RedpillConfig has model property
+      verifier = new RedpillVerifier(
+        appConfig.contractAddress,
+        appConfig.model,
+        appConfig.metadata,
+        chainId,
+      )
+    } else {
+      // PhalaCloudConfig has domain property
+      verifier = new PhalaCloudVerifier(
+        appConfig.contractAddress,
+        appConfig.domain,
+        appConfig.metadata,
+        chainId,
+      )
+    }
+
+    // Execute verification steps based on flags
+    await this.verifyCommon(verifier, flags)
+  }
+
+  /**
+   * Execute common verification steps based on flags
+   */
+  private async verifyCommon(
+    verifier: Verifier,
+    flags: VerificationFlags,
+  ): Promise<void> {
+    if (flags.hardware) {
+      await this.executeStep(
+        () => verifier.verifyHardware(),
+        'Hardware verification failed',
+      )
+    }
+
+    if (flags.os) {
+      await this.executeStep(
+        () => verifier.verifyOperatingSystem(),
+        'OS verification failed',
+      )
+    }
+
+    if (flags.sourceCode) {
+      await this.executeStep(
+        () => verifier.verifySourceCode(),
+        'Source code verification failed',
+      )
+    }
+  }
+
+  /**
+   * Execute domain verification steps based on flags
+   */
+  private async verifyDomain(
+    verifier: OwnDomain,
+    flags: VerificationFlags,
+  ): Promise<void> {
+    if (flags.teeControlledKey) {
+      await this.executeStep(
+        () => verifier.verifyTeeControlledKey(),
+        'TEE controlled key verification failed',
+      )
+    }
+
+    if (flags.certificateKey) {
+      await this.executeStep(
+        () => verifier.verifyCertificateKey(),
+        'Certificate key verification failed',
+      )
+    }
+
+    if (flags.dnsCAA) {
+      await this.executeStep(
+        () => verifier.verifyDnsCAA(),
+        'DNS CAA verification failed',
+      )
+    }
+
+    if (flags.ctLog) {
+      await this.executeStep(
+        () => verifier.verifyCTLog(),
+        'CT log verification failed',
+      )
+    }
+  }
+
+  /**
+   * Execute a single verification step with error handling
    */
   private async executeStep(
-    stepName: string,
-    shouldExecute: boolean,
-    stepFunction: () => Promise<unknown>,
+    step: () => Promise<unknown>,
+    defaultErrorMessage: string,
   ): Promise<void> {
-    if (!shouldExecute) {
-      this.skippedSteps.push(stepName)
-      return
-    }
-
-    const stepStartTime = Date.now()
-
     try {
-      await stepFunction()
-      this.executedSteps.push(stepName)
+      await step()
     } catch (error) {
-      this.addError(
-        stepName,
-        error instanceof Error ? error.message : 'Unknown error',
-      )
-      this.executedSteps.push(stepName) // Still mark as executed even if failed
-    }
+      let errorMessage: string
+      if (error instanceof Error) {
+        // If the error message is generic, provide more context
+        if (error.message === 'fetch() URL is invalid') {
+          errorMessage = `${defaultErrorMessage}: Invalid or malformed URL provided to fetch()`
+        } else if (
+          error.message.includes('unknown certificate verification error')
+        ) {
+          errorMessage = `${defaultErrorMessage}: ${error.message}`
+        } else {
+          errorMessage = error.message
+        }
+      } else {
+        errorMessage = defaultErrorMessage
+      }
 
-    this.stepTimes[stepName] = Date.now() - stepStartTime
+      console.error(`[VERIFICATION_SERVICE] ${defaultErrorMessage}:`, error)
+      this.addError(errorMessage)
+    }
   }
 
   /**
    * Add an error to the error collection
    */
-  private addError(
-    step: string,
-    message: string,
-    code?: string,
-    details?: unknown,
-  ): void {
+  private addError(message: string): void {
     this.errors.push({
-      step,
       message,
-      code,
-      details,
     })
   }
 
@@ -279,26 +284,30 @@ export class VerificationService {
   }
 
   /**
+   * Get DStack info using extracted utility functions
+   */
+  private async getSystemInfo(
+    appConfig: RedpillConfig | PhalaCloudConfig,
+  ): Promise<SystemInfo> {
+    if ('model' in appConfig) {
+      // RedpillConfig
+      return await getRedpillInfo(appConfig.contractAddress, appConfig.model)
+    } else {
+      // PhalaCloudConfig
+      return await getPhalaCloudInfo(appConfig.contractAddress)
+    }
+  }
+
+  /**
    * Build the final verification response
    */
   private buildResponse(): VerificationResponse {
-    const endTime = Date.now()
-
-    const metadata: ExecutionMetadata = {
-      totalTimeMs: endTime - this.startTime,
-      stepTimes: {...this.stepTimes},
-      executedSteps: [...this.executedSteps],
-      skippedSteps: [...this.skippedSteps],
-      startedAt: new Date(this.startTime).toISOString(),
-      completedAt: new Date(endTime).toISOString(),
-    }
-
     const dataObjects = getAllDataObjects()
     const success = this.errors.length === 0
 
     return {
       dataObjects,
-      metadata,
+      completedAt: new Date().toISOString(),
       errors: [...this.errors],
       success,
     }
