@@ -33,30 +33,42 @@ export class RedpillVerifier extends Verifier {
   }
 
   private async getAttestationBundle(): Promise<AttestationBundle> {
-    const response = await fetch(this.rpcEndpoint, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer test`,
-      },
-    })
+    try {
+      const response = await fetch(this.rpcEndpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer test`,
+        },
+      })
 
-    if (!response.ok) {
+      if (!response.ok) {
+        throw new Error(
+          `Redpill attestation request failed: ${response.status} ${response.statusText} (URL: ${this.rpcEndpoint})`,
+        )
+      }
+
+      const rawAppInfo = await response.json()
+      if (typeof rawAppInfo !== 'object' || rawAppInfo === null) {
+        throw new Error(
+          `Invalid response format from Redpill API: expected object, got ${typeof rawAppInfo} (URL: ${this.rpcEndpoint})`,
+        )
+      }
+
+      return parseAttestationBundle(rawAppInfo as Record<string, unknown>, {
+        nvidiaPayloadSchema: NvidiaPayloadSchema,
+        eventLogSchema: EventLogSchema,
+        appInfoSchema: AppInfoSchema,
+      })
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching attestation bundle from ${this.rpcEndpoint}`
       throw new Error(
-        `Failed to fetch app info: ${response.status} ${response.statusText}`,
+        `Failed to fetch Redpill attestation bundle: ${errorMessage}`,
       )
     }
-
-    const rawAppInfo = await response.json()
-    if (typeof rawAppInfo !== 'object' || rawAppInfo === null) {
-      throw new Error('Invalid response format from API')
-    }
-
-    return parseAttestationBundle(rawAppInfo as Record<string, unknown>, {
-      nvidiaPayloadSchema: NvidiaPayloadSchema,
-      eventLogSchema: EventLogSchema,
-      appInfoSchema: AppInfoSchema,
-    })
   }
 
   protected async getQuote(): Promise<QuoteData> {

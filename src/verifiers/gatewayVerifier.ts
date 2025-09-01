@@ -49,6 +49,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   ) {
     super(metadata, 'gateway')
     this.registrySmartContract = new DstackApp(contractAddress, chainId)
+    console.log('gateway rpcEndpoint', rpcEndpoint)
     this.rpcEndpoint = rpcEndpoint
     this.dataObjectGenerator = new GatewayDataObjectGenerator(metadata)
   }
@@ -77,18 +78,28 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    * Retrieves application information from the Gateway RPC endpoint.
    */
   protected async getAppInfo(): Promise<AppInfo> {
-    const response = await fetch(`${this.rpcEndpoint}/.dstack/app-info`)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch Gateway app info: ${response.status} ${response.statusText}`,
-      )
+    const appInfoUrl = `${this.rpcEndpoint}/.dstack/app-info`
+    try {
+      const response = await fetch(appInfoUrl)
+      if (!response.ok) {
+        throw new Error(
+          `Gateway app-info request failed: ${response.status} ${response.statusText} (URL: ${appInfoUrl})`,
+        )
+      }
+      const responseData = await response.json()
+      console.log('Gateway app-info response:', responseData)
+      return parseJsonFields(responseData as Record<string, unknown>, {
+        tcb_info: TcbInfoSchema,
+        key_provider_info: KeyProviderSchema,
+        vm_config: VmConfigSchema,
+      }) as AppInfo
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching Gateway app info from ${appInfoUrl}`
+      throw new Error(`Failed to fetch Gateway app info: ${errorMessage}`)
     }
-    const responseData = await response.json()
-    return parseJsonFields(responseData as Record<string, unknown>, {
-      tcb_info: TcbInfoSchema,
-      key_provider_info: KeyProviderSchema,
-      vm_config: VmConfigSchema,
-    }) as AppInfo
   }
 
   /**
@@ -160,13 +171,22 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    * Retrieves ACME account information from the Gateway service.
    */
   public async getAcmeInfo(): Promise<AcmeInfo> {
-    const response = await fetch(`${this.rpcEndpoint}/.dstack/acme-info`)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch ACME info from Gateway: ${response.status} ${response.statusText}`,
-      )
+    const acmeInfoUrl = `${this.rpcEndpoint}/.dstack/acme-info`
+    try {
+      const response = await fetch(acmeInfoUrl)
+      if (!response.ok) {
+        throw new Error(
+          `Gateway ACME info request failed: ${response.status} ${response.statusText} (URL: ${acmeInfoUrl})`,
+        )
+      }
+      return (await response.json()) as AcmeInfo
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching ACME info from ${acmeInfoUrl}`
+      throw new Error(`Failed to fetch ACME info from Gateway: ${errorMessage}`)
     }
-    return (await response.json()) as AcmeInfo
   }
 
   /**
