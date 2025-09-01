@@ -59,7 +59,26 @@ export class VerificationService {
 
       return this.buildResponse()
     } catch (error) {
-      this.addError(error instanceof Error ? error.message : 'Unknown error')
+      let errorMessage: string
+      if (error instanceof Error) {
+        // Provide context for common error patterns
+        if (error.message === 'fetch() URL is invalid') {
+          errorMessage =
+            'Verification failed due to invalid URL configuration - check your app configuration or endpoint URLs'
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = `Network error during verification: ${error.message}`
+        } else {
+          errorMessage = error.message
+        }
+      } else {
+        errorMessage = 'Unknown verification error occurred'
+      }
+
+      console.error(
+        '[VERIFICATION_SERVICE] Top-level verification error:',
+        error,
+      )
+      this.addError(errorMessage)
       return this.buildResponse()
     }
   }
@@ -211,9 +230,24 @@ export class VerificationService {
     try {
       await step()
     } catch (error) {
-      this.addError(
-        error instanceof Error ? error.message : defaultErrorMessage,
-      )
+      let errorMessage: string
+      if (error instanceof Error) {
+        // If the error message is generic, provide more context
+        if (error.message === 'fetch() URL is invalid') {
+          errorMessage = `${defaultErrorMessage}: Invalid or malformed URL provided to fetch()`
+        } else if (
+          error.message.includes('unknown certificate verification error')
+        ) {
+          errorMessage = `${defaultErrorMessage}: ${error.message}`
+        } else {
+          errorMessage = error.message
+        }
+      } else {
+        errorMessage = defaultErrorMessage
+      }
+
+      console.error(`[VERIFICATION_SERVICE] ${defaultErrorMessage}:`, error)
+      this.addError(errorMessage)
     }
   }
 

@@ -26,20 +26,31 @@ export class PhalaCloudVerifier extends Verifier {
   ) {
     super(metadata, 'app')
     this.registrySmartContract = new DstackApp(contractAddress, chainId)
-    this.rpcEndpoint = `https://${contractAddress}-8090.${domain}`
+    const cleanAddress = contractAddress.startsWith('0x')
+      ? contractAddress.slice(2)
+      : contractAddress
+    this.rpcEndpoint = `https://${cleanAddress}-8090.${domain}`
     this.dataObjectGenerator = new AppDataObjectGenerator(metadata)
   }
 
   protected async getQuote(): Promise<QuoteData> {
-    const response = await fetch(`${this.rpcEndpoint}/prpc/Quote`)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch Gateway app info: ${response.status} ${response.statusText}`,
-      )
+    const quoteUrl = `${this.rpcEndpoint}/prpc/GetQuote`
+    try {
+      const response = await fetch(quoteUrl)
+      if (!response.ok) {
+        throw new Error(
+          `Phala Cloud quote request failed: ${response.status} ${response.statusText} (URL: ${quoteUrl})`,
+        )
+      }
+      const responseData = await response.json()
+      return responseData as QuoteData
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching quote from ${quoteUrl}`
+      throw new Error(`Failed to fetch Phala Cloud quote: ${errorMessage}`)
     }
-    const responseData = await response.json()
-
-    return responseData as QuoteData
   }
 
   protected async getAttestation(): Promise<AttestationBundle | null> {
@@ -47,18 +58,27 @@ export class PhalaCloudVerifier extends Verifier {
   }
 
   protected async getAppInfo(): Promise<AppInfo> {
-    const response = await fetch(`${this.rpcEndpoint}/prpc/Info`)
-    if (!response.ok) {
-      throw new Error(
-        `Failed to fetch app info: ${response.status} ${response.statusText}`,
-      )
+    const infoUrl = `${this.rpcEndpoint}/prpc/Info`
+    try {
+      const response = await fetch(infoUrl)
+      if (!response.ok) {
+        throw new Error(
+          `Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
+        )
+      }
+      const responseData = await response.json()
+      return parseJsonFields(responseData as Record<string, unknown>, {
+        tcb_info: TcbInfoSchema,
+        key_provider_info: KeyProviderSchema,
+        vm_config: VmConfigSchema,
+      }) as AppInfo
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching app info from ${infoUrl}`
+      throw new Error(`Failed to fetch Phala Cloud app info: ${errorMessage}`)
     }
-    const responseData = await response.json()
-    return parseJsonFields(responseData as Record<string, unknown>, {
-      tcb_info: TcbInfoSchema,
-      key_provider_info: KeyProviderSchema,
-      vm_config: VmConfigSchema,
-    }) as AppInfo
   }
 
   public async verifyHardware(): Promise<boolean> {
