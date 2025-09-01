@@ -1,13 +1,28 @@
 import {createPublicClient, http} from 'viem'
-import {base} from 'viem/chains'
+import type {Chain} from 'viem/chains'
+import {base, mainnet} from 'viem/chains'
 import {abi as appAbi} from './abi/DstackApp.json'
 import {abi as kmsAbi} from './abi/DstackKms.json'
+
+/**
+ * Gets the appropriate chain configuration based on chain ID
+ */
+function getChainFromId(chainId: number): Chain {
+  switch (chainId) {
+    case 1:
+      return mainnet
+    case 8453:
+      return base
+    default:
+      throw new Error(`Unsupported chain ID: ${chainId}`)
+  }
+}
 
 /**
  * Abstract base class for DStack smart contract interactions.
  *
  * Provides common functionality for interacting with DStack contracts
- * deployed on the Base blockchain.
+ * deployed on various blockchains (Ethereum mainnet, Base).
  */
 export abstract class DstackContract {
   /** viem public client for blockchain interactions */
@@ -20,11 +35,12 @@ export abstract class DstackContract {
    * Creates a new DStack contract instance.
    *
    * @param contractAddress - Ethereum address of the contract
+   * @param chainId - Chain ID (1 for Ethereum mainnet, 8453 for Base)
    */
-  constructor(contractAddress: `0x${string}`) {
+  constructor(contractAddress: `0x${string}`, chainId: number) {
     this.address = contractAddress
     this.client = createPublicClient({
-      chain: base,
+      chain: getChainFromId(chainId),
       transport: http(),
     })
   }

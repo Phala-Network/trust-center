@@ -8,9 +8,9 @@ import type {
 import {BaseDataObjectGenerator} from './baseDataObjectGenerator'
 
 /**
- * Data object generator specific to Redpill (App) verifier.
+ * Data object generator specific to App verifier.
  */
-export class RedpillDataObjectGenerator extends BaseDataObjectGenerator {
+export class AppDataObjectGenerator extends BaseDataObjectGenerator {
   constructor(metadata: Record<string, unknown> = {}) {
     super('app', metadata)
   }
@@ -21,70 +21,70 @@ export class RedpillDataObjectGenerator extends BaseDataObjectGenerator {
   generateHardwareDataObjects(
     quoteData: QuoteData,
     verificationResult: VerifyQuoteResult,
-    attestationBundle: AttestationBundle,
+    attestationBundle?: AttestationBundle,
   ): DataObject[] {
     const objects: DataObject[] = []
 
     // App CPU hardware object
     objects.push(this.generateCpuHardwareObject(verificationResult, 3))
-
-    // App GPU hardware object
-    const appGpu: DataObject = {
-      id: this.generateObjectId('gpu'),
-      name: 'App TEE GPU',
-      description:
-        'Graphic processor details for the application Trusted Execution Environment, including manufacturer, model, and supported security features.',
-      fields: {
-        manufacturer: 'Nvidia Corporation',
-        arch: attestationBundle.nvidia_payload.arch || 'HOPPER',
-        model: 'NVIDIA H200 Tensor Core GPU x 8',
-        switch: 'NVLink Switch x 4',
-        memory: '141GB x 8',
-        security_feature: 'Confidential Computing mode',
-      },
-      layer: 3,
-      type: 'hardware_report',
-      kind: 'app',
-      measuredBy: [
-        {
-          objectId: this.generateObjectId('gpu-quote'),
-        },
-      ],
-    }
-
-    // App Intel quote object
     objects.push(this.generateQuoteObject(verificationResult, 4))
-
-    // App GPU quote object
-    const gpuQuote: DataObject = {
-      id: this.generateObjectId('gpu-quote'),
-      name: 'GPU Attestation Report',
-      description:
-        "Cryptographic attestation report by the application node's GPU. Used to prove the integrity and authenticity of the GPU program and data.",
-      fields: {
-        nonce: attestationBundle.nvidia_payload.nonce || '',
-        evidence_list:
-          attestationBundle.nvidia_payload.evidence_list?.map((evidence) => ({
-            certificate: evidence.certificate,
-            evidence: evidence.evidence,
-            arch: evidence.arch,
-          })) || [],
-        arch: attestationBundle.nvidia_payload.arch || 'HOPPER',
-      },
-      layer: 3,
-      type: 'application_report',
-      kind: 'app',
-      measuredBy: [
-        {
-          objectId: this.generateObjectId('main'),
-          fieldName: 'nvidia_attestation_report',
-        },
-      ],
-    }
-
-    // Event log objects
     objects.push(...this.generateEventLogObjects(quoteData.eventlog))
-    objects.push(appGpu, gpuQuote)
+
+    // Only generate GPU objects if attestationBundle is provided
+    if (attestationBundle) {
+      // App GPU hardware object
+      const appGpu: DataObject = {
+        id: this.generateObjectId('gpu'),
+        name: 'App TEE GPU',
+        description:
+          'Graphic processor details for the application Trusted Execution Environment, including manufacturer, model, and supported security features.',
+        fields: {
+          manufacturer: 'Nvidia Corporation',
+          arch: attestationBundle.nvidia_payload.arch || 'HOPPER',
+          model: 'NVIDIA H200 Tensor Core GPU x 8',
+          switch: 'NVLink Switch x 4',
+          memory: '141GB x 8',
+          security_feature: 'Confidential Computing mode',
+        },
+        layer: 3,
+        type: 'hardware_report',
+        kind: 'app',
+        measuredBy: [
+          {
+            objectId: this.generateObjectId('gpu-quote'),
+          },
+        ],
+      }
+
+      // App GPU quote object
+      const gpuQuote: DataObject = {
+        id: this.generateObjectId('gpu-quote'),
+        name: 'GPU Attestation Report',
+        description:
+          "Cryptographic attestation report by the application node's GPU. Used to prove the integrity and authenticity of the GPU program and data.",
+        fields: {
+          nonce: attestationBundle.nvidia_payload.nonce || '',
+          evidence_list:
+            attestationBundle.nvidia_payload.evidence_list?.map((evidence) => ({
+              certificate: evidence.certificate,
+              evidence: evidence.evidence,
+              arch: evidence.arch,
+            })) || [],
+          arch: attestationBundle.nvidia_payload.arch || 'HOPPER',
+        },
+        layer: 3,
+        type: 'application_report',
+        kind: 'app',
+        measuredBy: [
+          {
+            objectId: this.generateObjectId('main'),
+            fieldName: 'nvidia_attestation_report',
+          },
+        ],
+      }
+
+      objects.push(appGpu, gpuQuote)
+    }
 
     return objects
   }
