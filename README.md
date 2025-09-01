@@ -43,6 +43,8 @@ bun run download:dstack-0.5.3
 bun run download:dstack-nvidia-0.5.3
 ```
 
+> **Note**: The `dstack-mr-cli` measurement tool has been separated into its own repository at `./dstack-mr-cli/` with its own Docker build process. See [dstack-mr-cli/README.md](./dstack-mr-cli/README.md) for details.
+
 ### Usage Modes
 
 #### Script Mode (Default)
