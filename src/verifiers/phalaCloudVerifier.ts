@@ -8,6 +8,7 @@ import {
   type VerifierMetadata,
 } from '../types'
 import {DstackApp} from '../utils/dstackContract'
+import {getPhalaCloudInfo} from '../utils/systemInfo'
 import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
 import {getImageFolder, verifyOSIntegrity} from '../verification/osVerification'
 import {verifyComposeHash} from '../verification/sourceCodeVerification'
@@ -34,21 +35,32 @@ export class PhalaCloudVerifier extends Verifier {
   }
 
   protected async getQuote(): Promise<QuoteData> {
-    const quoteUrl = `${this.rpcEndpoint}/prpc/GetQuote`
     try {
-      const response = await fetch(quoteUrl)
-      if (!response.ok) {
+      const systemInfo = await getPhalaCloudInfo(
+        this.registrySmartContract.address,
+      )
+
+      // Get the first instance's quote data
+      if (systemInfo.instances.length === 0) {
+        throw new Error('No instances found in Phala Cloud system info')
+      }
+
+      const instance = systemInfo.instances[0]
+      if (!instance) {
         throw new Error(
-          `Phala Cloud quote request failed: ${response.status} ${response.statusText} (URL: ${quoteUrl})`,
+          'First instance is undefined in Phala Cloud system info',
         )
       }
-      const responseData = await response.json()
-      return responseData as QuoteData
+
+      return {
+        quote: instance.quote,
+        eventlog: instance.eventlog,
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error
           ? error.message
-          : `Unknown error fetching quote from ${quoteUrl}`
+          : 'Unknown error fetching quote from Phala Cloud API'
       throw new Error(`Failed to fetch Phala Cloud quote: ${errorMessage}`)
     }
   }
