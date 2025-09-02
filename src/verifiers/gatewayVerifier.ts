@@ -1,4 +1,4 @@
-import {GatewayDataObjectGenerator} from '../dataObjects/gatewayDataObjectGenerator'
+import { GatewayDataObjectGenerator } from '../dataObjects/gatewayDataObjectGenerator'
 import {
   KeyProviderSchema,
   safeParseEventLog,
@@ -11,21 +11,27 @@ import {
   type AppInfo,
   type AttestationBundle,
   type CTResult,
+  type GatewayMetadata,
   parseJsonFields,
   type QuoteData,
-  type VerifierMetadata,
 } from '../types'
-import {DstackApp} from '../utils/dstackContract'
+import { DstackApp } from '../utils/dstackContract'
 import {
   verifyCertificateKey,
   verifyCTLog,
   verifyDnsCAA,
   verifyTeeControlledKey,
 } from '../verification/domainVerification'
-import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
-import {getImageFolder, verifyOSIntegrity} from '../verification/osVerification'
-import {verifyComposeHash} from '../verification/sourceCodeVerification'
-import {type OwnDomain, Verifier} from '../verifier'
+import {
+  isUpToDate,
+  verifyTeeQuote,
+} from '../verification/hardwareVerification'
+import {
+  getImageFolder,
+  verifyOSIntegrity,
+} from '../verification/osVerification'
+import { verifyComposeHash } from '../verification/sourceCodeVerification'
+import { type OwnDomain, Verifier } from '../verifier'
 
 /**
  * Gateway verifier implementation for DStack TEE applications with domain verification.
@@ -44,8 +50,8 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   constructor(
     contractAddress: `0x${string}`,
     rpcEndpoint: string,
-    metadata: VerifierMetadata = {},
-    chainId: number,
+    metadata: GatewayMetadata,
+    chainId = 8453, // Base mainnet
   ) {
     super(metadata, 'gateway')
     this.registrySmartContract = new DstackApp(contractAddress, chainId)
@@ -114,7 +120,9 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       quoteData,
       verificationResult,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isUpToDate(verificationResult)
   }
@@ -133,7 +141,9 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       appInfo,
       {} /* measurement result */,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isValid
   }
@@ -145,7 +155,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     const appInfo = await this.getAppInfo()
     const quoteData = await this.getQuote()
 
-    const {isValid, calculatedHash, isRegistered} = await verifyComposeHash(
+    const { isValid, calculatedHash, isRegistered } = await verifyComposeHash(
       appInfo,
       quoteData,
       this.registrySmartContract,
@@ -162,7 +172,9 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       this.rpcEndpoint,
       acmeInfo.active_cert,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isValid
   }
@@ -226,7 +238,9 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
         result,
         acmeInfo,
       )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return result
   }

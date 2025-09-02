@@ -29,15 +29,21 @@ import { startServer } from './src/server'
 export type {
   AcmeInfo,
   AppInfo,
+  AppMetadata,
+  AppSourceInfo,
   AttestationBundle,
   DataObject,
   DataObjectEvent,
   EventLog,
+  GatewayMetadata,
+  HardwareInfo,
+  KmsMetadata,
+  NetworkInfo,
   ObjectRelationship,
+  OSSourceInfo,
   Quote,
   QuoteData,
   QuoteResult,
-  VerifierMetadata,
   VerifyQuoteResult,
 } from './src/types'
 // Export DataObject utilities
@@ -51,6 +57,7 @@ export {
 export { OwnDomain, Verifier } from './src/verifier'
 export { GatewayVerifier } from './src/verifiers/gatewayVerifier'
 export { KmsVerifier } from './src/verifiers/kmsVerifier'
+export { PhalaCloudVerifier } from './src/verifiers/phalaCloudVerifier'
 export { RedpillVerifier } from './src/verifiers/redpillVerifier'
 
 // Start the HTTP API server

@@ -1,6 +1,9 @@
 import type {
   AppInfo,
+  AppMetadata,
   DataObject,
+  GatewayMetadata,
+  KmsMetadata,
   LogEntry,
   QuoteData,
   VerifyQuoteResult,
@@ -20,11 +23,11 @@ const TYPE_MAP = {
  */
 export abstract class BaseDataObjectGenerator {
   protected verifierType: 'kms' | 'gateway' | 'app'
-  protected metadata: Record<string, unknown>
+  protected metadata: KmsMetadata | GatewayMetadata | AppMetadata
 
   constructor(
     verifierType: 'kms' | 'gateway' | 'app',
-    metadata: Record<string, unknown> = {},
+    metadata: KmsMetadata | GatewayMetadata | AppMetadata,
   ) {
     this.verifierType = verifierType
     this.metadata = metadata
@@ -50,11 +53,9 @@ export abstract class BaseDataObjectGenerator {
       name: `${this.verifierType.toUpperCase()} TEE Hardware`,
       description: `Hardware platform details for the ${this.verifierType} Trusted Execution Environment, including manufacturer, model, and supported security features.`,
       fields: {
-        manufacturer: this.metadata.cpuManufacturer || 'Intel Corporation',
-        model: this.metadata.cpuModel || 'Intel(R) Xeon(R) CPU',
-        security_feature:
-          this.metadata.securityFeature ||
-          'Intel Trust Domain Extensions (TDX)',
+        manufacturer: this.metadata.hardware.cpuManufacturer,
+        model: this.metadata.hardware.cpuModel,
+        security_feature: this.metadata.hardware.securityFeature,
         verification_status: verificationResult.status,
       },
       layer,
@@ -117,15 +118,16 @@ export abstract class BaseDataObjectGenerator {
     layer: number = 3,
     hasNvidiaSupport: boolean = false,
   ): DataObject {
-    const osVersion = this.metadata.osVersion || '0.5.3'
-    const isNvidiaVariant = hasNvidiaSupport
+    const osVersionString = this.metadata.osSource.version
+    const isNvidiaVariant =
+      hasNvidiaSupport || this.metadata.hardware.hasNvidiaSupport
 
     return {
       id: this.generateObjectId('os'),
       name: `${this.verifierType.toUpperCase()} OS`,
       description: `Integrity measurements and configuration of the ${this.verifierType} operating system, including boot parameters and system components.`,
       fields: {
-        os: `dstack v${osVersion}${isNvidiaVariant ? ' (nvidia)' : ''}`,
+        os: osVersionString,
         shared_ro: true,
         is_dev: true,
         bios: 'ovmf.fd',
@@ -201,29 +203,15 @@ export abstract class BaseDataObjectGenerator {
   /**
    * Generates OS Code DataObjects for operating system source code information.
    */
-  protected generateOSCodeObject(
-    hasNvidiaSupport: boolean = false,
-    layer: number = 1,
-  ): DataObject {
-    const osVersion = String(this.metadata.osVersion || '0.5.3')
-    const gitRevision =
-      this.metadata.gitRevision || '5b63aec337f19a541798970c7cf8d846171f0ca9'
-    const isNvidiaVariant = hasNvidiaSupport
-
-    const versionSuffix = isNvidiaVariant ? '-nvidia' : '-dev'
-    const version = `dstack${versionSuffix}-${osVersion}`
-
-    const repoVersion = osVersion.startsWith('0.') ? `v${osVersion}` : osVersion
-    const githubRepo = `https://github.com/Dstack-TEE/meta-dstack/tree/${repoVersion}`
-
+  protected generateOSCodeObject(layer: number = 1): DataObject {
     return {
       id: this.generateObjectId('os-code'),
       name: `${this.verifierType.toUpperCase()} OS Code`,
       description: `Source code and version information for the ${this.verifierType} operating system, including repository URL, commit hash, and release version.`,
       fields: {
-        github_repo: githubRepo,
-        git_commit: gitRevision,
-        version: version,
+        github_repo: this.metadata.osSource.github_repo,
+        git_commit: this.metadata.osSource.git_commit,
+        version: this.metadata.osSource.version,
       },
       layer,
       type: TYPE_MAP[this.verifierType],
@@ -355,26 +343,23 @@ export abstract class BaseDataObjectGenerator {
     isRegistered?: boolean,
     layer: number = 3,
   ): DataObject {
-    const defaultRepoMap = {
-      kms: 'https://github.com/Dstack-TEE/dstack/tree/main/kms',
-      gateway: 'https://github.com/Dstack-TEE/dstack/tree/main/gateway',
-      app: 'N/A',
+    const fields: Record<string, unknown> = {
+      compose_file: appInfo.tcb_info.app_compose,
     }
 
-    const fields: Record<string, unknown> = {
-      github_repo:
-        this.metadata.githubRepo || defaultRepoMap[this.verifierType],
-      git_commit: this.metadata.gitCommit || this.metadata.gitRevision || 'N/A',
-      version: this.metadata.version || 'N/A',
-      compose_file: appInfo.tcb_info.app_compose,
+    // Add app source info if available (for gateway and app verifiers)
+    if ('appSource' in this.metadata) {
+      fields.github_repo = this.metadata.appSource?.github_repo
+      fields.git_commit = this.metadata.appSource?.git_commit
+      fields.version = this.metadata.appSource?.version
+
+      if (this.metadata.appSource?.model_name) {
+        fields.model_name = this.metadata.appSource.model_name
+      }
     }
 
     if (isRegistered !== undefined) {
       fields.is_registered = isRegistered
-    }
-
-    if (this.metadata.modelName) {
-      fields.model_name = this.metadata.modelName
     }
 
     return {

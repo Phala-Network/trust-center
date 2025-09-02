@@ -2,13 +2,13 @@ import { AppDataObjectGenerator } from '../dataObjects/appDataObjectGenerator'
 import { KeyProviderSchema, TcbInfoSchema, VmConfigSchema } from '../schemas'
 import {
   type AppInfo,
+  type AppMetadata,
   type AttestationBundle,
   parseJsonFields,
   type QuoteData,
-  type VerifierMetadata,
 } from '../types'
 import { DstackApp } from '../utils/dstackContract'
-import { getPhalaCloudInfo } from '../utils/systemInfo'
+import { getPhalaCloudInfo, hasNvidiaSupport } from '../utils/systemInfo'
 import {
   isUpToDate,
   verifyTeeQuote,
@@ -24,15 +24,18 @@ export class PhalaCloudVerifier extends Verifier {
   public registrySmartContract: DstackApp
   private rpcEndpoint: string
   private dataObjectGenerator: AppDataObjectGenerator
+  private appMetadata: AppMetadata
 
   constructor(
     contractAddress: `0x${string}`,
     domain: string,
-    metadata: VerifierMetadata = {},
-    chainId: number,
+    metadata: AppMetadata,
+    chainId = 8453, // Base mainnet
   ) {
     super(metadata, 'app')
     this.registrySmartContract = new DstackApp(contractAddress, chainId)
+    this.appMetadata = metadata
+
     const cleanAddress = contractAddress.startsWith('0x')
       ? contractAddress.slice(2)
       : contractAddress
@@ -85,11 +88,27 @@ export class PhalaCloudVerifier extends Verifier {
         )
       }
       const responseData = await response.json()
-      return parseJsonFields(responseData as Record<string, unknown>, {
+      const appInfo = parseJsonFields(responseData as Record<string, unknown>, {
         tcb_info: TcbInfoSchema,
         key_provider_info: KeyProviderSchema,
         vm_config: VmConfigSchema,
       }) as AppInfo
+
+      // Update metadata with NVIDIA support detection
+      const nvidiaSupported = hasNvidiaSupport(appInfo)
+      this.appMetadata = {
+        ...this.appMetadata,
+        hardware: {
+          ...this.appMetadata.hardware,
+          hasNvidiaSupport: nvidiaSupported,
+        },
+      }
+      this.metadata = this.appMetadata
+
+      // Update data object generator with fresh metadata
+      this.dataObjectGenerator = new AppDataObjectGenerator(this.appMetadata)
+
+      return appInfo
     } catch (error) {
       const errorMessage =
         error instanceof Error

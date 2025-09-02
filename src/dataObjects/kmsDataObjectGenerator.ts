@@ -1,6 +1,7 @@
 import type {
   AppInfo,
   DataObject,
+  KmsMetadata,
   QuoteData,
   VerifyQuoteResult,
 } from '../types'
@@ -10,7 +11,7 @@ import { BaseDataObjectGenerator } from './baseDataObjectGenerator'
  * Data object generator specific to KMS verifier.
  */
 export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
-  constructor(metadata: Record<string, unknown> = {}) {
+  constructor(metadata: KmsMetadata) {
     super('kms', metadata)
   }
 
@@ -48,7 +49,7 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
     objects.push(this.generateOSObject(appInfo, measurementResult, 3))
 
     // KMS OS Code object
-    objects.push(this.generateOSCodeObject(false, 1))
+    objects.push(this.generateOSCodeObject(1))
 
     return objects
   }
@@ -73,8 +74,8 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
       description:
         'The KMS Info serves as the root-of-trust for the whole system, managing cryptographic keys and providing authentication for applications.',
       fields: {
-        blockchain: (this.metadata.blockchain as string) || 'Base',
-        registry_smart_contract: `${(this.metadata.blockchainExplorerUrl as string) || 'https://basescan.org'}/address/${contractAddress}`,
+        blockchain: (this.metadata as KmsMetadata).network?.blockchain,
+        registry_smart_contract: `${(this.metadata as KmsMetadata).network?.blockchainExplorerUrl}/address/${contractAddress}`,
         wallet_pubkey:
           '0x023b01f10326307ced2eaf59c798508f0b2c36c03788445d874b75507b730f6eba',
         cert_pubkey: certificateAuthorityPublicKey,

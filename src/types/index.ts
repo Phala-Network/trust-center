@@ -12,10 +12,20 @@ export type * from './attestation'
 export type * from './core'
 // Domain types
 export type * from './domain'
+// Metadata types (re-export specific types to avoid conflicts)
+export type {
+  AppMetadata,
+  AppSourceInfo,
+  GatewayMetadata,
+  HardwareInfo,
+  KmsMetadata,
+  NetworkInfo,
+  OSSourceInfo,
+  VerifierMetadata,
+} from './metadata'
 // Quote types
 export type * from './quote'
 // Data objects types
 export type * from './ui'
-
 // Utility functions
 export * from './utils'
