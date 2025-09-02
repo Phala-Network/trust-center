@@ -6,7 +6,7 @@ let db: ReturnType<typeof drizzle> | undefined
 
 export function createDbConnection(databaseUrl: string) {
   if (!db) {
-    db = drizzle(databaseUrl, { schema })
+    db = drizzle(databaseUrl, { schema, casing: 'snake_case' })
   }
   return db
 }
