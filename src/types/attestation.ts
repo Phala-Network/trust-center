@@ -1,5 +1,5 @@
-import type {AppInfo} from './application'
-import type {LogEntry} from './core'
+import type { AppInfo } from './application'
+import type { LogEntry } from './core'
 
 /**
  * Types related to hardware attestation and GPU evidence.

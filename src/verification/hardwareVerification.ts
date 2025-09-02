@@ -1,5 +1,5 @@
-import type {QuoteData, VerifyQuoteResult} from '../types'
-import {verifyQuote} from '../utils/dcap-qvl'
+import type { QuoteData, VerifyQuoteResult } from '../types'
+import { verifyQuote } from '../utils/dcap-qvl'
 
 /**
  * Verifies TEE hardware attestation using DCAP-QVL.
@@ -10,7 +10,7 @@ import {verifyQuote} from '../utils/dcap-qvl'
 export async function verifyTeeQuote(
   quoteData: QuoteData,
 ): Promise<VerifyQuoteResult> {
-  return verifyQuote(quoteData.quote, {hex: true})
+  return verifyQuote(quoteData.quote, { hex: true })
 }
 
 /**

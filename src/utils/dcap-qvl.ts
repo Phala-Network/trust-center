@@ -1,11 +1,11 @@
-import {exec} from 'node:child_process'
-import {rm, writeFile} from 'node:fs/promises'
-import {tmpdir} from 'node:os'
+import { exec } from 'node:child_process'
+import { rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import * as path from 'node:path'
-import {promisify} from 'node:util'
+import { promisify } from 'node:util'
 
-import {safeParseQuoteData, safeParseQuoteResult} from '../schemas'
-import type {QuoteResult, VerifyQuoteResult} from '../types'
+import { safeParseQuoteData, safeParseQuoteResult } from '../schemas'
+import type { QuoteResult, VerifyQuoteResult } from '../types'
 
 /** Promisified version of child_process.exec for async/await usage */
 const execAsync = promisify(exec)
@@ -25,7 +25,7 @@ const DCAP_QVL_CLI_PATH = path.join(__dirname, '../..//bin/dcap-qvl')
  */
 export async function decodeQuoteFile(
   quoteFilePath: string,
-  options?: {hex?: boolean; fmspc?: boolean},
+  options?: { hex?: boolean; fmspc?: boolean },
 ): Promise<QuoteResult> {
   let cliCommand = `${DCAP_QVL_CLI_PATH} decode`
   if (options?.hex) {
@@ -37,7 +37,7 @@ export async function decodeQuoteFile(
   cliCommand += ` ${quoteFilePath}`
 
   try {
-    const {stdout} = await execAsync(cliCommand)
+    const { stdout } = await execAsync(cliCommand)
     return safeParseQuoteData(stdout)
   } catch (cliError: unknown) {
     const errorMessage =
@@ -57,7 +57,7 @@ export async function decodeQuoteFile(
  */
 export async function verifyQuoteFile(
   quoteFilePath: string,
-  options?: {hex?: boolean},
+  options?: { hex?: boolean },
 ): Promise<VerifyQuoteResult> {
   let cliCommand = `${DCAP_QVL_CLI_PATH} verify`
   if (options?.hex) {
@@ -66,7 +66,7 @@ export async function verifyQuoteFile(
   cliCommand += ` ${quoteFilePath}`
 
   try {
-    const {stdout} = await execAsync(cliCommand)
+    const { stdout } = await execAsync(cliCommand)
     return safeParseQuoteResult(stdout)
   } catch (cliError: unknown) {
     const errorMessage =
@@ -89,7 +89,7 @@ export async function verifyQuoteFile(
  */
 export async function decodeQuote(
   quoteString: string,
-  options?: {hex?: boolean; fmspc?: boolean},
+  options?: { hex?: boolean; fmspc?: boolean },
 ): Promise<QuoteResult> {
   const temporaryFilePath = path.join(tmpdir(), `quote-${Date.now()}.hex`)
   await writeFile(temporaryFilePath, quoteString)
@@ -115,7 +115,7 @@ export async function decodeQuote(
  */
 export async function verifyQuote(
   quoteString: string,
-  options?: {hex?: boolean},
+  options?: { hex?: boolean },
 ): Promise<VerifyQuoteResult> {
   const temporaryFilePath = path.join(tmpdir(), `quote-${Date.now()}.hex`)
   await writeFile(temporaryFilePath, quoteString)

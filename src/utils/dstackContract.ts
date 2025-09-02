@@ -1,8 +1,8 @@
-import {createPublicClient, http} from 'viem'
-import type {Chain} from 'viem/chains'
-import {base, mainnet} from 'viem/chains'
-import {abi as appAbi} from './abi/DstackApp.json'
-import {abi as kmsAbi} from './abi/DstackKms.json'
+import { createPublicClient, http } from 'viem'
+import type { Chain } from 'viem/chains'
+import { base, mainnet } from 'viem/chains'
+import { abi as appAbi } from './abi/DstackApp.json'
+import { abi as kmsAbi } from './abi/DstackKms.json'
 
 /**
  * Gets the appropriate chain configuration based on chain ID

@@ -1,6 +1,6 @@
-import {createHash} from 'node:crypto'
-import type {AppInfo, EventLog, QuoteData} from '../types'
-import type {DstackApp} from '../utils/dstackContract'
+import { createHash } from 'node:crypto'
+import type { AppInfo, EventLog, QuoteData } from '../types'
+import type { DstackApp } from '../utils/dstackContract'
 
 /**
  * Verifies source code authenticity by validating compose hash.
@@ -15,12 +15,16 @@ export async function verifyComposeHash(
   appInfo: AppInfo,
   quoteData: QuoteData,
   registryContract?: DstackApp,
-): Promise<{isValid: boolean; calculatedHash: string; isRegistered?: boolean}> {
+): Promise<{
+  isValid: boolean
+  calculatedHash: string
+  isRegistered?: boolean
+}> {
   const appComposeConfig = appInfo.tcb_info.app_compose
   const composeHashEvent = findComposeHashEvent(quoteData.eventlog)
 
   if (!composeHashEvent) {
-    return {isValid: false, calculatedHash: ''}
+    return { isValid: false, calculatedHash: '' }
   }
 
   // Check if hash is registered on-chain (if registry provided)

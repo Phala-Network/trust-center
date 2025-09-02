@@ -1,7 +1,7 @@
-import {createHash, X509Certificate} from 'node:crypto'
-import {safeParseQuoteExt} from '../schemas'
-import type {AcmeInfo, CTLogEntry, CTResult} from '../types'
-import {verifyQuote} from '../utils/dcap-qvl'
+import { createHash, X509Certificate } from 'node:crypto'
+import { safeParseQuoteExt } from '../schemas'
+import type { AcmeInfo, CTLogEntry, CTResult } from '../types'
+import { verifyQuote } from '../utils/dcap-qvl'
 
 /** HTTP headers that mimic Chrome browser requests for external API calls */
 const CHROME_USER_AGENT_HEADERS = {
@@ -74,7 +74,7 @@ export async function verifyTeeControlledKey(
  * Verifies certificate chain integrity and trust.
  */
 export function verifyCertificateKey(acmeInfo: AcmeInfo): boolean {
-  const {active_cert: activeCertificate, hist_keys: historicalKeys} = acmeInfo
+  const { active_cert: activeCertificate, hist_keys: historicalKeys } = acmeInfo
   const teePublicKey = historicalKeys[0]
 
   if (!activeCertificate) {
@@ -173,8 +173,8 @@ export async function verifyDnsCAA(
       )
     }
 
-    const {Answer: dnsRecords} = (await dnsResponse.json()) as {
-      Answer?: Array<{type: number; data?: string}>
+    const { Answer: dnsRecords } = (await dnsResponse.json()) as {
+      Answer?: Array<{ type: number; data?: string }>
     }
 
     const caaRecords = dnsRecords?.filter((record) => record.type === 257) ?? []
@@ -209,7 +209,7 @@ export async function verifyDnsCAA(
  * Verifies complete TEE control through Certificate Transparency logs.
  */
 export async function verifyCTLog(acmeInfo: AcmeInfo): Promise<CTResult> {
-  const {base_domain: domainName, hist_keys: teePublicKeys} = acmeInfo
+  const { base_domain: domainName, hist_keys: teePublicKeys } = acmeInfo
   const certificateHistory = await queryCTLogs(domainName)
 
   let teeControlledCertificateCount = 0
@@ -395,7 +395,7 @@ async function queryCTLogs(domainName: string): Promise<CTLogEntry[]> {
 async function processCertificate(
   certificateEntry: CTLogEntry,
   teeControlledKeys: string[],
-): Promise<{publicKeyHex: string; isTeeControlled: boolean} | null> {
+): Promise<{ publicKeyHex: string; isTeeControlled: boolean } | null> {
   const certificatePem = await fetchCertificateById(certificateEntry.id)
   if (!certificatePem) {
     return null
@@ -412,7 +412,7 @@ async function processCertificate(
     teeControlledKeys,
   )
 
-  return {publicKeyHex, isTeeControlled}
+  return { publicKeyHex, isTeeControlled }
 }
 
 async function fetchCertificateById(

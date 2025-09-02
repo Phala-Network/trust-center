@@ -4,7 +4,7 @@
  * Simple test runner for the three curl requests
  */
 
-import {VerificationService} from './src/verificationService'
+import { VerificationService } from './src/verificationService'
 
 const TEST_CASES = [
   {

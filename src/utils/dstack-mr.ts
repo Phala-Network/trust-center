@@ -1,8 +1,8 @@
-import {exec} from 'node:child_process'
+import { exec } from 'node:child_process'
 import * as path from 'node:path'
-import {promisify} from 'node:util'
-import {safeParseOsMeasurement} from '../schemas'
-import type {VmConfig} from '../types'
+import { promisify } from 'node:util'
+import { safeParseOsMeasurement } from '../schemas'
+import type { VmConfig } from '../types'
 
 /** Promisified version of child_process.exec for async/await usage */
 const execAsync = promisify(exec)
@@ -89,10 +89,10 @@ export async function measureDstackImages(
   const dockerCommand = `docker run --rm --privileged -v "${absoluteImagePath}":/app/dstack-images ${DSTACK_MR_DOCKER_IMAGE} measure /app/dstack-images/metadata.json ${argumentsString}`
 
   try {
-    const {stdout} = await execAsync(dockerCommand)
+    const { stdout } = await execAsync(dockerCommand)
     return safeParseOsMeasurement(stdout)
   } catch (dockerError: unknown) {
-    const execError = dockerError as {stderr?: string; message: string}
+    const execError = dockerError as { stderr?: string; message: string }
     const errorMessage = execError.stderr || execError.message
     throw new Error(`Failed to run DStack measurement tool: ${errorMessage}`)
   }

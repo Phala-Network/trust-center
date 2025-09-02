@@ -5,6 +5,7 @@ export default defineConfig({
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL || 'postgresql://localhost:5432/dstack_verifier',
+    url:
+      process.env.DATABASE_URL || 'postgresql://localhost:5432/dstack_verifier',
   },
 })

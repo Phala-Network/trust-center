@@ -5,11 +5,11 @@
  * with configurable parameters and verification flags.
  */
 
-import type {ServerConfig} from './config'
-import {DEFAULT_SERVER_CONFIG} from './config'
-import type {ApiErrorResponse} from './types'
-import {VerificationRequestSchema} from './types/api'
-import {VerificationService} from './verificationService'
+import type { ServerConfig } from './config'
+import { DEFAULT_SERVER_CONFIG } from './config'
+import type { ApiErrorResponse } from './types'
+import { VerificationRequestSchema } from './types/api'
+import { VerificationService } from './verificationService'
 
 /**
  * DStack Verifier API Server
@@ -26,7 +26,7 @@ export class DStackVerifierServer {
    * Start the HTTP server
    */
   async start(): Promise<void> {
-    const {port, host} = this.config
+    const { port, host } = this.config
 
     this.server = Bun.serve({
       port,
@@ -57,7 +57,7 @@ export class DStackVerifierServer {
 
     // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
-      return this.createCorsResponse(new Response(null, {status: 204}))
+      return this.createCorsResponse(new Response(null, { status: 204 }))
     }
 
     try {
@@ -151,8 +151,8 @@ export class DStackVerifierServer {
         contractAddress: verificationRequest.app
           .contractAddress as `0x${string}`,
         ...('model' in verificationRequest.app
-          ? {model: verificationRequest.app.model}
-          : {domain: verificationRequest.app.domain}),
+          ? { model: verificationRequest.app.model }
+          : { domain: verificationRequest.app.domain }),
         metadata: verificationRequest.app.metadata || {},
       }
 
