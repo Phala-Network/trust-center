@@ -40,8 +40,8 @@ EXPOSE 3000 4983
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-# Default development command
-CMD ["bun", "run", "server:dev"]
+# Default development command with migrations
+CMD ["sh", "-c", "bun run db:migrate && bun run server:dev"]
 
 # Production stage - minimal runtime image
 FROM base AS production
@@ -70,5 +70,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=20s --timeout=5s --start-period=15s --retries=5 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-# Start the server
-CMD ["bun", "run", "server"]
+# Start the server with migrations
+CMD ["sh", "-c", "bun run db:migrate && bun run server"]

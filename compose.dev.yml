@@ -46,45 +46,62 @@ services:
       dockerfile: Dockerfile
     container_name: dstack-verifier-server-dev
     restart: unless-stopped
-    # Development command with hot reload and Drizzle Studio
-    command: [ 
-      "sh", "-c", 
-      "bun run db:studio --host 0.0.0.0 --port 4983 & bun run server:dev" 
-    ]
+    # Development command with migrations, hot reload and Drizzle Studio
+    command: [ "sh", "-c", "bun run db:migrate && bun run db:studio --host 0.0.0.0 --port 4983 & bun run server:dev" ]
     environment:
       # Database configuration
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dstack_verifier_dev}
-      
+      POSTGRES_DB: ${POSTGRES_DB:-dstack_verifier_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+
       # Redis configuration
       REDIS_URL: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
-      
-      # Development configuration
-      NODE_ENV: development
-      PORT: 3000
-      
-      # DStack configuration for development
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-dev_password}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+
+      # Application configuration
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3000}
+      APP_PORT: ${APP_PORT:-3000}
+      STUDIO_PORT: ${STUDIO_PORT:-4983}
+
+      # DStack blockchain configuration
       DSTACK_BASE_URL: ${DSTACK_BASE_URL:-https://api.base.org}
       DSTACK_KMS_CONTRACT: ${DSTACK_KMS_CONTRACT:-0x...}
       DSTACK_APP_CONTRACT: ${DSTACK_APP_CONTRACT:-0x...}
-      
+
       # Queue configuration (lighter for development)
       QUEUE_NAME: ${QUEUE_NAME:-dev-verification-queue}
       QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-3}
       QUEUE_MAX_ATTEMPTS: ${QUEUE_MAX_ATTEMPTS:-2}
       QUEUE_BACKOFF_DELAY: ${QUEUE_BACKOFF_DELAY:-1000}
-      
+
       # Development debugging
       DEBUG: ${DEBUG:-dstack:*}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
-      
-      # External services (optional for development)
+
+      # External services (Cloudflare R2 or AWS S3 compatible)
       R2_ENDPOINT: ${R2_ENDPOINT}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
       R2_BUCKET: ${R2_BUCKET}
+
+      # TEE verification settings
+      DCAP_QVL_PATH: ${DCAP_QVL_PATH:-/app/bin/dcap-qvl}
+      DCAP_COLLATERAL_URL: ${DCAP_COLLATERAL_URL:-https://api.trustedservices.intel.com/sgx/certification/v4/}
+
+      # DStack measurement settings
+      DSTACK_MEASUREMENT_TIMEOUT: ${DSTACK_MEASUREMENT_TIMEOUT:-300000}
+      DSTACK_DOCKER_PRIVILEGED: ${DSTACK_DOCKER_PRIVILEGED:-true}
+
+      # Certificate verification settings
+      CT_LOG_URL: ${CT_LOG_URL:-https://crt.sh}
+      DNS_SERVER: ${DNS_SERVER:-8.8.8.8}
     ports:
-      - "${APP_PORT:-3000}:3000"      # Main application
-      - "${STUDIO_PORT:-4983}:4983"   # Drizzle Studio
+      - "${APP_PORT:-3000}:3000" # Main application
+      - "${STUDIO_PORT:-4983}:4983" # Drizzle Studio
     volumes:
       # Source code for hot reload
       - ./src:/app/src:rw
