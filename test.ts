@@ -4,7 +4,19 @@
  * Simple test runner for the three curl requests
  */
 
+import type { SystemInfo } from './src/types/application'
+import type { AppSourceInfo } from './src/types/metadata'
+import { createAppMetadata } from './src/utils/metadataUtils'
+import { getPhalaCloudInfo, getRedpillInfo } from './src/utils/systemInfo'
 import { VerificationService } from './src/verificationService'
+
+// Sample app source info for ML applications
+const deepseekAppSource: AppSourceInfo = {
+  github_repo: 'https://github.com/phala-network/ai-agent-template',
+  git_commit: 'a1b2c3d4e5f6',
+  version: 'v1.0.0',
+  model_name: 'phala/deepseek-chat-v3-0324',
+}
 
 const TEST_CASES = [
   {
@@ -12,7 +24,9 @@ const TEST_CASES = [
     config: {
       contractAddress: '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece' as const,
       model: 'phala/deepseek-chat-v3-0324',
-      metadata: {},
+      metadata: {} as any, // Will be populated dynamically
+      appSource: deepseekAppSource,
+      hasNvidiaSupport: true,
     },
   },
   // This will fail because of Gateway cert configuration issues
@@ -29,7 +43,7 @@ const TEST_CASES = [
     config: {
       contractAddress: '0xc16c8a4bbc5a8a8a09464eedae0eb6bfd60e77cb' as const,
       domain: 'dstack-base-prod6.phala.network',
-      metadata: {},
+      metadata: {} as any, // Will be populated dynamically
     },
   },
   {
@@ -37,7 +51,7 @@ const TEST_CASES = [
     config: {
       contractAddress: '0xd722c43a6f4f42d53dc7bc97ba04a1cb17ce3a34' as const,
       domain: 'dstack-base-prod7.phala.network',
-      metadata: {},
+      metadata: {} as any, // Will be populated dynamically
     },
   },
 ]
@@ -57,6 +71,35 @@ async function runTests() {
     const startTime = Date.now()
 
     try {
+      // Get systemInfo and populate metadata
+      let systemInfo: SystemInfo
+      if ('model' in testCase.config) {
+        // Redpill config
+        systemInfo = await getRedpillInfo(
+          testCase.config.contractAddress,
+          testCase.config.model || '',
+        )
+        testCase.config.metadata = createAppMetadata(
+          systemInfo,
+          (testCase.config as any).appSource,
+          (testCase.config as any).hasNvidiaSupport,
+        )
+      } else if ('domain' in testCase.config) {
+        // PhalaCloud config
+        systemInfo = await getPhalaCloudInfo(testCase.config.contractAddress)
+        testCase.config.metadata = createAppMetadata(
+          systemInfo,
+          undefined,
+          true,
+        )
+      } else {
+        throw new Error('Invalid test case configuration')
+      }
+
+      console.log(
+        `   📋 Metadata populated from systemInfo (version: ${systemInfo.kms_info.version})`,
+      )
+
       const result = await service.verify(testCase.config)
       const duration = Date.now() - startTime
 
