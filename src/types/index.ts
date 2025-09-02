@@ -29,3 +29,5 @@ export type * from './quote'
 export type * from './ui'
 // Utility functions
 export * from './utils'
+// Verifier chain types
+export type * from './verifierChain'

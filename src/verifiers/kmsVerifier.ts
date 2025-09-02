@@ -1,17 +1,10 @@
-import { DeepseekKmsInfo } from '../consts'
 import { KmsDataObjectGenerator } from '../dataObjects/kmsDataObjectGenerator'
-import {
-  KeyProviderSchema,
-  safeParseEventLog,
-  TcbInfoSchema,
-  VmConfigSchema,
-} from '../schemas'
-import {
-  type AppInfo,
-  type AttestationBundle,
-  type KmsMetadata,
-  parseJsonFields,
-  type QuoteData,
+import { safeParseEventLog } from '../schemas'
+import type {
+  AppInfo,
+  AttestationBundle,
+  KmsMetadata,
+  QuoteData,
 } from '../types'
 import { DstackKms } from '../utils/dstackContract'
 import {
@@ -26,18 +19,18 @@ import { verifyComposeHash } from '../verification/sourceCodeVerification'
 import { Verifier } from '../verifier'
 
 /**
- * KMS (Key Management Service) verifier implementation for DStack TEE applications.
+ * Abstract base class for KMS (Key Management Service) verifier implementations.
  *
- * This verifier retrieves attestation data from a smart contract and verifies
- * the integrity of a KMS service running in a TEE environment.
+ * This class provides common functionality for verifying KMS services running in TEE environments,
+ * while allowing subclasses to implement app-specific logic for retrieving application information.
  */
-export class KmsVerifier extends Verifier {
+export abstract class KmsVerifier extends Verifier {
   /** Smart contract interface for retrieving KMS attestation data */
   public registrySmartContract: DstackKms
   /** Certificate Authority public key extracted from the smart contract */
   public certificateAuthorityPublicKey: `0x${string}` = '0x'
   /** Data object generator for KMS-specific objects */
-  private dataObjectGenerator: KmsDataObjectGenerator
+  protected dataObjectGenerator: KmsDataObjectGenerator
 
   /**
    * Creates a new KMS verifier instance.
@@ -86,14 +79,9 @@ export class KmsVerifier extends Verifier {
 
   /**
    * Retrieves application information for the KMS instance.
+   * Must be implemented by subclasses to provide app-specific logic.
    */
-  protected async getAppInfo(): Promise<AppInfo> {
-    return parseJsonFields<AppInfo>(DeepseekKmsInfo, {
-      tcb_info: TcbInfoSchema,
-      key_provider_info: KeyProviderSchema,
-      vm_config: VmConfigSchema,
-    })
-  }
+  protected abstract override getAppInfo(): Promise<AppInfo>
 
   /**
    * Verifies the hardware attestation by validating the TDX quote.
