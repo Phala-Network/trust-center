@@ -1,4 +1,8 @@
-export const DeepseekKmsInfo = {
+import { KeyProviderSchema, TcbInfoSchema, VmConfigSchema } from '../schemas'
+import { type AppInfo, type KmsMetadata, parseJsonFields } from '../types'
+import { KmsVerifier } from './kmsVerifier'
+
+const DeepseekKmsInfo = {
   app_id: '65b0da4cc194cab003552e6fdf5e14dacd0ff761',
   instance_id: '',
   app_cert:
@@ -16,4 +20,35 @@ export const DeepseekKmsInfo = {
     '65b0da4cc194cab003552e6fdf5e14dacd0ff761418cef114a148e337425ad7e',
   vm_config:
     '{"spec_version":1,"os_image_hash":"2d24d302cc8686d6a0ece71a6afef55c506bc8591e3bcc1ec3eb5323d77582c4","cpu_count":8,"memory_size":8589934592,"qemu_single_pass_add_pages":false,"pic":true,"pci_hole64_size":0,"hugepages":false,"num_gpus":0,"num_nvswitches":0,"hotplug_off":false}',
+}
+
+/**
+ * Redpill-specific KMS verifier implementation.
+ *
+ * This verifier uses hardcoded application information specifically for Redpill apps.
+ * It extends the base KmsVerifier class and provides the DeepseekKmsInfo for getAppInfo().
+ */
+export class RedpillKmsVerifier extends KmsVerifier {
+  /**
+   * Creates a new Redpill KMS verifier instance.
+   */
+  constructor(
+    contractAddress: `0x${string}`,
+    metadata: KmsMetadata,
+    chainId = 8453, // Base mainnet
+  ) {
+    super(contractAddress, metadata, chainId)
+  }
+
+  /**
+   * Retrieves application information using hardcoded DeepseekKmsInfo.
+   * This is the original behavior that worked for Redpill apps.
+   */
+  protected override async getAppInfo(): Promise<AppInfo> {
+    return parseJsonFields<AppInfo>(DeepseekKmsInfo, {
+      tcb_info: TcbInfoSchema,
+      key_provider_info: KeyProviderSchema,
+      vm_config: VmConfigSchema,
+    })
+  }
 }

@@ -53,11 +53,20 @@ export {
   configureVerifierRelationships,
   getAllDataObjects,
 } from './src/utils/dataObjectCollector'
+// Verification Service
+export { VerificationService } from './src/verificationService'
 // Re-export main classes and types for external use
 export { OwnDomain, Verifier } from './src/verifier'
+// Verifier Chain System
+export { createVerifiers, executeVerifiers } from './src/verifierChain'
+// Gateway Verifier
 export { GatewayVerifier } from './src/verifiers/gatewayVerifier'
+// KMS Verifiers
 export { KmsVerifier } from './src/verifiers/kmsVerifier'
+export { PhalaCloudKmsVerifier } from './src/verifiers/phalaCloudKmsVerifier'
+// Application Verifiers
 export { PhalaCloudVerifier } from './src/verifiers/phalaCloudVerifier'
+export { RedpillKmsVerifier } from './src/verifiers/redpillKmsVerifier'
 export { RedpillVerifier } from './src/verifiers/redpillVerifier'
 
 // Start the HTTP API server
