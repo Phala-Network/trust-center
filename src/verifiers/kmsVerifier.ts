@@ -1,5 +1,5 @@
-import {DeepseekKmsInfo} from '../consts'
-import {KmsDataObjectGenerator} from '../dataObjects/kmsDataObjectGenerator'
+import { DeepseekKmsInfo } from '../consts'
+import { KmsDataObjectGenerator } from '../dataObjects/kmsDataObjectGenerator'
 import {
   KeyProviderSchema,
   safeParseEventLog,
@@ -9,15 +9,21 @@ import {
 import {
   type AppInfo,
   type AttestationBundle,
+  type KmsMetadata,
   parseJsonFields,
   type QuoteData,
-  type VerifierMetadata,
 } from '../types'
-import {DstackKms} from '../utils/dstackContract'
-import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
-import {getImageFolder, verifyOSIntegrity} from '../verification/osVerification'
-import {verifyComposeHash} from '../verification/sourceCodeVerification'
-import {Verifier} from '../verifier'
+import { DstackKms } from '../utils/dstackContract'
+import {
+  isUpToDate,
+  verifyTeeQuote,
+} from '../verification/hardwareVerification'
+import {
+  getImageFolder,
+  verifyOSIntegrity,
+} from '../verification/osVerification'
+import { verifyComposeHash } from '../verification/sourceCodeVerification'
+import { Verifier } from '../verifier'
 
 /**
  * KMS (Key Management Service) verifier implementation for DStack TEE applications.
@@ -38,8 +44,8 @@ export class KmsVerifier extends Verifier {
    */
   constructor(
     contractAddress: `0x${string}`,
-    metadata: VerifierMetadata = {},
-    chainId: number,
+    metadata: KmsMetadata,
+    chainId = 8453, // Base mainnet
   ) {
     super(metadata, 'kms')
     this.registrySmartContract = new DstackKms(contractAddress, chainId)
@@ -101,7 +107,9 @@ export class KmsVerifier extends Verifier {
       quoteData,
       verificationResult,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isUpToDate(verificationResult)
   }
@@ -120,7 +128,9 @@ export class KmsVerifier extends Verifier {
       appInfo,
       measurementResult,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return measurementResult
   }
@@ -132,7 +142,7 @@ export class KmsVerifier extends Verifier {
     const appInfo = await this.getAppInfo()
     const quoteData = await this.getQuote()
 
-    const {isValid, calculatedHash} = await verifyComposeHash(
+    const { isValid, calculatedHash } = await verifyComposeHash(
       appInfo,
       quoteData,
       undefined, // KMS doesn't use registry validation
@@ -147,7 +157,9 @@ export class KmsVerifier extends Verifier {
       await this.getGatewatyAppId(),
       this.certificateAuthorityPublicKey,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isValid
   }

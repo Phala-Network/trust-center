@@ -12,6 +12,8 @@ import type {
 } from './config'
 import { DEFAULT_VERIFICATION_FLAGS } from './config'
 import type {
+  GatewayMetadata,
+  KmsMetadata,
   ObjectRelationship,
   SystemInfo,
   VerificationError,
@@ -53,10 +55,10 @@ export class VerificationService {
       const systemInfo = await this.getSystemInfo(appConfig)
 
       // Run KMS verification
-      await this.verifyKms(systemInfo, flags)
+      await this.verifyKms(systemInfo, appConfig.metadata, flags)
 
       // Run Gateway verification
-      await this.verifyGateway(systemInfo, flags)
+      await this.verifyGateway(systemInfo, appConfig.metadata, flags)
 
       // Run App verification
       await this.verifyApp(appConfig, flags, systemInfo.kms_info.chain_id)
@@ -92,11 +94,12 @@ export class VerificationService {
    */
   private async verifyKms(
     systemInfo: SystemInfo,
+    metadata: KmsMetadata,
     flags: VerificationFlags,
   ): Promise<void> {
     const kmsVerifier = new KmsVerifier(
       systemInfo.kms_info.contract_address as `0x${string}`,
-      {},
+      metadata,
       systemInfo.kms_info.chain_id,
     )
 
@@ -109,12 +112,13 @@ export class VerificationService {
    */
   private async verifyGateway(
     systemInfo: SystemInfo,
+    metadata: GatewayMetadata,
     flags: VerificationFlags,
   ): Promise<void> {
     const gatewayVerifier = new GatewayVerifier(
       systemInfo.kms_info.gateway_app_id as `0x${string}`,
       systemInfo.kms_info.gateway_app_url,
-      {},
+      metadata,
       systemInfo.kms_info.chain_id,
     )
 

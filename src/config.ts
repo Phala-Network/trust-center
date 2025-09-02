@@ -6,7 +6,7 @@
  */
 
 import { env } from './env'
-import type { VerifierMetadata } from './types'
+import type { AppMetadata, GatewayMetadata, KmsMetadata } from './types'
 
 /**
  * Configuration for KMS verifier
@@ -15,7 +15,7 @@ export interface KmsConfig {
   /** KMS smart contract address */
   contractAddress: `0x${string}`
   /** Verifier metadata */
-  metadata: VerifierMetadata
+  metadata: KmsMetadata
 }
 
 /**
@@ -27,7 +27,7 @@ export interface GatewayConfig {
   /** Gateway RPC endpoint URL */
   rpcEndpoint: string
   /** Verifier metadata */
-  metadata: VerifierMetadata
+  metadata: GatewayMetadata
 }
 
 /**
@@ -39,7 +39,7 @@ export interface RedpillConfig {
   /** Model identifier */
   model: string
   /** Verifier metadata */
-  metadata: VerifierMetadata
+  metadata: AppMetadata
 }
 
 /**
@@ -51,7 +51,7 @@ export interface PhalaCloudConfig {
   /** Domain identifier */
   domain: string
   /** Verifier metadata */
-  metadata: VerifierMetadata
+  metadata: AppMetadata
 }
 
 /**

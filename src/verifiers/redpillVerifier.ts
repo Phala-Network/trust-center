@@ -2,9 +2,9 @@ import { AppDataObjectGenerator } from '../dataObjects/appDataObjectGenerator'
 import { AppInfoSchema, EventLogSchema, NvidiaPayloadSchema } from '../schemas'
 import type {
   AppInfo,
+  AppMetadata,
   AttestationBundle,
   QuoteData,
-  VerifierMetadata,
 } from '../types'
 import { parseAttestationBundle } from '../types'
 import { DstackApp } from '../utils/dstackContract'
@@ -29,8 +29,8 @@ export class RedpillVerifier extends Verifier {
   constructor(
     contractAddress: `0x${string}`,
     model: string,
-    metadata: VerifierMetadata = {},
-    chainId: number,
+    metadata: AppMetadata,
+    chainId = 8453, // Base mainnet
   ) {
     super(metadata, 'app')
     this.registrySmartContract = new DstackApp(contractAddress, chainId)

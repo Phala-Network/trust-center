@@ -5,8 +5,9 @@
  * for the HTTP REST API endpoints.
  */
 
-import {z} from 'zod'
-import type {DataObject} from './index'
+import { z } from 'zod'
+
+import type { DataObject } from './index'
 
 /**
  * Verification flags to control which steps to execute
@@ -29,8 +30,23 @@ export interface RedpillVerificationRequest {
     contractAddress: `0x${string}`
     model: string
     metadata?: {
-      osVersion?: string
-      gitRevision?: string
+      osSource?: {
+        github_repo?: string
+        git_commit?: string
+        version?: string
+      }
+      appSource?: {
+        github_repo?: string
+        git_commit?: string
+        version?: string
+        model_name?: string
+      }
+      hardware?: {
+        cpuManufacturer?: string
+        cpuModel?: string
+        securityFeature?: string
+        hasNvidiaSupport?: boolean
+      }
     }
   }
   /** Verification flags to control which steps to execute */
@@ -45,8 +61,23 @@ export interface PhalaCloudVerificationRequest {
     contractAddress: `0x${string}`
     domain: string
     metadata?: {
-      osVersion?: string
-      gitRevision?: string
+      osSource?: {
+        github_repo?: string
+        git_commit?: string
+        version?: string
+      }
+      appSource?: {
+        github_repo?: string
+        git_commit?: string
+        version?: string
+        model_name?: string
+      }
+      hardware?: {
+        cpuManufacturer?: string
+        cpuModel?: string
+        securityFeature?: string
+        hasNvidiaSupport?: boolean
+      }
     }
   }
   /** Verification flags to control which steps to execute */
@@ -90,12 +121,48 @@ const HexStringSchema = z
   .regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string')
 
 /**
- * Zod schema for verifier metadata
+ * Zod schema for OS source metadata
  */
-const VerifierMetadataSchema = z
+const OSSourceSchema = z
   .object({
-    osVersion: z.string().optional(),
-    gitRevision: z.string().optional(),
+    github_repo: z.string().optional(),
+    git_commit: z.string().optional(),
+    version: z.string().optional(),
+  })
+  .optional()
+
+/**
+ * Zod schema for App source metadata
+ */
+const AppSourceSchema = z
+  .object({
+    github_repo: z.string().optional(),
+    git_commit: z.string().optional(),
+    version: z.string().optional(),
+    model_name: z.string().optional(),
+  })
+  .optional()
+
+/**
+ * Zod schema for hardware metadata
+ */
+const HardwareSchema = z
+  .object({
+    cpuManufacturer: z.string().optional(),
+    cpuModel: z.string().optional(),
+    securityFeature: z.string().optional(),
+    hasNvidiaSupport: z.boolean().optional(),
+  })
+  .optional()
+
+/**
+ * Zod schema for structured verifier metadata
+ */
+const StructuredMetadataSchema = z
+  .object({
+    osSource: OSSourceSchema,
+    appSource: AppSourceSchema,
+    hardware: HardwareSchema,
   })
   .optional()
 
@@ -121,7 +188,7 @@ const RedpillVerificationRequestSchema = z.object({
   app: z.object({
     contractAddress: HexStringSchema,
     model: z.string(),
-    metadata: VerifierMetadataSchema,
+    metadata: StructuredMetadataSchema,
   }),
   flags: VerificationFlagsSchema,
 })
@@ -133,7 +200,7 @@ const PhalaCloudVerificationRequestSchema = z.object({
   app: z.object({
     contractAddress: HexStringSchema,
     domain: z.string(),
-    metadata: VerifierMetadataSchema,
+    metadata: StructuredMetadataSchema,
   }),
   flags: VerificationFlagsSchema,
 })

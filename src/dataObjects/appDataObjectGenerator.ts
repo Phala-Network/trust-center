@@ -1,5 +1,6 @@
 import type {
   AppInfo,
+  AppMetadata,
   AttestationBundle,
   DataObject,
   QuoteData,
@@ -11,7 +12,7 @@ import { BaseDataObjectGenerator } from './baseDataObjectGenerator'
  * Data object generator specific to App verifier.
  */
 export class AppDataObjectGenerator extends BaseDataObjectGenerator {
-  constructor(metadata: Record<string, unknown> = {}) {
+  constructor(metadata: AppMetadata) {
     super('app', metadata)
   }
 
@@ -105,7 +106,7 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
     )
 
     // App OS Code object
-    objects.push(this.generateOSCodeObject(hasNvidiaSupport, 1))
+    objects.push(this.generateOSCodeObject(1))
 
     return objects
   }
@@ -131,9 +132,6 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
       fields: {
         app_id: appInfo.app_id,
         instance_id: appInfo.instance_id || '',
-        ...(this.metadata.sigPubkey
-          ? { sig_pubkey: this.metadata.sigPubkey as string }
-          : {}),
         intel_attestation_report: quoteData.quote,
         nvidia_attestation_report: attestationBundle?.nvidia_payload
           ? JSON.stringify(attestationBundle.nvidia_payload)
@@ -151,10 +149,14 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
       kind: 'app',
     }
 
-    // App code object
-    const appCode = this.generateCodeObject(appInfo, isRegistered, 3)
+    objects.push(app)
 
-    objects.push(app, appCode)
+    // Only generate app code object if appSource metadata is present
+    if ((this.metadata as AppMetadata).appSource) {
+      const appCode = this.generateCodeObject(appInfo, isRegistered, 3)
+      objects.push(appCode)
+    }
+
     return objects
   }
 }

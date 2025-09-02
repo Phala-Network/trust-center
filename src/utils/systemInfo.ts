@@ -2,8 +2,8 @@
  * Utilities for fetching system information from different providers
  */
 
-import {SystemInfoSchema} from '../schemas'
-import type {EventLog, SystemInfo} from '../types'
+import { SystemInfoSchema } from '../schemas'
+import type { AppInfo, EventLog, SystemInfo } from '../types'
 
 /**
  * Fetch system info from Phala Cloud API
@@ -130,4 +130,11 @@ export async function getRedpillInfo(
         : `Unknown error fetching from Redpill API (${rpcEndpoint})`
     throw new Error(`Failed to fetch Redpill info: ${errorMessage}`)
   }
+}
+
+/**
+ * Determines if an application has NVIDIA GPU support based on VM configuration
+ */
+export function hasNvidiaSupport(appInfo: AppInfo): boolean {
+  return appInfo.vm_config.num_gpus > 0
 }

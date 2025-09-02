@@ -3,6 +3,7 @@ import type {
   AppInfo,
   CTResult,
   DataObject,
+  GatewayMetadata,
   QuoteData,
   VerifyQuoteResult,
 } from '../types'
@@ -12,7 +13,7 @@ import { BaseDataObjectGenerator } from './baseDataObjectGenerator'
  * Data object generator specific to Gateway verifier.
  */
 export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
-  constructor(metadata: Record<string, unknown> = {}) {
+  constructor(metadata: GatewayMetadata) {
     super('gateway', metadata)
   }
 
@@ -50,7 +51,7 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
     objects.push(this.generateOSObject(appInfo, measurementResult, 2))
 
     // Gateway OS Code object
-    objects.push(this.generateOSCodeObject(false, 1))
+    objects.push(this.generateOSCodeObject(1))
 
     return objects
   }
@@ -80,7 +81,7 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
         "Details and attestation information for the gateway. This represents the gateway's role in securely connecting and registering applications within the network.",
       fields: {
         app_id: contractAddress,
-        registry_smart_contract: `${(this.metadata.blockchainExplorerUrl as string) || 'https://basescan.org'}/address/${contractAddress}`,
+        registry_smart_contract: `${(this.metadata as GatewayMetadata).network?.blockchainExplorerUrl}/address/${contractAddress}`,
         intel_attestation_report: quoteData.quote,
         event_log: JSON.stringify(quoteData.eventlog),
         app_cert: activeCertificate,

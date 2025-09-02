@@ -37,15 +37,3 @@ export interface QuoteData {
   /** The complete event log with all measurements */
   eventlog: EventLog
 }
-
-/**
- * Verifier metadata interface for constructor parameters.
- */
-export interface VerifierMetadata {
-  /** DStack OS version */
-  osVersion?: string
-  /** Git revision of the DStack OS */
-  gitRevision?: string
-  /** Additional metadata fields */
-  [key: string]: unknown
-}
