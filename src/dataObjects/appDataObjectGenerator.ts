@@ -5,7 +5,7 @@ import type {
   QuoteData,
   VerifyQuoteResult,
 } from '../types'
-import {BaseDataObjectGenerator} from './baseDataObjectGenerator'
+import { BaseDataObjectGenerator } from './baseDataObjectGenerator'
 
 /**
  * Data object generator specific to App verifier.
@@ -95,8 +95,19 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
   generateOSDataObjects(
     appInfo: AppInfo,
     measurementResult: any,
+    hasNvidiaSupport: boolean = false,
   ): DataObject[] {
-    return [this.generateOSObject(appInfo, measurementResult, 3)]
+    const objects: DataObject[] = []
+
+    // App OS object
+    objects.push(
+      this.generateOSObject(appInfo, measurementResult, 3, hasNvidiaSupport),
+    )
+
+    // App OS Code object
+    objects.push(this.generateOSCodeObject(hasNvidiaSupport, 1))
+
+    return objects
   }
 
   /**
@@ -120,7 +131,9 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
       fields: {
         app_id: appInfo.app_id,
         instance_id: appInfo.instance_id || '',
-        sig_pubkey: '0x12C2CE9007DC00158FB17c6BCAd3f9c4e3C226Ba',
+        ...(this.metadata.sigPubkey
+          ? { sig_pubkey: this.metadata.sigPubkey as string }
+          : {}),
         intel_attestation_report: quoteData.quote,
         nvidia_attestation_report: attestationBundle?.nvidia_payload
           ? JSON.stringify(attestationBundle.nvidia_payload)

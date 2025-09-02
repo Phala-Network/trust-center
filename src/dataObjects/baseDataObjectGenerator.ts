@@ -1,5 +1,19 @@
-import type {AppInfo, DataObject, QuoteData, VerifyQuoteResult} from '../types'
-import {createEventLogDataObjects} from '../utils/dataObjectCollector'
+import type {
+  AppInfo,
+  DataObject,
+  LogEntry,
+  QuoteData,
+  VerifyQuoteResult,
+} from '../types'
+
+/**
+ * Global type mapping for different verifier types.
+ */
+const TYPE_MAP = {
+  kms: 'trust_authority',
+  gateway: 'network_report',
+  app: 'application_report',
+} as const
 
 /**
  * Base class for generating DataObjects across different verifier types.
@@ -31,24 +45,20 @@ export abstract class BaseDataObjectGenerator {
     verificationResult: VerifyQuoteResult,
     layer: number = 3,
   ): DataObject {
-    const typeMap = {
-      kms: 'trust_authority',
-      gateway: 'network_report',
-      app: 'hardware_report',
-    }
-
     return {
       id: this.generateObjectId('cpu'),
       name: `${this.verifierType.toUpperCase()} TEE Hardware`,
       description: `Hardware platform details for the ${this.verifierType} Trusted Execution Environment, including manufacturer, model, and supported security features.`,
       fields: {
-        manufacturer: this.metadata.cpuManufacturer || 'N/A',
-        model: this.metadata.cpuModel || 'N/A',
-        security_feature: this.metadata.securityFeature || 'N/A',
+        manufacturer: this.metadata.cpuManufacturer || 'Intel Corporation',
+        model: this.metadata.cpuModel || 'Intel(R) Xeon(R) CPU',
+        security_feature:
+          this.metadata.securityFeature ||
+          'Intel Trust Domain Extensions (TDX)',
         verification_status: verificationResult.status,
       },
       layer,
-      type: typeMap[this.verifierType],
+      type: 'hardware_report',
       kind: this.verifierType,
       measuredBy: [
         {
@@ -65,12 +75,6 @@ export abstract class BaseDataObjectGenerator {
     verificationResult: VerifyQuoteResult,
     layer: number = 3,
   ): DataObject {
-    const typeMap = {
-      kms: 'trust_authority',
-      gateway: 'network_report',
-      app: 'application_report',
-    }
-
     return {
       id: this.generateObjectId('quote'),
       name: `${this.verifierType.toUpperCase()} Attestation Report`,
@@ -93,15 +97,12 @@ export abstract class BaseDataObjectGenerator {
         reportdata: verificationResult.report?.TD10?.report_data || '',
       },
       layer,
-      type: typeMap[this.verifierType],
+      type: TYPE_MAP[this.verifierType],
       kind: this.verifierType,
       measuredBy: [
         {
           objectId: this.generateObjectId('main'),
-          fieldName:
-            this.verifierType === 'app'
-              ? 'intel_attestation_report'
-              : 'attestation_report',
+          fieldName: 'intel_attestation_report',
         },
       ],
     }
@@ -114,30 +115,17 @@ export abstract class BaseDataObjectGenerator {
     appInfo: AppInfo,
     measurementResult: any,
     layer: number = 3,
+    hasNvidiaSupport: boolean = false,
   ): DataObject {
-    const typeMap = {
-      kms: 'trust_authority',
-      gateway: 'network_report',
-      app: 'application_report',
-    }
-
     const osVersion = this.metadata.osVersion || '0.5.3'
-    const gitRevision = this.metadata.gitRevision || ''
-    const isNvidiaVariant = this.verifierType === 'app'
+    const isNvidiaVariant = hasNvidiaSupport
 
     return {
       id: this.generateObjectId('os'),
       name: `${this.verifierType.toUpperCase()} OS`,
-      description: `Integrity measurements and configuration of the ${this.verifierType} operating system, including version, kernel, and boot parameters.`,
+      description: `Integrity measurements and configuration of the ${this.verifierType} operating system, including boot parameters and system components.`,
       fields: {
         os: `dstack v${osVersion}${isNvidiaVariant ? ' (nvidia)' : ''}`,
-        version: osVersion,
-        git_revision: gitRevision,
-        artifacts:
-          this.metadata.osArtifacts ||
-          (this.verifierType === 'app'
-            ? `https://github.com/nearai/private-ml-sdk/releases/tag/v${osVersion}`
-            : `https://github.com/Dstack-TEE/meta-dstack/releases/tag/v${osVersion}`),
         shared_ro: true,
         is_dev: true,
         bios: 'ovmf.fd',
@@ -149,10 +137,10 @@ export abstract class BaseDataObjectGenerator {
         measured_rtmr0: measurementResult.rtmr0,
         measured_rtmr1: measurementResult.rtmr1,
         measured_rtmr2: measurementResult.rtmr2,
-        ...(isNvidiaVariant && {gpu_enabled: true}),
+        ...(isNvidiaVariant && { gpu_enabled: true }),
       },
       layer,
-      type: typeMap[this.verifierType],
+      type: TYPE_MAP[this.verifierType],
       kind: this.verifierType,
       calculations: [
         {
@@ -211,6 +199,143 @@ export abstract class BaseDataObjectGenerator {
   }
 
   /**
+   * Generates OS Code DataObjects for operating system source code information.
+   */
+  protected generateOSCodeObject(
+    hasNvidiaSupport: boolean = false,
+    layer: number = 1,
+  ): DataObject {
+    const osVersion = String(this.metadata.osVersion || '0.5.3')
+    const gitRevision =
+      this.metadata.gitRevision || '5b63aec337f19a541798970c7cf8d846171f0ca9'
+    const isNvidiaVariant = hasNvidiaSupport
+
+    const versionSuffix = isNvidiaVariant ? '-nvidia' : '-dev'
+    const version = `dstack${versionSuffix}-${osVersion}`
+
+    const repoVersion = osVersion.startsWith('0.') ? `v${osVersion}` : osVersion
+    const githubRepo = `https://github.com/Dstack-TEE/meta-dstack/tree/${repoVersion}`
+
+    return {
+      id: this.generateObjectId('os-code'),
+      name: `${this.verifierType.toUpperCase()} OS Code`,
+      description: `Source code and version information for the ${this.verifierType} operating system, including repository URL, commit hash, and release version.`,
+      fields: {
+        github_repo: githubRepo,
+        git_commit: gitRevision,
+        version: version,
+      },
+      layer,
+      type: TYPE_MAP[this.verifierType],
+      kind: this.verifierType,
+      measuredBy: [
+        {
+          objectId: this.generateObjectId('os'),
+          fieldName: 'os',
+        },
+      ],
+      calculations: [
+        {
+          inputs: ['ovmf.fd'],
+          calcFunc: 'sha256',
+          outputs: ['bios'],
+        },
+      ],
+    }
+  }
+
+  /**
+   * Groups event log entries by their IMR (Index Measurement Register) values.
+   */
+  private static groupEventLogsByIMR(
+    eventLog: LogEntry[],
+  ): Record<number, LogEntry[]> {
+    return eventLog.reduce(
+      (groups, entry) => {
+        const imr = entry.imr
+        if (!groups[imr]) {
+          groups[imr] = []
+        }
+        groups[imr].push(entry)
+        return groups
+      },
+      {} as Record<number, LogEntry[]>,
+    )
+  }
+
+  /**
+   * Creates DataObjects for event logs grouped by IMR/RTMR values.
+   */
+  private createEventLogDataObjects(
+    eventLog: LogEntry[],
+    objectIdPrefix: string,
+    layer: number,
+  ): DataObject[] {
+    const groupedLogs = BaseDataObjectGenerator.groupEventLogsByIMR(eventLog)
+    const dataObjects: DataObject[] = []
+
+    Object.entries(groupedLogs).forEach(([imr, logs]) => {
+      const imrNumber = Number(imr)
+      const fields: Record<string, unknown> = {}
+
+      // Create numbered event log fields, using event names for RTMR3
+      logs.forEach((log, index) => {
+        const fieldName =
+          imrNumber === 3 && log.event ? log.event : `event_log_${index}`
+        fields[fieldName] = JSON.stringify(log)
+      })
+
+      // Get description based on IMR number
+      const getIMRDescription = (imrNum: number): string => {
+        switch (imrNum) {
+          case 0:
+            return 'Event log entries associated with RTMR0, capturing secure boot and early system measurements.'
+          case 1:
+            return 'Event log entries associated with RTMR1, capturing kernel and boot services measurements.'
+          case 2:
+            return 'Event log entries associated with RTMR2, capturing application loader measurements.'
+          case 3:
+            return 'Event log entries associated with RTMR3, capturing application and runtime system measurements.'
+          default:
+            return `Event log entries associated with RTMR${imrNum}, capturing system measurements.`
+        }
+      }
+
+      const dataObject: DataObject = {
+        id: `${objectIdPrefix}-imr${imr}`,
+        name: `Event Logs for RTMR${imr}`,
+        description: getIMRDescription(imrNumber),
+        fields,
+        layer,
+        type: TYPE_MAP[this.verifierType],
+        kind: this.verifierType,
+        calculations: [
+          {
+            inputs: ['*'],
+            calcFunc: 'replay_rtmr',
+            outputs: [`rtmr${imr}`],
+          },
+        ],
+        measuredBy: [
+          {
+            objectId: `${this.verifierType}-main`,
+            fieldName: 'event_log',
+          },
+          {
+            selfCalcOutputName: `rtmr${imr}`,
+            objectId: `${this.verifierType}-quote`,
+            fieldName: `rtmr${imr}`,
+          },
+        ],
+      }
+
+      dataObjects.push(dataObject)
+    })
+
+    return dataObjects
+  }
+
+  /**
    * Generates event log DataObjects with verifier-specific configuration.
    */
   protected generateEventLogObjects(
@@ -219,27 +344,7 @@ export abstract class BaseDataObjectGenerator {
     // Configure object ID prefix based on verifier type
     const objectIdPrefix = this.generateObjectId('event-logs')
 
-    // Configure layer based on verifier type
-    const layerMap = {
-      kms: 4,
-      gateway: 4,
-      app: 4,
-    }
-
-    // Configure type mapping based on verifier type
-    const typeMap = {
-      kms: 'trust_authority',
-      gateway: 'network_report',
-      app: 'application_report',
-    }
-
-    return createEventLogDataObjects(
-      eventlog,
-      objectIdPrefix,
-      layerMap[this.verifierType],
-      this.verifierType,
-      typeMap[this.verifierType],
-    )
+    return this.createEventLogDataObjects(eventlog, objectIdPrefix, 4)
   }
 
   /**
@@ -250,27 +355,17 @@ export abstract class BaseDataObjectGenerator {
     isRegistered?: boolean,
     layer: number = 3,
   ): DataObject {
-    const typeMap = {
-      kms: 'trust_authority',
-      gateway: 'network_report',
-      app: 'application_report',
-    }
-
     const defaultRepoMap = {
       kms: 'https://github.com/Dstack-TEE/dstack/tree/main/kms',
       gateway: 'https://github.com/Dstack-TEE/dstack/tree/main/gateway',
-      app: 'https://github.com/nearai/private-ml-sdk/tree/main',
+      app: 'N/A',
     }
 
     const fields: Record<string, unknown> = {
       github_repo:
         this.metadata.githubRepo || defaultRepoMap[this.verifierType],
-      git_commit: this.metadata.gitCommit || this.metadata.gitRevision || '',
-      version:
-        this.metadata.version ||
-        (this.verifierType === 'app'
-          ? 'dev'
-          : this.metadata.osVersion || 'v0.5.3'),
+      git_commit: this.metadata.gitCommit || this.metadata.gitRevision || 'N/A',
+      version: this.metadata.version || 'N/A',
       compose_file: appInfo.tcb_info.app_compose,
     }
 
@@ -278,9 +373,8 @@ export abstract class BaseDataObjectGenerator {
       fields.is_registered = isRegistered
     }
 
-    if (this.verifierType === 'app') {
-      fields.model_name =
-        this.metadata.modelName || 'deepseek/deepseek-chat-v3-0324'
+    if (this.metadata.modelName) {
+      fields.model_name = this.metadata.modelName
     }
 
     return {
@@ -289,7 +383,7 @@ export abstract class BaseDataObjectGenerator {
       description: `Source code and deployment configuration for the ${this.verifierType} service, including compose files and version information.`,
       fields,
       layer,
-      type: typeMap[this.verifierType],
+      type: TYPE_MAP[this.verifierType],
       kind: this.verifierType,
       calculations: [
         {

@@ -1,17 +1,23 @@
-import {AppDataObjectGenerator} from '../dataObjects/appDataObjectGenerator'
-import {AppInfoSchema, EventLogSchema, NvidiaPayloadSchema} from '../schemas'
+import { AppDataObjectGenerator } from '../dataObjects/appDataObjectGenerator'
+import { AppInfoSchema, EventLogSchema, NvidiaPayloadSchema } from '../schemas'
 import type {
   AppInfo,
   AttestationBundle,
   QuoteData,
   VerifierMetadata,
 } from '../types'
-import {parseAttestationBundle} from '../types'
-import {DstackApp} from '../utils/dstackContract'
-import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
-import {getImageFolder, verifyOSIntegrity} from '../verification/osVerification'
-import {verifyComposeHash} from '../verification/sourceCodeVerification'
-import {Verifier} from '../verifier'
+import { parseAttestationBundle } from '../types'
+import { DstackApp } from '../utils/dstackContract'
+import {
+  isUpToDate,
+  verifyTeeQuote,
+} from '../verification/hardwareVerification'
+import {
+  getImageFolder,
+  verifyOSIntegrity,
+} from '../verification/osVerification'
+import { verifyComposeHash } from '../verification/sourceCodeVerification'
+import { Verifier } from '../verifier'
 
 const BASE_URL = 'https://api.redpill.ai/v1/attestation/report'
 
@@ -102,7 +108,9 @@ export class RedpillVerifier extends Verifier {
       verificationResult,
       attestationBundle,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isUpToDate(verificationResult)
   }
@@ -117,8 +125,11 @@ export class RedpillVerifier extends Verifier {
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
       appInfo,
       {} /* measurement result */,
+      true,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isValid
   }
@@ -127,7 +138,7 @@ export class RedpillVerifier extends Verifier {
     const attestationBundle = await this.getAttestationBundle()
     const quoteData = await this.getQuote()
 
-    const {isValid, calculatedHash, isRegistered} = await verifyComposeHash(
+    const { isValid, calculatedHash, isRegistered } = await verifyComposeHash(
       attestationBundle.info,
       quoteData,
       this.registrySmartContract,
@@ -141,7 +152,9 @@ export class RedpillVerifier extends Verifier {
       isRegistered ?? false,
       attestationBundle,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isValid
   }

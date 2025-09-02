@@ -40,13 +40,6 @@ export type {
   VerifierMetadata,
   VerifyQuoteResult,
 } from './src/types'
-// Export UI interface for easy consumption
-export {
-  createUIInterface,
-  type DataObjectEventCallback,
-  default as defaultUIInterface,
-  UIDataInterface,
-} from './src/ui-exports'
 // Export DataObject utilities
 export {
   addDataObjectEventListener,
