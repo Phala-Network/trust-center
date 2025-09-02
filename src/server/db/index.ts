@@ -15,7 +15,7 @@ export type DbConnection = ReturnType<typeof createDbConnection>
 export { schema }
 
 export type {
+  AppConfigType,
   VerificationTask,
   VerificationTaskStatus,
-  VerifierType,
 } from './schema'

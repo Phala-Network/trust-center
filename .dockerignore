@@ -73,7 +73,6 @@ vitest.config.ts
 .eslintrc*
 .prettierrc*
 biome.json
-tsconfig.json
 
 # Runtime generated files
 drizzle/

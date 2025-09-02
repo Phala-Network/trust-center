@@ -1,30 +1,37 @@
 import { Elysia, t } from 'elysia'
 
-import type { VerifierType } from '../db'
+import type { AppConfigType } from '../db'
 import { getServices } from '../services/index'
 
 // Types
 interface TaskCreateRequest {
   appId: string
   appName: string
-  verifierType: VerifierType
-  config?: Record<string, unknown>
-  flags?: Record<string, boolean>
-  metadata?: Record<string, unknown>
+  appConfigType: AppConfigType
+  contractAddress: string
+  modelOrDomain: string
+  appMetadata?: Record<string, unknown>
+  verificationFlags: Record<string, boolean>
 }
 
 interface TaskStatusResponse {
   taskId: string
   appId: string
   appName: string
-  verifierType: string
+  appConfigType: string
+  contractAddress: string
+  modelOrDomain: string
+  appMetadata?: Record<string, unknown>
+  verificationFlags: Record<string, unknown>
   status: string
   bullJobId?: string
   createdAt: string
   startedAt?: string
   finishedAt?: string
   errorMessage?: string
-  payload: string // JSON string
+  s3Filename?: string
+  s3Key?: string
+  s3Bucket?: string
 }
 
 interface BatchCreateRequest {
@@ -35,7 +42,9 @@ interface TaskListQuery {
   status?: string
   appId?: string
   appName?: string
-  verifierType?: string
+  appConfigType?: string
+  contractAddress?: string
+  modelOrDomain?: string
   fromDate?: string
   toDate?: string
   page?: number
@@ -49,14 +58,20 @@ const buildTaskStatusResponse = (
   taskId: task.id as string,
   appId: task.appId as string,
   appName: task.appName as string,
-  verifierType: task.verifierType as string,
+  appConfigType: task.appConfigType as string,
+  contractAddress: task.contractAddress as string,
+  modelOrDomain: task.modelOrDomain as string,
+  appMetadata: task.appMetadata as Record<string, unknown> | undefined,
+  verificationFlags: task.verificationFlags as Record<string, unknown>,
   status: task.status as string,
   bullJobId: task.bullJobId as string | undefined,
   createdAt: task.createdAt as string,
   startedAt: task.startedAt as string | undefined,
   finishedAt: task.finishedAt as string | undefined,
   errorMessage: task.errorMessage as string | undefined,
-  payload: task.payload as string, // This is already a JSON string
+  s3Filename: task.s3Filename as string | undefined,
+  s3Key: task.s3Key as string | undefined,
+  s3Bucket: task.s3Bucket as string | undefined,
 })
 
 // Route handlers
@@ -65,10 +80,11 @@ const handleTaskCreation = async (body: TaskCreateRequest) => {
   const taskId = await services.queue.addTask({
     appId: body.appId,
     appName: body.appName,
-    verifierType: body.verifierType,
-    config: body.config,
-    flags: body.flags,
-    metadata: body.metadata,
+    appConfigType: body.appConfigType,
+    contractAddress: body.contractAddress,
+    modelOrDomain: body.modelOrDomain,
+    appMetadata: body.appMetadata,
+    verificationFlags: body.verificationFlags,
   })
 
   return {
@@ -85,10 +101,11 @@ const handleBatchCreation = async (body: BatchCreateRequest) => {
       services.queue.addTask({
         appId: task.appId,
         appName: task.appName,
-        verifierType: task.verifierType,
-        config: task.config,
-        flags: task.flags,
-        metadata: task.metadata,
+        appConfigType: task.appConfigType,
+        contractAddress: task.contractAddress,
+        modelOrDomain: task.modelOrDomain,
+        appMetadata: task.appMetadata,
+        verificationFlags: task.verificationFlags,
       }),
     ),
   )
@@ -131,7 +148,11 @@ const handleTasksList = async (query: TaskListQuery) => {
     status: query.status as import('../db').VerificationTaskStatus | undefined,
     appId: query.appId,
     appName: query.appName,
-    verifierType: query.verifierType as VerifierType | undefined,
+    appConfigType: query.appConfigType as
+      | import('../db').AppConfigType
+      | undefined,
+    contractAddress: query.contractAddress,
+    modelOrDomain: query.modelOrDomain,
     fromDate: query.fromDate,
     toDate: query.toDate,
     page: query.page,
@@ -222,14 +243,14 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
       body: t.Object({
         appId: t.String(),
         appName: t.String(),
-        verifierType: t.Union([
-          t.Literal('kms'),
-          t.Literal('gateway'),
+        appConfigType: t.Union([
           t.Literal('redpill'),
+          t.Literal('phala_cloud'),
         ]),
-        config: t.Optional(t.Record(t.String(), t.Unknown())),
-        flags: t.Optional(t.Record(t.String(), t.Unknown())),
-        metadata: t.Optional(t.Record(t.String(), t.Unknown())),
+        contractAddress: t.String(),
+        modelOrDomain: t.String(),
+        appMetadata: t.Optional(t.Record(t.String(), t.Unknown())),
+        verificationFlags: t.Record(t.String(), t.Unknown()),
       }),
       response: t.Union([
         t.Object({
@@ -278,14 +299,14 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
           t.Object({
             appId: t.String(),
             appName: t.String(),
-            verifierType: t.Union([
-              t.Literal('kms'),
-              t.Literal('gateway'),
+            appConfigType: t.Union([
               t.Literal('redpill'),
+              t.Literal('phala_cloud'),
             ]),
-            config: t.Optional(t.Record(t.String(), t.Unknown())),
-            flags: t.Optional(t.Record(t.String(), t.Unknown())),
-            metadata: t.Optional(t.Record(t.String(), t.Unknown())),
+            contractAddress: t.String(),
+            modelOrDomain: t.String(),
+            appMetadata: t.Optional(t.Record(t.String(), t.Unknown())),
+            verificationFlags: t.Record(t.String(), t.Unknown()),
           }),
         ),
       }),
@@ -337,14 +358,20 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
             taskId: t.String(),
             appId: t.String(),
             appName: t.String(),
-            verifierType: t.String(),
+            appConfigType: t.String(),
+            contractAddress: t.String(),
+            modelOrDomain: t.String(),
+            appMetadata: t.Optional(t.Record(t.String(), t.Unknown())),
+            verificationFlags: t.Record(t.String(), t.Unknown()),
             status: t.String(),
             bullJobId: t.Optional(t.String()),
             createdAt: t.String(),
             startedAt: t.Optional(t.String()),
             finishedAt: t.Optional(t.String()),
             errorMessage: t.Optional(t.String()),
-            payload: t.String(), // JSON string
+            s3Filename: t.Optional(t.String()),
+            s3Key: t.Optional(t.String()),
+            s3Bucket: t.Optional(t.String()),
           }),
         ),
         error: t.Optional(t.String()),
@@ -382,7 +409,9 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
         status: t.Optional(t.String()),
         appId: t.Optional(t.String()),
         appName: t.Optional(t.String()),
-        verifierType: t.Optional(t.String()),
+        appConfigType: t.Optional(t.String()),
+        contractAddress: t.Optional(t.String()),
+        modelOrDomain: t.Optional(t.String()),
         fromDate: t.Optional(t.String()),
         toDate: t.Optional(t.String()),
         page: t.Optional(t.Number()),
@@ -396,14 +425,20 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
               taskId: t.String(),
               appId: t.String(),
               appName: t.String(),
-              verifierType: t.String(),
+              appConfigType: t.String(),
+              contractAddress: t.String(),
+              modelOrDomain: t.String(),
+              appMetadata: t.Optional(t.Record(t.String(), t.Unknown())),
+              verificationFlags: t.Record(t.String(), t.Unknown()),
               status: t.String(),
               bullJobId: t.Optional(t.String()),
               createdAt: t.String(),
               startedAt: t.Optional(t.String()),
               finishedAt: t.Optional(t.String()),
               errorMessage: t.Optional(t.String()),
-              payload: t.String(), // JSON string
+              s3Filename: t.Optional(t.String()),
+              s3Key: t.Optional(t.String()),
+              s3Bucket: t.Optional(t.String()),
             }),
           ),
           pagination: t.Object({
@@ -529,7 +564,7 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
           }
         }
 
-        if (!task.r2Key) {
+        if (!task.s3Key) {
           set.status = 404
           return {
             success: false,
@@ -537,15 +572,15 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
           }
         }
 
-        // Return R2 storage information for client to fetch
+        // Return S3-compatible storage information for client to fetch
         return {
           success: true as const,
           storageInfo: {
-            r2Key: task.r2Key,
-            r2Bucket: task.r2Bucket || '',
-            fileName: task.fileName || undefined,
+            s3Key: task.s3Key,
+            s3Bucket: task.s3Bucket || '',
+            s3Filename: task.s3Filename || undefined,
             message:
-              'Task completed. Use storage information to fetch result from R2.',
+              'Task completed. Use storage information to fetch result from S3-compatible storage.',
           },
         }
       } catch (error) {
@@ -567,9 +602,9 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
         t.Object({
           success: t.Literal(true),
           storageInfo: t.Object({
-            r2Key: t.String(),
-            r2Bucket: t.String(),
-            fileName: t.Optional(t.String()),
+            s3Key: t.String(),
+            s3Bucket: t.String(),
+            s3Filename: t.Optional(t.String()),
             fileSize: t.Optional(t.Number()),
             message: t.String(),
           }),

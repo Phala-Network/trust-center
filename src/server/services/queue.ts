@@ -1,8 +1,13 @@
 import { type Job, Queue, Worker } from 'bullmq'
 import IORedis from 'ioredis'
 
+import type {
+  PhalaCloudConfig,
+  RedpillConfig,
+  VerificationFlags,
+} from '../../config'
 import type { VerificationService } from '../../verificationService'
-import type { VerifierType } from '../db'
+import type { AppConfigType } from '../db'
 import type { R2Service } from './r2'
 import type { VerificationTaskService } from './taskService'
 
@@ -18,10 +23,11 @@ export interface TaskData {
   postgresTaskId: string // PostgreSQL task ID for correlation
   appId: string
   appName: string
-  verifierType: VerifierType
-  config?: Record<string, unknown>
-  flags?: Record<string, boolean>
-  metadata?: Record<string, unknown>
+  appConfigType: AppConfigType
+  contractAddress: string
+  modelOrDomain: string
+  appMetadata?: Record<string, unknown>
+  verificationFlags: Record<string, boolean>
 }
 
 export interface TaskResult {
@@ -30,35 +36,6 @@ export interface TaskResult {
   error?: string
   processingTimeMs: number
   verificationResult?: unknown // The actual verification result
-}
-
-// Default configuration for verification
-const DEFAULT_CONFIG = {
-  kms: {
-    contractAddress:
-      '0x0000000000000000000000000000000000000000' as `0x${string}`,
-  },
-  gateway: {
-    contractAddress:
-      '0x0000000000000000000000000000000000000000' as `0x${string}`,
-    rpcEndpoint: 'http://localhost:8545',
-  },
-  redpill: {
-    contractAddress:
-      '0x0000000000000000000000000000000000000000' as `0x${string}`,
-    model: 'default',
-  },
-}
-
-// Default verification flags
-const DEFAULT_VERIFICATION_FLAGS = {
-  hardware: true,
-  os: true,
-  sourceCode: true,
-  teeControlledKey: true,
-  certificateKey: true,
-  dnsCAA: false,
-  ctLog: false,
 }
 
 export const createQueueService = (
@@ -90,10 +67,11 @@ export const createQueueService = (
         postgresTaskId,
         appId,
         appName,
-        verifierType,
-        config,
-        flags,
-        metadata,
+        appConfigType,
+        contractAddress,
+        modelOrDomain,
+        appMetadata,
+        verificationFlags,
       } = job.data
 
       try {
@@ -107,42 +85,61 @@ export const createQueueService = (
           startedAt: new Date(),
         })
 
-        // Merge task config with DEFAULT_CONFIG
-        const mergedConfigs = {
-          kms: {
-            ...DEFAULT_CONFIG.kms,
-            ...(config?.kms as Record<string, unknown>),
-            metadata: { appId, appName, ...metadata },
-          },
-          gateway: {
-            ...DEFAULT_CONFIG.gateway,
-            ...(config?.gateway as Record<string, unknown>),
-            metadata: { appId, appName, ...metadata },
-          },
-          redpill: {
-            ...DEFAULT_CONFIG.redpill,
-            ...(config?.redpill as Record<string, unknown>),
-            metadata: { appId, appName, ...metadata },
-          },
-        }
-
-        // Merge verification flags with defaults
-        const verificationFlags = {
-          ...DEFAULT_VERIFICATION_FLAGS,
-          ...flags,
-        }
-
         console.log(
-          `[QUEUE] Merged config:`,
-          JSON.stringify(mergedConfigs, null, 2),
+          `[QUEUE] Processing verification for ${appConfigType} config:`,
+          JSON.stringify(
+            { contractAddress, modelOrDomain, appMetadata },
+            null,
+            2,
+          ),
         )
         console.log(`[QUEUE] Verification flags:`, verificationFlags)
 
-        // Process the verification and capture the result
+        // Create app config for VerificationService
+        let appConfig: RedpillConfig | PhalaCloudConfig
+        if (appConfigType === 'redpill') {
+          appConfig = {
+            contractAddress: contractAddress as `0x${string}`,
+            model: modelOrDomain,
+            metadata: {
+              osSource: {
+                github_repo: 'https://github.com/dstack-ai/dstack',
+                git_commit: 'default',
+                version: 'default',
+              },
+              hardware: {
+                cpuManufacturer: 'Unknown',
+                cpuModel: 'Unknown',
+                securityFeature: 'Unknown',
+              },
+              ...appMetadata,
+            },
+          }
+        } else {
+          // phala_cloud config
+          appConfig = {
+            contractAddress: contractAddress as `0x${string}`,
+            domain: modelOrDomain,
+            metadata: {
+              osSource: {
+                github_repo: 'https://github.com/dstack-ai/dstack',
+                git_commit: 'default',
+                version: 'default',
+              },
+              hardware: {
+                cpuManufacturer: 'Unknown',
+                cpuModel: 'Unknown',
+                securityFeature: 'Unknown',
+              },
+              ...appMetadata,
+            },
+          }
+        }
+
+        // Execute verification using VerificationService
         const verificationResult = await verificationService.verify(
-          verifierType,
-          mergedConfigs,
-          verificationFlags,
+          appConfig,
+          verificationFlags as unknown as VerificationFlags,
         )
 
         const processingTimeMs = Date.now() - startTime
@@ -188,9 +185,9 @@ export const createQueueService = (
       console.log(`[QUEUE] Job ${job.id} completed for task ${postgresTaskId}`)
 
       let uploadResult: {
-        fileName?: string
-        r2Key?: string
-        r2Bucket?: string
+        s3Filename?: string
+        s3Key?: string
+        s3Bucket?: string
       } = {}
 
       // Store result in R2 if successful
@@ -198,13 +195,13 @@ export const createQueueService = (
         const upload = await r2Service.uploadJson(result.verificationResult)
 
         uploadResult = {
-          fileName: upload.fileName,
-          r2Key: upload.r2Key,
-          r2Bucket: upload.r2Bucket,
+          s3Filename: upload.s3Filename,
+          s3Key: upload.s3Key,
+          s3Bucket: upload.s3Bucket,
         }
 
         console.log(
-          `[QUEUE] Uploaded verification result to R2: ${upload.fileName}`,
+          `[QUEUE] Uploaded verification result to R2: ${upload.s3Filename}`,
         )
       }
 
@@ -295,12 +292,11 @@ export const createQueueService = (
       {
         appId: taskData.appId,
         appName: taskData.appName,
-        verifierType: taskData.verifierType,
-        payload: JSON.stringify({
-          config: taskData.config,
-          flags: taskData.flags,
-          metadata: taskData.metadata,
-        }),
+        appConfigType: taskData.appConfigType,
+        contractAddress: taskData.contractAddress,
+        modelOrDomain: taskData.modelOrDomain,
+        appMetadata: taskData.appMetadata,
+        verificationFlags: taskData.verificationFlags,
       },
     )
 

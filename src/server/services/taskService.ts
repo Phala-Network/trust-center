@@ -1,12 +1,12 @@
 import { and, count, desc, eq, gte, lte, sql } from 'drizzle-orm'
 
 import {
+  type AppConfigType,
   createDbConnection,
   type DbConnection,
   schema,
   type VerificationTask,
   type VerificationTaskStatus,
-  type VerifierType,
 } from '../db'
 
 const { verificationTasks } = schema
@@ -17,7 +17,9 @@ export interface TaskFilter {
   status?: VerificationTaskStatus
   appId?: string
   appName?: string
-  verifierType?: VerifierType
+  appConfigType?: AppConfigType
+  contractAddress?: string
+  modelOrDomain?: string
   fromDate?: string
   toDate?: string
   page?: number
@@ -33,8 +35,11 @@ export interface PaginatedResult<T> {
 export interface CreateVerificationTaskData {
   appId: string
   appName: string
-  verifierType: VerifierType
-  payload: string // JSON string containing config, flags, metadata, etc.
+  appConfigType: AppConfigType
+  contractAddress: string
+  modelOrDomain: string
+  appMetadata?: Record<string, unknown>
+  verificationFlags: Record<string, unknown>
 }
 
 export interface UpdateVerificationTaskData {
@@ -43,9 +48,9 @@ export interface UpdateVerificationTaskData {
   errorMessage?: string
   startedAt?: Date
   finishedAt?: Date
-  fileName?: string
-  r2Key?: string
-  r2Bucket?: string
+  s3Filename?: string
+  s3Key?: string
+  s3Bucket?: string
 }
 
 // Verification task service factory function
@@ -66,8 +71,11 @@ export const createVerificationTaskService = (
       .values({
         appId: data.appId,
         appName: data.appName,
-        verifierType: data.verifierType,
-        payload: data.payload,
+        appConfigType: data.appConfigType,
+        contractAddress: data.contractAddress,
+        modelOrDomain: data.modelOrDomain,
+        appMetadata: data.appMetadata,
+        verificationFlags: data.verificationFlags,
         status: 'pending',
         jobName: 'verification',
       })
@@ -140,7 +148,9 @@ export const createVerificationTaskService = (
       status,
       appId,
       appName,
-      verifierType,
+      appConfigType,
+      contractAddress,
+      modelOrDomain,
       fromDate,
       toDate,
       page = 1,
@@ -153,8 +163,12 @@ export const createVerificationTaskService = (
     if (status) conditions.push(eq(verificationTasks.status, status))
     if (appId) conditions.push(eq(verificationTasks.appId, appId))
     if (appName) conditions.push(eq(verificationTasks.appName, appName))
-    if (verifierType)
-      conditions.push(eq(verificationTasks.verifierType, verifierType))
+    if (appConfigType)
+      conditions.push(eq(verificationTasks.appConfigType, appConfigType))
+    if (contractAddress)
+      conditions.push(eq(verificationTasks.contractAddress, contractAddress))
+    if (modelOrDomain)
+      conditions.push(eq(verificationTasks.modelOrDomain, modelOrDomain))
     if (fromDate)
       conditions.push(gte(verificationTasks.createdAt, new Date(fromDate)))
     if (toDate)

@@ -8,9 +8,9 @@ export interface R2Config {
 }
 
 export interface UploadResult {
-  fileName: string
-  r2Key: string
-  r2Bucket: string
+  s3Filename: string
+  s3Key: string
+  s3Bucket: string
 }
 
 // R2 service factory function
@@ -21,18 +21,17 @@ export const createR2Service = (config: R2Config) => {
     secretAccessKey: config.secretAccessKey,
     bucket: config.bucketName,
   })
-  const bucketName = config.bucketName
 
   const uploadJson = async (data: unknown): Promise<UploadResult> => {
-    const fileName = `${crypto.randomUUID()}.json`
+    const s3Filename = `${crypto.randomUUID()}.json`
     const string = JSON.stringify(data)
 
-    await client.write(fileName, string)
+    await client.write(s3Filename, string)
 
     return {
-      fileName,
-      r2Key: fileName,
-      r2Bucket: bucketName,
+      s3Filename,
+      s3Key: s3Filename,
+      s3Bucket: config.bucketName,
     }
   }
 
