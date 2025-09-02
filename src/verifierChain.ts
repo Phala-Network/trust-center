@@ -8,6 +8,12 @@ import type {
   VerificationFlags,
 } from './config'
 import type { SystemInfo } from './types'
+import type { AppSourceInfo } from './types/metadata'
+import {
+  createAppMetadata,
+  createGatewayMetadata,
+  createKmsMetadata,
+} from './utils/metadataUtils'
 import type { Verifier } from './verifier'
 import { GatewayVerifier } from './verifiers/gatewayVerifier'
 import { PhalaCloudKmsVerifier } from './verifiers/phalaCloudKmsVerifier'
@@ -25,45 +31,75 @@ export function createVerifiers(
   const verifiers: Verifier[] = []
   const chainId = systemInfo.kms_info.chain_id
 
+  // Create metadata from systemInfo using utility functions
+  const kmsMetadata = createKmsMetadata(systemInfo)
+  const gatewayMetadata = createGatewayMetadata(systemInfo)
+
   if ('model' in appConfig) {
     // Redpill app chain: RedpillKms -> Gateway -> RedpillApp
+
+    // Extract app source info if provided in config metadata
+    const appSource =
+      appConfig.metadata &&
+      typeof appConfig.metadata === 'object' &&
+      'appSource' in appConfig.metadata
+        ? (appConfig.metadata.appSource as AppSourceInfo)
+        : undefined
+
+    const hasNvidiaSupport =
+      appConfig.metadata &&
+      typeof appConfig.metadata === 'object' &&
+      'hasNvidiaSupport' in appConfig.metadata
+        ? Boolean(appConfig.metadata.hasNvidiaSupport)
+        : false
+
+    const appMetadata = createAppMetadata(
+      systemInfo,
+      appSource,
+      hasNvidiaSupport,
+    )
+
     verifiers.push(
       new RedpillKmsVerifier(
         systemInfo.kms_info.contract_address as `0x${string}`,
-        appConfig.metadata,
+        kmsMetadata,
         chainId,
       ),
       new GatewayVerifier(
         systemInfo.kms_info.gateway_app_id as `0x${string}`,
         systemInfo.kms_info.gateway_app_url,
-        appConfig.metadata,
+        gatewayMetadata,
         chainId,
       ),
       new RedpillVerifier(
         appConfig.contractAddress,
         appConfig.model,
-        appConfig.metadata,
+        appMetadata,
         chainId,
       ),
     )
   } else {
     // Phala Cloud app chain: PhalaKms -> Gateway -> PhalaApp
+
+    // For Phala Cloud, typically has NVIDIA support
+    const appMetadata = createAppMetadata(systemInfo, undefined, true)
+
     verifiers.push(
       new PhalaCloudKmsVerifier(
         systemInfo.kms_info.contract_address as `0x${string}`,
-        appConfig.metadata,
+        kmsMetadata,
         chainId,
       ),
       new GatewayVerifier(
         systemInfo.kms_info.gateway_app_id as `0x${string}`,
         systemInfo.kms_info.gateway_app_url,
-        appConfig.metadata,
+        gatewayMetadata,
         chainId,
       ),
       new PhalaCloudVerifier(
         appConfig.contractAddress,
         appConfig.domain,
-        appConfig.metadata,
+        appMetadata,
         chainId,
       ),
     )

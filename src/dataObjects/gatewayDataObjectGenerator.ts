@@ -81,7 +81,7 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
         "Details and attestation information for the gateway. This represents the gateway's role in securely connecting and registering applications within the network.",
       fields: {
         app_id: contractAddress,
-        registry_smart_contract: `${(this.metadata as GatewayMetadata).network?.blockchainExplorerUrl}/address/${contractAddress}`,
+        registry_smart_contract: `${(this.metadata as GatewayMetadata).governance?.blockchainExplorerUrl}/address/${contractAddress}`,
         intel_attestation_report: quoteData.quote,
         event_log: JSON.stringify(quoteData.eventlog),
         app_cert: activeCertificate,
