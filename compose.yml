@@ -43,7 +43,7 @@ services:
     build:
       context: .
       target: production
-      dockerfile: src/server/dockerfile
+      dockerfile: Dockerfile
     container_name: dstack-verifier-server
     restart: unless-stopped
     environment:

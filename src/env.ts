@@ -8,7 +8,7 @@ export const env = createEnv({
     HOST: z.string().default('localhost'),
 
     // R2 configuration
-    R2_ENDPOINT: z.url(),
+    R2_ENDPOINT: z.string(),
     R2_ACCESS_KEY_ID: z.string(),
     R2_SECRET_ACCESS_KEY: z.string(),
     R2_BUCKET: z.string(),

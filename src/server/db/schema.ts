@@ -1,4 +1,11 @@
-import { index, pgEnum, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import {
+  index,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core'
 
 // Status enum for verification tasks
 export const verificationTaskStatusEnum = pgEnum('verification_task_status', [
@@ -8,14 +15,13 @@ export const verificationTaskStatusEnum = pgEnum('verification_task_status', [
   'failed',
 ])
 
-// Verifier type enum for verification tasks
-export const verifierTypeEnum = pgEnum('verifier_type', [
-  'kms',
-  'gateway',
+// App config type enum
+export const appConfigTypeEnum = pgEnum('app_config_type', [
   'redpill',
+  'phala_cloud',
 ])
 
-// Single verification_tasks table for hybrid architecture
+// Verification tasks table - stores VerificationService execution data
 export const verificationTasks = pgTable(
   'verification_tasks',
   {
@@ -30,17 +36,24 @@ export const verificationTasks = pgTable(
     // Application identification
     appId: text('app_id').notNull(),
     appName: text('app_name').notNull(),
-    verifierType: verifierTypeEnum('verifier_type').notNull(),
+    appConfigType: appConfigTypeEnum('app_config_type').notNull(), // redpill or phala_cloud
 
-    // Task data and status
-    payload: text('payload').notNull(), // Task input data as JSON string (config, flags, metadata, etc.)
+    // App configuration (VerificationService input)
+    contractAddress: text('contract_address').notNull(), // Smart contract address
+    modelOrDomain: text('model_or_domain').notNull(), // Model for redpill, domain for phala_cloud
+    appMetadata: jsonb('app_metadata'), // Structured metadata (OS, hardware, etc.)
+
+    // Verification flags (VerificationService input)
+    verificationFlags: jsonb('verification_flags').notNull(), // Which steps to execute
+
+    // Task status and execution
     status: verificationTaskStatusEnum('status').notNull().default('pending'),
     errorMessage: text('error_message'), // Failure error message
 
-    // Storage information
-    fileName: text('file_name'),
-    r2Key: text('r2_key'),
-    r2Bucket: text('r2_bucket'),
+    // Storage information (VerificationService output stored in S3-compatible storage)
+    s3Filename: text('s3_filename'),
+    s3Key: text('s3_key'),
+    s3Bucket: text('s3_bucket'),
 
     // Timestamps
     createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -56,14 +69,16 @@ export const verificationTasks = pgTable(
     index('started_at_idx').on(t.startedAt),
     index('finished_at_idx').on(t.finishedAt),
 
-    // Verification indexes
+    // Application indexes
     index('app_id_idx').on(t.appId),
     index('app_name_idx').on(t.appName),
-    index('verifier_type_idx').on(t.verifierType),
+    index('app_config_type_idx').on(t.appConfigType),
+    index('contract_address_idx').on(t.contractAddress),
+    index('model_or_domain_idx').on(t.modelOrDomain),
   ],
 )
 
 export type VerificationTask = typeof verificationTasks.$inferSelect
 export type VerificationTaskStatus =
   (typeof verificationTaskStatusEnum.enumValues)[number]
-export type VerifierType = (typeof verifierTypeEnum.enumValues)[number]
+export type AppConfigType = (typeof appConfigTypeEnum.enumValues)[number]

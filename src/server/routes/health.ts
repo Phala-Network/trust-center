@@ -7,7 +7,6 @@ const buildBasicHealthResponse = () => ({
   status: 'healthy' as const,
   timestamp: new Date().toISOString(),
   service: 'dstack-verifier' as const,
-  version: '1.0.0' as const,
 })
 
 const buildDetailedHealthResponse = async (services: Services) => {

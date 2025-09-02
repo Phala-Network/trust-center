@@ -43,7 +43,7 @@ services:
     build:
       context: .
       target: development
-      dockerfile: src/server/dockerfile
+      dockerfile: Dockerfile
     container_name: dstack-verifier-server-dev
     restart: unless-stopped
     # Development command with hot reload and Drizzle Studio
