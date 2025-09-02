@@ -5,8 +5,12 @@
  * configuration and flags, collecting DataObjects and tracking execution metadata.
  */
 
-import type {PhalaCloudConfig, RedpillConfig, VerificationFlags} from './config'
-import {DEFAULT_VERIFICATION_FLAGS} from './config'
+import type {
+  PhalaCloudConfig,
+  RedpillConfig,
+  VerificationFlags,
+} from './config'
+import { DEFAULT_VERIFICATION_FLAGS } from './config'
 import type {
   ObjectRelationship,
   SystemInfo,
@@ -18,12 +22,12 @@ import {
   configureVerifierRelationships,
   getAllDataObjects,
 } from './utils/dataObjectCollector'
-import {getPhalaCloudInfo, getRedpillInfo} from './utils/systemInfo'
-import type {OwnDomain, Verifier} from './verifier'
-import {GatewayVerifier} from './verifiers/gatewayVerifier'
-import {KmsVerifier} from './verifiers/kmsVerifier'
-import {PhalaCloudVerifier} from './verifiers/phalaCloudVerifier'
-import {RedpillVerifier} from './verifiers/redpillVerifier'
+import { getPhalaCloudInfo, getRedpillInfo } from './utils/systemInfo'
+import type { OwnDomain, Verifier } from './verifier'
+import { GatewayVerifier } from './verifiers/gatewayVerifier'
+import { KmsVerifier } from './verifiers/kmsVerifier'
+import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
+import { RedpillVerifier } from './verifiers/redpillVerifier'
 
 /**
  * Service class for orchestrating verification operations
@@ -153,6 +157,8 @@ export class VerificationService {
 
     // Execute verification steps based on flags
     await this.verifyCommon(verifier, flags)
+
+    this.configureKmsAppRelationships()
   }
 
   /**
@@ -280,7 +286,24 @@ export class VerificationService {
       },
     ]
 
-    configureVerifierRelationships({relationships})
+    configureVerifierRelationships({ relationships })
+  }
+
+  /**
+   * Configure relationships between KMS and App verifiers
+   */
+  private configureKmsAppRelationships(): void {
+    const relationships: ObjectRelationship[] = [
+      // KMS -> App relationships
+      {
+        sourceObjectId: 'kms-main',
+        targetObjectId: 'app-main',
+        sourceField: 'cert_pubkey',
+        targetField: 'app_cert',
+      },
+    ]
+
+    configureVerifierRelationships({ relationships })
   }
 
   /**

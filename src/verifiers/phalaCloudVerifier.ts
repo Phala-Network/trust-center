@@ -1,5 +1,5 @@
-import {AppDataObjectGenerator} from '../dataObjects/appDataObjectGenerator'
-import {KeyProviderSchema, TcbInfoSchema, VmConfigSchema} from '../schemas'
+import { AppDataObjectGenerator } from '../dataObjects/appDataObjectGenerator'
+import { KeyProviderSchema, TcbInfoSchema, VmConfigSchema } from '../schemas'
 import {
   type AppInfo,
   type AttestationBundle,
@@ -7,12 +7,18 @@ import {
   type QuoteData,
   type VerifierMetadata,
 } from '../types'
-import {DstackApp} from '../utils/dstackContract'
-import {getPhalaCloudInfo} from '../utils/systemInfo'
-import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
-import {getImageFolder, verifyOSIntegrity} from '../verification/osVerification'
-import {verifyComposeHash} from '../verification/sourceCodeVerification'
-import {Verifier} from '../verifier'
+import { DstackApp } from '../utils/dstackContract'
+import { getPhalaCloudInfo } from '../utils/systemInfo'
+import {
+  isUpToDate,
+  verifyTeeQuote,
+} from '../verification/hardwareVerification'
+import {
+  getImageFolder,
+  verifyOSIntegrity,
+} from '../verification/osVerification'
+import { verifyComposeHash } from '../verification/sourceCodeVerification'
+import { Verifier } from '../verifier'
 
 export class PhalaCloudVerifier extends Verifier {
   public registrySmartContract: DstackApp
@@ -102,7 +108,9 @@ export class PhalaCloudVerifier extends Verifier {
       quoteData,
       verificationResult,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isUpToDate(verificationResult)
   }
@@ -117,8 +125,11 @@ export class PhalaCloudVerifier extends Verifier {
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
       appInfo,
       {} /* measurement result */,
+      false,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isValid
   }
@@ -127,7 +138,7 @@ export class PhalaCloudVerifier extends Verifier {
     const appInfo = await this.getAppInfo()
     const quoteData = await this.getQuote()
 
-    const {isValid, calculatedHash, isRegistered} = await verifyComposeHash(
+    const { isValid, calculatedHash, isRegistered } = await verifyComposeHash(
       appInfo,
       quoteData,
       this.registrySmartContract,
@@ -140,7 +151,9 @@ export class PhalaCloudVerifier extends Verifier {
       calculatedHash,
       isRegistered ?? false,
     )
-    dataObjects.forEach((obj) => this.createDataObject(obj))
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
     return isValid
   }
