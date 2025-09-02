@@ -46,9 +46,9 @@ export interface HardwareInfo {
 }
 
 /**
- * Network and blockchain information (all fields required when present).
+ * Governance contract information (all fields required when present).
  */
-export interface NetworkInfo {
+export interface GovernanceInfo {
   /** Blockchain name (e.g., "Base") */
   blockchain: string
   /** Blockchain explorer URL (e.g., "https://basescan.org") */
@@ -65,8 +65,8 @@ export interface KmsMetadata {
   osSource: OSSourceInfo
   /** Hardware platform information (required) */
   hardware: HardwareInfo
-  /** Network and blockchain information (optional) */
-  network?: NetworkInfo
+  /** Governance contract information (optional) */
+  governance?: GovernanceInfo
 }
 
 /**
@@ -77,8 +77,8 @@ export interface GatewayMetadata {
   osSource: OSSourceInfo
   /** Hardware platform information (required) */
   hardware: HardwareInfo
-  /** Network and blockchain information (optional) */
-  network?: NetworkInfo
+  /** Governance contract information (optional) */
+  governance?: GovernanceInfo
 }
 
 /**
@@ -91,8 +91,8 @@ export interface AppMetadata {
   appSource?: AppSourceInfo
   /** Hardware platform information (required) */
   hardware: HardwareInfo
-  /** Network and blockchain information (optional) */
-  network?: NetworkInfo
+  /** Governance contract information (optional) */
+  governance?: GovernanceInfo
 }
 
 /**

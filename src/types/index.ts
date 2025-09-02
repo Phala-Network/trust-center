@@ -17,9 +17,9 @@ export type {
   AppMetadata,
   AppSourceInfo,
   GatewayMetadata,
+  GovernanceInfo,
   HardwareInfo,
   KmsMetadata,
-  NetworkInfo,
   OSSourceInfo,
   VerifierMetadata,
 } from './metadata'
