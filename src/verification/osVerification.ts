@@ -1,6 +1,6 @@
 import path from 'node:path'
-import type {AppInfo, TcbInfo} from '../types'
-import {measureDstackImages} from '../utils/dstack-mr'
+import type { AppInfo, TcbInfo } from '../types'
+import { measureDstackImages } from '../utils/dstack-mr'
 
 /**
  * Measures DStack OS images and compares with expected TCB values.

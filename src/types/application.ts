@@ -1,4 +1,4 @@
-import type {EventLog, Quote} from './core'
+import type { EventLog, Quote } from './core'
 
 /**
  * Types related to application configuration and deployment.

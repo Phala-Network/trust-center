@@ -1,6 +1,6 @@
-import type {z} from 'zod'
-import type {AppInfo} from './application'
-import type {AttestationBundle} from './attestation'
+import type { z } from 'zod'
+import type { AppInfo } from './application'
+import type { AttestationBundle } from './attestation'
 
 /**
  * Utility functions for parsing and handling type conversions.
@@ -18,7 +18,7 @@ export function parseJsonFields<T>(
   rawObject: Record<string, unknown>,
   parseConfig: Record<string, z.ZodSchema> = {},
 ): T {
-  const result = {...rawObject}
+  const result = { ...rawObject }
 
   Object.keys(parseConfig).forEach((fieldName) => {
     if (parseConfig[fieldName] && typeof result[fieldName] === 'string') {
@@ -43,7 +43,7 @@ export function parseJsonFields<T>(
 function parseAppInfoJsonFields(obj: unknown): unknown {
   if (!obj || typeof obj !== 'object') return obj
 
-  const result = {...(obj as Record<string, unknown>)}
+  const result = { ...(obj as Record<string, unknown>) }
 
   // Parse vm_config if it's a JSON string
   if (typeof result.vm_config === 'string') {
