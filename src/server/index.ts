@@ -17,7 +17,7 @@ export async function startServer() {
 
     console.log(`[SERVER] Server running on http://${host}:${port}`)
     console.log('[SERVER] Health check available at /health')
-    console.log('[SERVER] API documentation available at /swagger')
+    console.log('[SERVER] API documentation available at /openapi')
 
     // Graceful shutdown handling
     const shutdown = async (signal: string) => {

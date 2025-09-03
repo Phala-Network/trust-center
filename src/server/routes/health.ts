@@ -49,7 +49,7 @@ const handleDetailedHealth = async () => {
 }
 
 // Route configuration
-export const healthRoutes = new Elysia({ tags: ['health'] })
+export const healthRoutes = new Elysia({ tags: ['Health'] })
   .get('/', handleBasicHealth, {
     detail: { summary: 'Basic health check' },
   })

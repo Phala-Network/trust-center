@@ -1,5 +1,5 @@
 import { cors } from '@elysiajs/cors'
-import { swagger } from '@elysiajs/swagger'
+import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
 
 import { healthRoutes } from './routes/health'
@@ -11,21 +11,6 @@ const corsConfig = {
   origin: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-}
-
-const swaggerConfig = {
-  documentation: {
-    info: {
-      title: 'DStack Verifier API',
-      version: '1.0.0',
-      description: 'TEE Attestation Verification Service with Queue Management',
-    },
-    tags: [
-      { name: 'health', description: 'Health check endpoints' },
-      { name: 'tasks', description: 'Verification task management' },
-      { name: 'queue', description: 'Queue status and management' },
-    ],
-  },
 }
 
 // Pure error mapping function
@@ -52,7 +37,7 @@ const mapErrorResponse = (code: string | number, error: unknown) => {
 
 // Functional plugin composition
 const withCors = (app: Elysia) => app.use(cors(corsConfig))
-const withSwagger = (app: Elysia) => app.use(swagger(swaggerConfig))
+const withOpenapi = (app: Elysia) => app.use(openapi())
 const withRoutes = (app: Elysia) =>
   app
     .group('/health', (app) => app.use(healthRoutes))
@@ -76,7 +61,7 @@ const compose =
   (app: Elysia) =>
     fns.reduce((acc, fn) => fn(acc), app)
 
-const appPipeline = compose(withCors, withSwagger, withRoutes, withErrorHandler)
+const appPipeline = compose(withCors, withOpenapi, withRoutes, withErrorHandler)
 
 // Pure app factory
 export const createApp = (): Elysia => appPipeline(new Elysia())

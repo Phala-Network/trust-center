@@ -78,7 +78,7 @@ const handleQueueClean = async (query: {
   })
 }
 
-export const queueRoutes = new Elysia({ tags: ['queue'] })
+export const queueRoutes = new Elysia({ tags: ['Queue'] })
   .get(
     '/status',
     async () => {

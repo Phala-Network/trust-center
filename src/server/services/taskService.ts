@@ -1,10 +1,12 @@
 import { and, count, desc, eq, gte, lte, sql } from 'drizzle-orm'
 
+import type { AppMetadata, VerificationFlags } from '../../types'
 import { createDbConnection, type DbConnection } from '../db'
-import type {
-  AppConfigType,
-  VerificationTask,
-  VerificationTaskStatus,
+import {
+  type AppConfigType,
+  type VerificationTask,
+  type VerificationTaskStatus,
+  verificationTasksTable,
 } from '../db/schema'
 
 // Types
@@ -34,8 +36,8 @@ export interface CreateVerificationTaskData {
   appConfigType: AppConfigType
   contractAddress: string
   modelOrDomain: string
-  appMetadata?: Record<string, unknown>
-  verificationFlags: Record<string, unknown>
+  appMetadata?: AppMetadata
+  verificationFlags?: VerificationFlags
 }
 
 export interface UpdateVerificationTaskData {
@@ -63,7 +65,7 @@ export const createVerificationTaskService = (
     data: CreateVerificationTaskData,
   ): Promise<string> => {
     const result = await db
-      .insert(verificationTasks)
+      .insert(verificationTasksTable)
       .values({
         appId: data.appId,
         appName: data.appName,
@@ -75,7 +77,7 @@ export const createVerificationTaskService = (
         status: 'pending',
         jobName: 'verification',
       })
-      .returning({ id: verificationTasks.id })
+      .returning({ id: verificationTasksTable.id })
 
     if (!result[0]) {
       throw new Error('Failed to create verification task')
@@ -89,8 +91,8 @@ export const createVerificationTaskService = (
   ): Promise<VerificationTask | null> => {
     const result = await db
       .select()
-      .from(verificationTasks)
-      .where(eq(verificationTasks.id, id))
+      .from(verificationTasksTable)
+      .where(eq(verificationTasksTable.id, id))
       .limit(1)
 
     return result[0] || null
@@ -102,8 +104,8 @@ export const createVerificationTaskService = (
   ): Promise<VerificationTask | null> => {
     const result = await db
       .select()
-      .from(verificationTasks)
-      .where(eq(verificationTasks.bullJobId, bullJobId))
+      .from(verificationTasksTable)
+      .where(eq(verificationTasksTable.bullJobId, bullJobId))
       .limit(1)
 
     return result[0] || null
@@ -115,9 +117,9 @@ export const createVerificationTaskService = (
     data: UpdateVerificationTaskData,
   ): Promise<boolean> => {
     await db
-      .update(verificationTasks)
+      .update(verificationTasksTable)
       .set(data)
-      .where(eq(verificationTasks.id, id))
+      .where(eq(verificationTasksTable.id, id))
 
     return true
   }
@@ -128,9 +130,9 @@ export const createVerificationTaskService = (
     data: UpdateVerificationTaskData,
   ): Promise<boolean> => {
     await db
-      .update(verificationTasks)
+      .update(verificationTasksTable)
       .set(data)
-      .where(eq(verificationTasks.bullJobId, bullJobId))
+      .where(eq(verificationTasksTable.bullJobId, bullJobId))
 
     return true
   }
@@ -155,27 +157,29 @@ export const createVerificationTaskService = (
 
     // Build where conditions
     const conditions = []
-    if (jobName) conditions.push(eq(verificationTasks.jobName, jobName))
-    if (status) conditions.push(eq(verificationTasks.status, status))
-    if (appId) conditions.push(eq(verificationTasks.appId, appId))
-    if (appName) conditions.push(eq(verificationTasks.appName, appName))
+    if (jobName) conditions.push(eq(verificationTasksTable.jobName, jobName))
+    if (status) conditions.push(eq(verificationTasksTable.status, status))
+    if (appId) conditions.push(eq(verificationTasksTable.appId, appId))
+    if (appName) conditions.push(eq(verificationTasksTable.appName, appName))
     if (appConfigType)
-      conditions.push(eq(verificationTasks.appConfigType, appConfigType))
+      conditions.push(eq(verificationTasksTable.appConfigType, appConfigType))
     if (contractAddress)
-      conditions.push(eq(verificationTasks.contractAddress, contractAddress))
+      conditions.push(
+        eq(verificationTasksTable.contractAddress, contractAddress),
+      )
     if (modelOrDomain)
-      conditions.push(eq(verificationTasks.modelOrDomain, modelOrDomain))
+      conditions.push(eq(verificationTasksTable.modelOrDomain, modelOrDomain))
     if (fromDate)
-      conditions.push(gte(verificationTasks.createdAt, new Date(fromDate)))
+      conditions.push(gte(verificationTasksTable.createdAt, new Date(fromDate)))
     if (toDate)
-      conditions.push(lte(verificationTasks.createdAt, new Date(toDate)))
+      conditions.push(lte(verificationTasksTable.createdAt, new Date(toDate)))
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined
 
     // Get total count
     const totalResult = await db
       .select({ count: count() })
-      .from(verificationTasks)
+      .from(verificationTasksTable)
       .where(whereClause)
 
     const total = totalResult[0]?.count || 0
@@ -184,9 +188,9 @@ export const createVerificationTaskService = (
     const offset = (page - 1) * limit
     const data = await db
       .select()
-      .from(verificationTasks)
+      .from(verificationTasksTable)
       .where(whereClause)
-      .orderBy(desc(verificationTasks.createdAt))
+      .orderBy(desc(verificationTasksTable.createdAt))
       .limit(limit)
       .offset(offset)
 
@@ -199,7 +203,9 @@ export const createVerificationTaskService = (
 
   // Delete task
   const deleteVerificationTask = async (id: string): Promise<boolean> => {
-    await db.delete(verificationTasks).where(eq(verificationTasks.id, id))
+    await db
+      .delete(verificationTasksTable)
+      .where(eq(verificationTasksTable.id, id))
 
     return true
   }
@@ -208,13 +214,15 @@ export const createVerificationTaskService = (
   const getVerificationTaskStats = async () => {
     const stats = await db
       .select({
-        status: verificationTasks.status,
+        status: verificationTasksTable.status,
         count: count(),
       })
-      .from(verificationTasks)
-      .groupBy(verificationTasks.status)
+      .from(verificationTasksTable)
+      .groupBy(verificationTasksTable.status)
 
-    const total = await db.select({ count: count() }).from(verificationTasks)
+    const total = await db
+      .select({ count: count() })
+      .from(verificationTasksTable)
 
     const statusMap = stats.reduce(
       (acc, stat) => {
@@ -243,12 +251,12 @@ export const createVerificationTaskService = (
     cutoffDate.setDate(cutoffDate.getDate() - daysOld)
 
     const result = await db
-      .select({ id: verificationTasks.id })
-      .from(verificationTasks)
+      .select({ id: verificationTasksTable.id })
+      .from(verificationTasksTable)
       .where(
         and(
-          eq(verificationTasks.status, 'completed'),
-          sql`${verificationTasks.finishedAt} IS NOT NULL AND ${verificationTasks.finishedAt} < ${cutoffDate}`,
+          eq(verificationTasksTable.status, 'completed'),
+          sql`${verificationTasksTable.finishedAt} IS NOT NULL AND ${verificationTasksTable.finishedAt} < ${cutoffDate}`,
         ),
       )
 
@@ -261,11 +269,11 @@ export const createVerificationTaskService = (
     cutoffDate.setDate(cutoffDate.getDate() - daysOld)
 
     await db
-      .delete(verificationTasks)
+      .delete(verificationTasksTable)
       .where(
         and(
-          eq(verificationTasks.status, 'completed'),
-          sql`${verificationTasks.finishedAt} IS NOT NULL AND ${verificationTasks.finishedAt} < ${cutoffDate}`,
+          eq(verificationTasksTable.status, 'completed'),
+          sql`${verificationTasksTable.finishedAt} IS NOT NULL AND ${verificationTasksTable.finishedAt} < ${cutoffDate}`,
         ),
       )
 

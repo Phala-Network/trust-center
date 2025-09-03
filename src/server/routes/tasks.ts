@@ -1,7 +1,53 @@
 import { Elysia, t } from 'elysia'
 
+import type { VerificationFlags } from '../../config'
+import type { AppMetadata } from '../../types'
 import type { AppConfigType, VerificationTaskStatus } from '../db/schema'
 import { getServices } from '../services/index'
+
+// Validation schemas for structured types
+const OSSourceInfoSchema = t.Object({
+  github_repo: t.String(),
+  git_commit: t.String(),
+  version: t.String(),
+})
+
+const AppSourceInfoSchema = t.Object({
+  github_repo: t.String(),
+  git_commit: t.String(),
+  version: t.String(),
+  model_name: t.Optional(t.String()),
+})
+
+const HardwareInfoSchema = t.Object({
+  cpuManufacturer: t.String(),
+  cpuModel: t.String(),
+  securityFeature: t.String(),
+  hasNvidiaSupport: t.Optional(t.Boolean()),
+})
+
+const GovernanceInfoSchema = t.Object({
+  blockchain: t.String(),
+  blockchainExplorerUrl: t.String(),
+  chainId: t.Optional(t.Number()),
+})
+
+const AppMetadataSchema = t.Object({
+  osSource: OSSourceInfoSchema,
+  appSource: t.Optional(AppSourceInfoSchema),
+  hardware: HardwareInfoSchema,
+  governance: t.Optional(GovernanceInfoSchema),
+})
+
+const VerificationFlagsSchema = t.Object({
+  hardware: t.Boolean(),
+  os: t.Boolean(),
+  sourceCode: t.Boolean(),
+  teeControlledKey: t.Boolean(),
+  certificateKey: t.Boolean(),
+  dnsCAA: t.Boolean(),
+  ctLog: t.Boolean(),
+})
 
 // Types
 interface TaskCreateRequest {
@@ -10,8 +56,8 @@ interface TaskCreateRequest {
   appConfigType: AppConfigType
   contractAddress: string
   modelOrDomain: string
-  appMetadata?: Record<string, unknown>
-  verificationFlags: Record<string, boolean>
+  appMetadata?: AppMetadata
+  verificationFlags?: VerificationFlags
 }
 
 interface TaskStatusResponse {
@@ -21,8 +67,8 @@ interface TaskStatusResponse {
   appConfigType: string
   contractAddress: string
   modelOrDomain: string
-  appMetadata?: Record<string, unknown>
-  verificationFlags: Record<string, unknown>
+  appMetadata?: AppMetadata
+  verificationFlags?: VerificationFlags
   status: string
   bullJobId?: string
   createdAt: string
@@ -61,8 +107,8 @@ const buildTaskStatusResponse = (
   appConfigType: task.appConfigType as string,
   contractAddress: task.contractAddress as string,
   modelOrDomain: task.modelOrDomain as string,
-  appMetadata: task.appMetadata as Record<string, unknown> | undefined,
-  verificationFlags: task.verificationFlags as Record<string, unknown>,
+  appMetadata: task.appMetadata as AppMetadata | undefined,
+  verificationFlags: task.verificationFlags as VerificationFlags | undefined,
   status: task.status as string,
   bullJobId: task.bullJobId as string | undefined,
   createdAt: task.createdAt as string,
@@ -210,7 +256,7 @@ const handleTaskStats = async () => {
 }
 
 // Task routes
-export const taskRoutes = new Elysia({ tags: ['tasks'] })
+export const taskRoutes = new Elysia({ tags: ['Tasks'] })
   .post(
     '/',
     async ({ body, set }) => {
@@ -247,8 +293,8 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
         ]),
         contractAddress: t.String(),
         modelOrDomain: t.String(),
-        appMetadata: t.Optional(t.Record(t.String(), t.Unknown())),
-        verificationFlags: t.Record(t.String(), t.Unknown()),
+        appMetadata: t.Optional(AppMetadataSchema),
+        verificationFlags: t.Optional(VerificationFlagsSchema),
       }),
       response: t.Union([
         t.Object({
@@ -303,8 +349,8 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
             ]),
             contractAddress: t.String(),
             modelOrDomain: t.String(),
-            appMetadata: t.Optional(t.Record(t.String(), t.Unknown())),
-            verificationFlags: t.Record(t.String(), t.Unknown()),
+            appMetadata: t.Optional(AppMetadataSchema),
+            verificationFlags: t.Optional(VerificationFlagsSchema),
           }),
         ),
       }),
@@ -359,8 +405,8 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
             appConfigType: t.String(),
             contractAddress: t.String(),
             modelOrDomain: t.String(),
-            appMetadata: t.Optional(t.Record(t.String(), t.Unknown())),
-            verificationFlags: t.Record(t.String(), t.Unknown()),
+            appMetadata: t.Optional(AppMetadataSchema),
+            verificationFlags: t.Optional(VerificationFlagsSchema),
             status: t.String(),
             bullJobId: t.Optional(t.String()),
             createdAt: t.String(),
@@ -426,8 +472,8 @@ export const taskRoutes = new Elysia({ tags: ['tasks'] })
               appConfigType: t.String(),
               contractAddress: t.String(),
               modelOrDomain: t.String(),
-              appMetadata: t.Optional(t.Record(t.String(), t.Unknown())),
-              verificationFlags: t.Record(t.String(), t.Unknown()),
+              appMetadata: t.Optional(AppMetadataSchema),
+              verificationFlags: t.Optional(VerificationFlagsSchema),
               status: t.String(),
               bullJobId: t.Optional(t.String()),
               createdAt: t.String(),
