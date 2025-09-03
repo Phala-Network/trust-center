@@ -7,7 +7,6 @@
 .PHONY: deps install
 .PHONY: db-generate db-migrate db-push db-studio db-reset
 .PHONY: down clean clean-all logs status health test
-.PHONY: verify-env create-env
 
 # Configuration
 DOCKER_COMPOSE := docker compose
@@ -57,36 +56,14 @@ help:
 	@echo "  status       - Show container status"
 	@echo "  health       - Check service health"
 	@echo "  test         - Run tests in container"
-	@echo ""
-	@echo "⚙️  Environment:"
-	@echo "  verify-env   - Check environment configuration"
-	@echo "  create-env   - Create sample .env file"
 
 # Setup commands
-setup: deps create-env dev-build
+setup: deps dev-build
 	@echo "✅ DStack Verifier Server setup complete!"
 	@echo "Run 'make dev' to start development environment"
 
-create-env:
-	@if [ ! -f .env ]; then \
-		echo "📝 Creating .env file from env.example..."; \
-		cp env.example .env 2>/dev/null || \
-		echo "# DStack Verifier Server Environment\n# Database\nDATABASE_URL=postgresql://postgres:postgres@localhost:5432/dstack_verifier_dev\n# Redis\nREDIS_URL=redis://localhost:6379\n# Server\nHOST=0.0.0.0\nPORT=3000\n# Queue\nQUEUE_NAME=verification-queue\nQUEUE_CONCURRENCY=5\n# R2 Storage\nR2_ENDPOINT=\nR2_ACCESS_KEY_ID=\nR2_SECRET_ACCESS_KEY=\nR2_BUCKET=" > .env; \
-		echo "✅ Created .env file. Please review and update as needed."; \
-	else \
-		echo "✅ .env file already exists"; \
-	fi
-
-verify-env:
-	@echo "🔍 Verifying environment configuration..."
-	@if [ ! -f .env ]; then \
-		echo "❌ .env file not found. Run 'make create-env' first."; \
-		exit 1; \
-	fi
-	@echo "✅ Environment configuration looks good"
-
 # Development environment
-dev: verify-env
+dev:
 	@echo "🚀 Starting development environment..."
 	$(DOCKER_COMPOSE_DEV) up -d
 	@echo ""
@@ -112,7 +89,7 @@ dev-down:
 	$(DOCKER_COMPOSE_DEV) down
 
 # Production environment
-prod: verify-env
+prod:
 	@echo "🚀 Starting production environment..."
 	$(DOCKER_COMPOSE_PROD) up -d
 	@echo ""

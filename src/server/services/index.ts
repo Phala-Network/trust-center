@@ -5,7 +5,7 @@ import {
   type QueueConfig,
   type QueueService,
 } from './queue'
-import { createR2Service, type R2Config, type R2Service } from './r2'
+import { createS3Service, type S3Config, type S3Service } from './s3'
 import {
   createVerificationTaskService,
   type VerificationTaskService,
@@ -15,22 +15,22 @@ import {
 export interface Services {
   verification: VerificationService
   queue: QueueService
-  r2: R2Service
+  s3: S3Service
   verificationTask: VerificationTaskService
 }
 
 export interface ServiceConfig {
   databaseUrl: string
-  r2: R2Config
+  s3: S3Config
   queue: QueueConfig
 }
 
 // Pure configuration builders
-const buildR2Config = (): R2Config => ({
-  endpoint: env.R2_ENDPOINT,
-  accessKeyId: env.R2_ACCESS_KEY_ID,
-  secretAccessKey: env.R2_SECRET_ACCESS_KEY,
-  bucketName: env.R2_BUCKET,
+const buildS3Config = (): S3Config => ({
+  endpoint: env.S3_ENDPOINT,
+  accessKeyId: env.S3_ACCESS_KEY_ID,
+  secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+  bucketName: env.S3_BUCKET,
 })
 
 const buildQueueConfig = (): QueueConfig => ({
@@ -43,23 +43,23 @@ const buildQueueConfig = (): QueueConfig => ({
 
 const buildServiceConfig = (): ServiceConfig => ({
   databaseUrl: env.DATABASE_URL,
-  r2: buildR2Config(),
+  s3: buildS3Config(),
   queue: buildQueueConfig(),
 })
 
 // Functional service composition
 const composeServices = (config: ServiceConfig): Services => {
   const verification = new VerificationService()
-  const r2 = createR2Service(config.r2)
+  const s3 = createS3Service(config.s3)
   const verificationTask = createVerificationTaskService(config.databaseUrl)
   const queue = createQueueService(
     config.queue,
     verification,
     verificationTask,
-    r2,
+    s3,
   )
 
-  return { verification, queue, r2, verificationTask }
+  return { verification, queue, s3, verificationTask }
 }
 
 // Service lifecycle management with functional approach
@@ -107,11 +107,11 @@ export const closeServices = async (): Promise<void> => {
 }
 
 // Export types and factory functions
-export { createQueueService, createR2Service, createVerificationTaskService }
+export { createQueueService, createS3Service, createVerificationTaskService }
 export type {
   QueueConfig,
-  R2Config,
+  S3Config,
   QueueService,
-  R2Service,
+  S3Service,
   VerificationTaskService,
 }

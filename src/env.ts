@@ -7,11 +7,11 @@ export const env = createEnv({
     PORT: z.coerce.number().positive().default(3000),
     HOST: z.string().default('localhost'),
 
-    // R2 configuration
-    R2_ENDPOINT: z.string(),
-    R2_ACCESS_KEY_ID: z.string(),
-    R2_SECRET_ACCESS_KEY: z.string(),
-    R2_BUCKET: z.string(),
+    // S3 configuration
+    S3_ENDPOINT: z.string(),
+    S3_ACCESS_KEY_ID: z.string(),
+    S3_SECRET_ACCESS_KEY: z.string(),
+    S3_BUCKET: z.string(),
 
     // Verification flags (optional)
     VERIFICATION_FLAGS: z.string().optional(),

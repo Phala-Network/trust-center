@@ -4,11 +4,11 @@
  * Simple test runner for the three curl requests
  */
 
-import type { SystemInfo } from './src/types/application'
-import type { AppSourceInfo } from './src/types/metadata'
-import { createAppMetadata } from './src/utils/metadataUtils'
-import { getPhalaCloudInfo, getRedpillInfo } from './src/utils/systemInfo'
-import { VerificationService } from './src/verificationService'
+import type { SystemInfo } from './types/application'
+import type { AppSourceInfo } from './types/metadata'
+import { createAppMetadata } from './utils/metadataUtils'
+import { getPhalaCloudInfo, getRedpillInfo } from './utils/systemInfo'
+import { VerificationService } from './verificationService'
 
 // Sample app source info for ML applications
 const deepseekAppSource: AppSourceInfo = {

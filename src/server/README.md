@@ -1,179 +1,141 @@
 # DStack Verifier Server
 
-A high-performance TEE attestation verification server built with **Elysia.js**, **BullMQ**, and **PostgreSQL**, designed specifically for the **Bun runtime**.
+A high-performance TEE attestation verification server built with **Bun**, **Elysia.js**, and **PostgreSQL**.
 
-## 🏗️ Architecture Overview
+## 🚀 Quick Start
 
-### Core Technologies
-- **Bun**: High-performance JavaScript runtime and package manager (Node.js not supported)
-- **Elysia.js**: Fast, type-safe web framework with built-in Swagger documentation
-- **PostgreSQL**: Primary data storage for task metadata and tracking
-- **BullMQ + Redis**: High-performance job queue for verification processing
-- **Cloudflare R2**: Object storage for verification results
-- **Drizzle ORM**: Type-safe SQL toolkit with migrations
+```bash
+# Development
+make dev
+
+# Production
+make prod
+
+# View logs
+make dev-logs
+```
+
+## 🏗️ Architecture
+
+### Core Stack
+
+- **Runtime**: Bun (high-performance JavaScript runtime)
+- **Framework**: Elysia.js (fast, type-safe web framework)
+- **Database**: PostgreSQL with Drizzle ORM
+- **Queue**: BullMQ with Redis
+- **Storage**: S3-compatible storage (R2/S3)
+- **UI**: Drizzle Gateway for database management
 
 ### Service Architecture
+
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Client API    │    │  Queue Worker   │    │  Verification   │
-│     (Elysia)    │────│    (BullMQ)     │────│    Service      │
+│   API Server    │    │  Queue Worker   │    │  Verification   │
+│    (Elysia)     │────│    (BullMQ)     │────│    Service      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   PostgreSQL    │    │      Redis      │    │  Cloudflare R2  │
+│   PostgreSQL    │    │      Redis      │    │   S3 Storage    │
 │  (Task Data)    │    │   (Job Queue)   │    │   (Results)     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## 🗄️ Database Schema
-
-### Verification Tasks Table
-```sql
-CREATE TABLE verification_tasks (
-  id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_name TEXT NOT NULL DEFAULT 'verification',
-  bull_job_id TEXT,
-  
-  -- Application identification
-  app_id TEXT NOT NULL,
-  app_name TEXT NOT NULL,
-  verifier_type verifier_type NOT NULL,
-  
-  -- Task configuration and status
-  payload TEXT NOT NULL, -- JSON: config, flags, metadata
-  status verification_task_status NOT NULL DEFAULT 'pending',
-  error_message TEXT,
-  
-  -- R2 storage references
-  file_name TEXT,
-  r2_key TEXT,
-  r2_bucket TEXT,
-  
-  -- Timestamps
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  started_at TIMESTAMP,
-  finished_at TIMESTAMP
-);
-```
-
-### Enums
-```sql
-CREATE TYPE verification_task_status AS ENUM (
-  'pending', 'active', 'completed', 'failed'
-);
-
-CREATE TYPE verifier_type AS ENUM (
-  'kms', 'gateway', 'redpill'
-);
-```
-
-## 🚀 API Endpoints
+## 📋 API Endpoints
 
 ### Health & Status
+
 - `GET /health` - Basic health check
-- `GET /health/detailed` - Detailed service health status
+- `GET /health/detailed` - Detailed service status
 
 ### Task Management
-- `POST /api/v1/tasks` - Create single verification task
-- `POST /api/v1/tasks/batch` - Create multiple tasks
-- `GET /api/v1/tasks/:taskId` - Get task status
+
+- `POST /api/v1/tasks` - Create verification task
+- `GET /api/v1/tasks/:id` - Get task status
 - `GET /api/v1/tasks` - List tasks with filtering
-- `DELETE /api/v1/tasks/:taskId` - Cancel task
-- `GET /api/v1/tasks/:taskId/result` - Get result storage info
-- `GET /api/v1/tasks/stats/summary` - Task statistics
+- `DELETE /api/v1/tasks/:id` - Cancel task
 
 ### Queue Management
+
 - `GET /api/v1/queue/status` - Queue statistics
-- `GET /api/v1/queue/jobs/:jobId` - Job details
-- `POST /api/v1/queue/jobs/:jobId/retry` - Retry job
-- `DELETE /api/v1/queue/jobs/:jobId` - Remove job
 - `POST /api/v1/queue/pause` - Pause processing
 - `POST /api/v1/queue/resume` - Resume processing
-- `POST /api/v1/queue/clean` - Clean old jobs
 
-## 📝 Task Creation Examples
+## 🗄️ Database Schema
 
-### Single Task
-```json
-POST /api/v1/tasks
-{
-  "appId": "my-app-123",
-  "appName": "My Application",
-  "verifierType": "kms",
-  "config": {
-    "kms": {
-      "contractAddress": "0x...",
-      "metadata": {"version": "1.0"}
-    }
-  },
-  "flags": {
-    "hardware": true,
-    "os": true,
-    "sourceCode": true
-  },
-  "metadata": {
-    "environment": "production"
-  }
-}
-```
+### Verification Tasks
 
-### Batch Creation
-```json
-POST /api/v1/tasks/batch
-{
-  "tasks": [
-    {
-      "appId": "app-1",
-      "appName": "KMS Application",
-      "verifierType": "kms"
-    },
-    {
-      "appId": "app-2", 
-      "appName": "Gateway Application",
-      "verifierType": "gateway"
-    }
-  ]
+```typescript
+interface VerificationTask {
+  id: string
+  jobName: string
+  bullJobId?: string
+
+  // Application identification
+  appId: string
+  appName: string
+  appConfigType: 'redpill' | 'phala_cloud'
+
+  // Configuration
+  contractAddress: string
+  modelOrDomain: string
+  appMetadata?: object
+  verificationFlags: object
+
+  // Status and results
+  status: 'pending' | 'active' | 'completed' | 'failed'
+  errorMessage?: string
+
+  // Storage references
+  s3Filename?: string
+  s3Key?: string
+  s3Bucket?: string
+
+  // Timestamps
+  createdAt: Date
+  startedAt?: Date
+  finishedAt?: Date
 }
 ```
 
 ## 🔄 Task Lifecycle
 
-1. **Created**: Task stored in PostgreSQL with `pending` status
-2. **Queued**: Added to BullMQ queue with task data
-3. **Processing**: Worker picks up job, status → `active`
-4. **Config Merge**: Task config merged with defaults
-5. **Verification**: VerificationService processes with merged config
-6. **Storage**: Results uploaded to R2, metadata in PostgreSQL
-7. **Completed**: Status → `completed` with storage references
+1. **Created** → Task stored in PostgreSQL (`pending`)
+2. **Queued** → Added to BullMQ queue
+3. **Processing** → Worker picks up job (`active`)
+4. **Verification** → VerificationService processes
+5. **Storage** → Results uploaded to S3
+6. **Completed** → Status updated (`completed`)
 
-## 💾 Data Storage Strategy
+## 💾 Data Storage
 
-### PostgreSQL (Task Metadata)
-- Task configuration and parameters
-- Processing status and timestamps  
-- Error messages and retry information
-- R2 storage references (fileName, r2Key, r2Bucket)
-- Application identification and correlation
+### PostgreSQL
 
-### Cloudflare R2 (Verification Results)
-- Raw verification result data only
+- Task metadata and configuration
+- Processing status and timestamps
+- S3 storage references
+
+### S3-Compatible Storage
+
+- Raw verification results
 - Cost-effective long-term storage
-- Globally distributed access
 - Referenced by PostgreSQL metadata
 
-### Redis (Queue Processing)
-- BullMQ job queue management
-- Worker coordination and load balancing
-- Real-time job status and progress
-- Retry logic and error handling
+### Redis
 
-## ⚙️ Environment Variables
+- BullMQ job queue
+- Worker coordination
+- Real-time job status
+
+## ⚙️ Configuration
+
+### Environment Variables
 
 ```bash
-# Server Configuration
+# Server
 HOST=0.0.0.0
 PORT=3000
+NODE_ENV=development
 
 # Database
 DATABASE_URL=postgresql://user:pass@localhost:5432/dstack_verifier
@@ -182,96 +144,81 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/dstack_verifier
 REDIS_URL=redis://localhost:6379
 QUEUE_NAME=verification-queue
 QUEUE_CONCURRENCY=5
-QUEUE_MAX_ATTEMPTS=3
-QUEUE_BACKOFF_DELAY=2000
 
-# Cloudflare R2 Storage
-R2_ENDPOINT=https://account-id.r2.cloudflarestorage.com
-R2_ACCESS_KEY_ID=your_access_key
-R2_SECRET_ACCESS_KEY=your_secret_key
-R2_BUCKET=verification-results
+# S3 Storage
+S3_ENDPOINT=https://your-bucket.s3.amazonaws.com
+S3_ACCESS_KEY_ID=your_access_key
+S3_SECRET_ACCESS_KEY=your_secret_key
+S3_BUCKET=verification-results
+
+# DStack Configuration
+DSTACK_BASE_URL=https://api.base.org
+DSTACK_KMS_CONTRACT=0x...
+DSTACK_APP_CONTRACT=0x...
 ```
 
 ## 🛠️ Development
 
 ### Prerequisites
-- **Bun**: Required runtime and package manager
-- PostgreSQL 17+ with `gen_random_uuid()` support
-- Redis 7+ for queue management
-- Cloudflare R2 account and bucket
 
-### Quick Start
+- Bun runtime
+- PostgreSQL 17+
+- Redis 7+
+- S3-compatible storage
+
+### Commands
+
 ```bash
-# Install dependencies
+# Dependencies
 bun install
 
-# Set up environment
-cp .env.example .env
-# Edit .env with your configuration
-
-# Database setup
+# Database
 bun run db:migrate
-bun run db:seed # Optional
-
-# Development server
-bun run dev
-
-# Production server  
-bun run start
-```
-
-### Database Operations
-```bash
-# Generate migration
-bun run db:generate
-
-# Apply migrations
-bun run db:migrate
-
-# Database studio (development)
 bun run db:studio
 
-# Reset database
-bun run db:reset
+# Development
+bun run server:dev
+
+# Production
+bun run server
+
+# Testing
+bun test
 ```
 
-## 🏭 Service Architecture Details
+### Docker Development
+
+```bash
+# Start all services
+make dev
+
+# View logs
+make dev-logs
+
+# Database management
+make db-studio
+
+# Health check
+make health
+```
+
+## 🏭 Service Architecture
 
 ### Service Factory Pattern
-All services use dependency injection through factory functions:
 
 ```typescript
 // Service initialization
 const services = createServices()
 
-// Individual service access
-const queueService = createQueueService(config, verification, taskService, r2)
+// Individual services
+const queueService = createQueueService(config, verification, taskService, s3)
 const taskService = createVerificationTaskService(databaseUrl)
-const r2Service = createR2Service(r2Config)
+const s3Service = createS3Service(s3Config)
 ```
 
-### Queue Processing
-- **Config Merging**: Task configs merged with sensible defaults
-- **Result Storage**: Only verification results uploaded to R2
-- **Error Handling**: Comprehensive retry logic with exponential backoff
-- **Status Tracking**: Real-time status updates in PostgreSQL
-
 ### Default Configuration
-```typescript
-const DEFAULT_CONFIG = {
-  kms: {
-    contractAddress: '0x0000000000000000000000000000000000000000',
-  },
-  gateway: {
-    contractAddress: '0x0000000000000000000000000000000000000000',
-    rpcEndpoint: 'http://localhost:8545',
-  },
-  redpill: {
-    contractAddress: '0x0000000000000000000000000000000000000000',
-    model: 'default',
-  },
-}
 
+```typescript
 const DEFAULT_VERIFICATION_FLAGS = {
   hardware: true,
   os: true,
@@ -283,159 +230,119 @@ const DEFAULT_VERIFICATION_FLAGS = {
 }
 ```
 
-## 🔍 Monitoring & Health Checks
+## 🔍 Monitoring
 
-### Health Endpoints
-- **Basic**: Service uptime and version
-- **Detailed**: Database, Redis, and queue status
+### Health Checks
+
+- Basic service uptime
+- Database connectivity
+- Redis queue status
+- S3 storage access
 
 ### Queue Monitoring
+
 ```bash
 # Queue statistics
 curl http://localhost:3000/api/v1/queue/status
 
-# Job details
-curl http://localhost:3000/api/v1/queue/jobs/{jobId}
-
-# Clean completed jobs
-curl -X POST http://localhost:3000/api/v1/queue/clean
-```
-
-### Task Statistics
-```bash
-# Overall statistics
+# Task statistics
 curl http://localhost:3000/api/v1/tasks/stats/summary
-
-# Filtered task list
-curl "http://localhost:3000/api/v1/tasks?status=completed&limit=10"
 ```
 
-## 🚀 Production Deployment
+## 🚀 Production
 
-### Docker Setup
+### Docker Deployment
+
 ```bash
-# Build and run with Docker Compose
-make build
-make up
+# Production build
+make prod-build
 
-# Development environment
-make dev
+# Start production
+make prod
 
 # View logs
-make logs
-
-# Health check
-make health
+make prod-logs
 ```
 
 ### Performance Tuning
-- **Queue Concurrency**: Adjust `QUEUE_CONCURRENCY` based on CPU cores
-- **Database Connections**: Configure connection pooling
-- **Redis Memory**: Set appropriate `maxmemory` policy
-- **R2 Upload**: Consider async upload for large results
 
-### Security Considerations
-- Environment variable management
-- Database connection encryption
-- CORS configuration for API access
-- Rate limiting on public endpoints
+- Adjust `QUEUE_CONCURRENCY` based on CPU cores
+- Configure database connection pooling
+- Set Redis memory policies
+- Optimize S3 upload strategies
 
 ## 🧪 Testing
 
-### Unit Tests
 ```bash
-# Run all tests
+# Unit tests
 bun test
 
-# Watch mode
-bun test --watch
-
-# Coverage report
-bun test --coverage
-```
-
-### Integration Tests
-```bash
-# API endpoint tests
+# Integration tests
 bun test:integration
 
 # Database tests
 bun test:db
 
-# Queue processing tests
+# Queue tests
 bun test:queue
 ```
 
 ## 📊 API Documentation
 
-Interactive API documentation is available at:
+Interactive Swagger documentation available at:
+
 - **Development**: http://localhost:3000/swagger
 - **Production**: https://your-domain.com/swagger
-
-The documentation includes:
-- Complete endpoint specifications
-- Request/response schemas
-- Interactive testing interface
-- Authentication requirements
 
 ## 🔧 Troubleshooting
 
 ### Common Issues
 
-**Database Connection Errors**
+**Database Connection**
+
 ```bash
-# Check PostgreSQL status
+# Check PostgreSQL
 pg_isready -h localhost -p 5432
 
-# Verify DATABASE_URL format
+# Verify connection string
 echo $DATABASE_URL
 ```
 
 **Queue Not Processing**
+
 ```bash
-# Check Redis connection
+# Check Redis
 redis-cli ping
 
-# Monitor queue status
+# Monitor queue
 curl http://localhost:3000/api/v1/queue/status
 ```
 
-**R2 Upload Failures**
-```bash
-# Verify R2 credentials
-bun run test:r2
+**S3 Upload Failures**
 
-# Check bucket permissions
-curl -H "Authorization: Bearer $R2_TOKEN" $R2_ENDPOINT
+```bash
+# Verify credentials
+bun run test:s3
+
+# Check permissions
+curl -H "Authorization: Bearer $S3_TOKEN" $S3_ENDPOINT
 ```
 
-### Logging
+## 📚 Resources
 
-Structured logging is available for:
-- HTTP requests and responses
-- Queue job processing
-- Database operations
-- Error conditions
+- [Bun Documentation](https://bun.sh/docs)
+- [Elysia.js Guide](https://elysiajs.com)
+- [BullMQ Documentation](https://docs.bullmq.io)
+- [Drizzle ORM](https://orm.drizzle.team)
+- [Drizzle Gateway](https://github.com/drizzle-team/gateway)
 
-Log levels: `error`, `warn`, `info`, `debug`
+## ✨ Features
 
-## 📚 Additional Resources
-
-- [Bun Documentation](https://bun.sh/docs) - Runtime and package manager
-- [Elysia.js Guide](https://elysiajs.com) - Web framework
-- [BullMQ Documentation](https://docs.bullmq.io) - Queue management
-- [Drizzle ORM](https://orm.drizzle.team) - Database toolkit
-- [Cloudflare R2 API](https://developers.cloudflare.com/r2) - Object storage
-
-## 🎯 Key Features
-
-✅ **High Performance** - Bun runtime with native performance  
-✅ **Type Safety** - Full TypeScript with Drizzle ORM schemas  
-✅ **Scalable Queue** - BullMQ with Redis for job processing  
-✅ **Clean Architecture** - Separation of concerns with dependency injection  
-✅ **Production Ready** - Health checks, error handling, monitoring  
-✅ **API Documentation** - Auto-generated Swagger interface  
-✅ **Docker Support** - Complete containerization with docker-compose  
-✅ **Modern Stack** - Latest versions of all dependencies  
-
-The DStack Verifier Server provides enterprise-grade TEE attestation verification with a focus on performance, reliability, and developer experience.
+- ✅ **High Performance** - Bun runtime with native speed
+- ✅ **Type Safety** - Full TypeScript with Drizzle ORM
+- ✅ **Scalable Queue** - BullMQ with Redis
+- ✅ **Clean Architecture** - Dependency injection pattern
+- ✅ **Production Ready** - Health checks and monitoring
+- ✅ **API Documentation** - Auto-generated Swagger
+- ✅ **Docker Support** - Complete containerization
+- ✅ **Database UI** - Drizzle Gateway integration

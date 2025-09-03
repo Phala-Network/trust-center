@@ -1,15 +1,11 @@
 import { and, count, desc, eq, gte, lte, sql } from 'drizzle-orm'
 
-import {
-  type AppConfigType,
-  createDbConnection,
-  type DbConnection,
-  schema,
-  type VerificationTask,
-  type VerificationTaskStatus,
-} from '../db'
-
-const { verificationTasks } = schema
+import { createDbConnection, type DbConnection } from '../db'
+import type {
+  AppConfigType,
+  VerificationTask,
+  VerificationTaskStatus,
+} from '../db/schema'
 
 // Types
 export interface TaskFilter {
