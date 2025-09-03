@@ -5,8 +5,8 @@
 .PHONY: help setup dev dev-build dev-logs dev-shell dev-down
 .PHONY: prod prod-build prod-logs prod-shell prod-down
 .PHONY: deps install
-.PHONY: db-generate db-migrate db-push db-studio db-reset
-.PHONY: down clean clean-all logs status health test
+
+.PHONY: down clean clean-all clean-db logs status health test
 
 # Configuration
 DOCKER_COMPOSE := docker compose
@@ -41,17 +41,12 @@ help:
 	@echo "  deps         - Install Bun dependencies"
 	@echo "  install      - Install Bun dependencies (alias)"
 	@echo ""
-	@echo "🗄️  Database:"
-	@echo "  db-generate  - Generate new Drizzle migrations"
-	@echo "  db-migrate   - Run database migrations"
-	@echo "  db-push      - Push schema changes to database"
-	@echo "  db-studio    - Open Drizzle Studio"
-	@echo "  db-reset     - Reset database (⚠️  DESTROYS DATA)"
-	@echo ""
+
 	@echo "🧹 Management:"
 	@echo "  down         - Stop all containers"
 	@echo "  clean        - Remove containers and images"
 	@echo "  clean-all    - Remove everything including volumes"
+	@echo "  clean-db     - Clear development database volume (⚠️  DESTROYS DEV DATA)"
 	@echo "  logs         - View all logs"
 	@echo "  status       - Show container status"
 	@echo "  health       - Check service health"
@@ -115,45 +110,11 @@ prod-down:
 
 # Dependency management
 deps:
-	@echo "📦 Installing Bun dependencies..."
-	bun install
+	@echo "📦 Installing Bun dependencies in container..."
+	$(DOCKER_COMPOSE_DEV) run --rm server bun install
 	@echo "✅ Dependencies installed!"
 
 install: deps
-
-# Database management
-db-generate:
-	@echo "🔄 Generating new Drizzle migrations..."
-	bun run db:generate
-
-db-migrate:
-	@echo "🚀 Running database migrations..."
-	bun run db:migrate
-
-db-push:
-	@echo "📤 Pushing schema changes to database..."
-	bun run db:push
-
-db-studio:
-	@echo "📊 Opening Drizzle Studio..."
-	bun run db:studio
-
-db-reset:
-	@echo "⚠️  WARNING: This will destroy all database data!"
-	@printf "Are you sure you want to continue? Type 'yes' to confirm: "
-	@read confirm; \
-	if [ "$$confirm" = "yes" ]; then \
-		echo "🔄 Resetting database..."; \
-		$(DOCKER_COMPOSE_PROD) down -v; \
-		$(DOCKER_COMPOSE_DEV) down -v; \
-		echo "⏳ Starting database services..."; \
-		$(DOCKER_COMPOSE_DEV) up -d postgres redis; \
-		sleep 10; \
-		$(MAKE) db-migrate; \
-		echo "✅ Database reset complete!"; \
-	else \
-		echo "❌ Database reset cancelled."; \
-	fi
 
 # Container management
 down:
@@ -172,6 +133,29 @@ clean-all:
 	$(DOCKER_COMPOSE_PROD) down -v --remove-orphans
 	$(DOCKER_COMPOSE_DEV) down -v --remove-orphans
 	docker system prune -af --volumes
+
+clean-db:
+	@echo "⚠️  WARNING: This will destroy all development database data!"
+	@printf "Are you sure you want to clear the dev database volume? Type 'yes' to confirm: "
+	@read confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		echo "🔄 Stopping development environment..."; \
+		$(DOCKER_COMPOSE_DEV) down; \
+		echo "🗑️  Removing development database volume..."; \
+		docker volume rm dstack-verifier_postgres_data_dev 2>/dev/null || echo "Volume not found or already removed"; \
+		echo "⏳ Starting development database service..."; \
+		$(DOCKER_COMPOSE_DEV) up -d postgres redis; \
+		sleep 10; \
+		echo "🚀 Running database migrations in container..."; \
+		$(DOCKER_COMPOSE_DEV) exec server bun run db:migrate; \
+		echo "🚀 Starting full development environment..."; \
+		$(DOCKER_COMPOSE_DEV) up -d; \
+		echo "✅ Development database volume cleared and full environment started!"; \
+		echo "🌐 Application: http://localhost:3000"; \
+		echo "📊 Drizzle Studio: http://localhost:4983"; \
+	else \
+		echo "❌ Development database cleanup cancelled."; \
+	fi
 
 logs:
 	@echo "📝 Viewing all service logs..."

@@ -289,10 +289,10 @@ bun test:queue
 
 ## 📊 API Documentation
 
-Interactive Swagger documentation available at:
+Interactive OpenAPI documentation available at:
 
-- **Development**: http://localhost:3000/swagger
-- **Production**: https://your-domain.com/swagger
+- **Development**: http://localhost:3000/openapi
+- **Production**: https://your-domain.com/openapi
 
 ## 🔧 Troubleshooting
 
@@ -343,6 +343,6 @@ curl -H "Authorization: Bearer $S3_TOKEN" $S3_ENDPOINT
 - ✅ **Scalable Queue** - BullMQ with Redis
 - ✅ **Clean Architecture** - Dependency injection pattern
 - ✅ **Production Ready** - Health checks and monitoring
-- ✅ **API Documentation** - Auto-generated Swagger
+- ✅ **API Documentation** - Auto-generated OpenAPI
 - ✅ **Docker Support** - Complete containerization
 - ✅ **Database UI** - Drizzle Gateway integration

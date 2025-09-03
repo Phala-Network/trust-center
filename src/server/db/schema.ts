@@ -44,7 +44,7 @@ export const verificationTasksTable = pgTable(
     appMetadata: jsonb(), // Structured metadata (OS, hardware, etc.)
 
     // Verification flags (VerificationService input)
-    verificationFlags: jsonb().notNull(), // Which steps to execute
+    verificationFlags: jsonb(), // Which steps to execute
 
     // Task status and execution
     status: verificationTaskStatusEnum().notNull().default('pending'),

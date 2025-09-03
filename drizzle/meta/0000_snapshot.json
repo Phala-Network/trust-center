@@ -1,5 +1,5 @@
 {
-  "id": "8920d131-6ad3-43aa-a14f-0eb8cb9d973e",
+  "id": "d8b5ca0d-9f84-4be8-8854-e260b0a9f5b1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -14,61 +14,61 @@
           "primaryKey": true,
           "notNull": true
         },
-        "jobName": {
-          "name": "jobName",
+        "job_name": {
+          "name": "job_name",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "default": "'verification'"
         },
-        "bullJobId": {
-          "name": "bullJobId",
+        "bull_job_id": {
+          "name": "bull_job_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "appId": {
-          "name": "appId",
+        "app_id": {
+          "name": "app_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "appName": {
-          "name": "appName",
+        "app_name": {
+          "name": "app_name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "appConfigType": {
-          "name": "appConfigType",
+        "app_config_type": {
+          "name": "app_config_type",
           "type": "app_config_type",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
-        "contractAddress": {
-          "name": "contractAddress",
+        "contract_address": {
+          "name": "contract_address",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "modelOrDomain": {
-          "name": "modelOrDomain",
+        "model_or_domain": {
+          "name": "model_or_domain",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "appMetadata": {
-          "name": "appMetadata",
+        "app_metadata": {
+          "name": "app_metadata",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
-        "verificationFlags": {
-          "name": "verificationFlags",
+        "verification_flags": {
+          "name": "verification_flags",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -78,56 +78,56 @@
           "notNull": true,
           "default": "'pending'"
         },
-        "errorMessage": {
-          "name": "errorMessage",
+        "error_message": {
+          "name": "error_message",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "s3Filename": {
-          "name": "s3Filename",
+        "s3_filename": {
+          "name": "s3_filename",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "s3Key": {
-          "name": "s3Key",
+        "s3_key": {
+          "name": "s3_key",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "s3Bucket": {
-          "name": "s3Bucket",
+        "s3_bucket": {
+          "name": "s3_bucket",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "createdAt": {
-          "name": "createdAt",
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
-        "startedAt": {
-          "name": "startedAt",
+        "started_at": {
+          "name": "started_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },
-        "finishedAt": {
-          "name": "finishedAt",
+        "finished_at": {
+          "name": "finished_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {
-        "verification_tasks_jobName_index": {
-          "name": "verification_tasks_jobName_index",
+        "verification_tasks_job_name_index": {
+          "name": "verification_tasks_job_name_index",
           "columns": [
             {
-              "expression": "jobName",
+              "expression": "job_name",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -153,11 +153,11 @@
           "method": "btree",
           "with": {}
         },
-        "verification_tasks_bullJobId_index": {
-          "name": "verification_tasks_bullJobId_index",
+        "verification_tasks_bull_job_id_index": {
+          "name": "verification_tasks_bull_job_id_index",
           "columns": [
             {
-              "expression": "bullJobId",
+              "expression": "bull_job_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -168,11 +168,11 @@
           "method": "btree",
           "with": {}
         },
-        "verification_tasks_createdAt_index": {
-          "name": "verification_tasks_createdAt_index",
+        "verification_tasks_created_at_index": {
+          "name": "verification_tasks_created_at_index",
           "columns": [
             {
-              "expression": "createdAt",
+              "expression": "created_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -183,11 +183,11 @@
           "method": "btree",
           "with": {}
         },
-        "verification_tasks_startedAt_index": {
-          "name": "verification_tasks_startedAt_index",
+        "verification_tasks_started_at_index": {
+          "name": "verification_tasks_started_at_index",
           "columns": [
             {
-              "expression": "startedAt",
+              "expression": "started_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -198,11 +198,11 @@
           "method": "btree",
           "with": {}
         },
-        "verification_tasks_finishedAt_index": {
-          "name": "verification_tasks_finishedAt_index",
+        "verification_tasks_finished_at_index": {
+          "name": "verification_tasks_finished_at_index",
           "columns": [
             {
-              "expression": "finishedAt",
+              "expression": "finished_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -213,11 +213,11 @@
           "method": "btree",
           "with": {}
         },
-        "verification_tasks_appId_index": {
-          "name": "verification_tasks_appId_index",
+        "verification_tasks_app_id_index": {
+          "name": "verification_tasks_app_id_index",
           "columns": [
             {
-              "expression": "appId",
+              "expression": "app_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -228,11 +228,11 @@
           "method": "btree",
           "with": {}
         },
-        "verification_tasks_appName_index": {
-          "name": "verification_tasks_appName_index",
+        "verification_tasks_app_name_index": {
+          "name": "verification_tasks_app_name_index",
           "columns": [
             {
-              "expression": "appName",
+              "expression": "app_name",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -243,11 +243,11 @@
           "method": "btree",
           "with": {}
         },
-        "verification_tasks_appConfigType_index": {
-          "name": "verification_tasks_appConfigType_index",
+        "verification_tasks_app_config_type_index": {
+          "name": "verification_tasks_app_config_type_index",
           "columns": [
             {
-              "expression": "appConfigType",
+              "expression": "app_config_type",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -258,11 +258,11 @@
           "method": "btree",
           "with": {}
         },
-        "verification_tasks_contractAddress_index": {
-          "name": "verification_tasks_contractAddress_index",
+        "verification_tasks_contract_address_index": {
+          "name": "verification_tasks_contract_address_index",
           "columns": [
             {
-              "expression": "contractAddress",
+              "expression": "contract_address",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -273,11 +273,11 @@
           "method": "btree",
           "with": {}
         },
-        "verification_tasks_modelOrDomain_index": {
-          "name": "verification_tasks_modelOrDomain_index",
+        "verification_tasks_model_or_domain_index": {
+          "name": "verification_tasks_model_or_domain_index",
           "columns": [
             {
-              "expression": "modelOrDomain",
+              "expression": "model_or_domain",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

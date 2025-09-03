@@ -6,6 +6,7 @@ import type {
   RedpillConfig,
   VerificationFlags,
 } from '../../config'
+import type { AppMetadata } from '../../types'
 import type { VerificationService } from '../../verificationService'
 import type { AppConfigType } from '../db/schema'
 import type { S3Service } from './s3'
@@ -26,8 +27,8 @@ export interface TaskData {
   appConfigType: AppConfigType
   contractAddress: string
   modelOrDomain: string
-  appMetadata?: Record<string, unknown>
-  verificationFlags: Record<string, boolean>
+  appMetadata?: AppMetadata
+  verificationFlags?: VerificationFlags
 }
 
 export interface TaskResult {
@@ -96,50 +97,28 @@ export const createQueueService = (
         console.log(`[QUEUE] Verification flags:`, verificationFlags)
 
         // Create app config for VerificationService
+        // Note: VerificationService will generate complete metadata from systemInfo
+        // if the provided metadata is incomplete
         let appConfig: RedpillConfig | PhalaCloudConfig
         if (appConfigType === 'redpill') {
           appConfig = {
             contractAddress: contractAddress as `0x${string}`,
             model: modelOrDomain,
-            metadata: {
-              osSource: {
-                github_repo: 'https://github.com/dstack-ai/dstack',
-                git_commit: 'default',
-                version: 'default',
-              },
-              hardware: {
-                cpuManufacturer: 'Unknown',
-                cpuModel: 'Unknown',
-                securityFeature: 'Unknown',
-              },
-              ...appMetadata,
-            },
+            metadata: appMetadata || ({} as AppMetadata),
           }
         } else {
           // phala_cloud config
           appConfig = {
             contractAddress: contractAddress as `0x${string}`,
             domain: modelOrDomain,
-            metadata: {
-              osSource: {
-                github_repo: 'https://github.com/dstack-ai/dstack',
-                git_commit: 'default',
-                version: 'default',
-              },
-              hardware: {
-                cpuManufacturer: 'Unknown',
-                cpuModel: 'Unknown',
-                securityFeature: 'Unknown',
-              },
-              ...appMetadata,
-            },
+            metadata: appMetadata || ({} as AppMetadata),
           }
         }
 
         // Execute verification using VerificationService
         const verificationResult = await verificationService.verify(
           appConfig,
-          verificationFlags as unknown as VerificationFlags,
+          verificationFlags,
         )
 
         const processingTimeMs = Date.now() - startTime
@@ -287,6 +266,10 @@ export const createQueueService = (
   const addTask = async (
     taskData: Omit<TaskData, 'postgresTaskId'>,
   ): Promise<string> => {
+    // Generate default values if not provided
+    const appMetadata = taskData.appMetadata || ({} as AppMetadata)
+    const verificationFlags = taskData.verificationFlags
+
     // 1. Create task in PostgreSQL first
     const postgresTaskId = await verificationTaskService.createVerificationTask(
       {
@@ -295,13 +278,18 @@ export const createQueueService = (
         appConfigType: taskData.appConfigType,
         contractAddress: taskData.contractAddress,
         modelOrDomain: taskData.modelOrDomain,
-        appMetadata: taskData.appMetadata,
-        verificationFlags: taskData.verificationFlags,
+        appMetadata,
+        verificationFlags,
       },
     )
 
-    // 2. Add to queue with PostgreSQL ID
-    const fullTaskData: TaskData = { ...taskData, postgresTaskId }
+    // 2. Add to queue with PostgreSQL ID and generated defaults
+    const fullTaskData: TaskData = {
+      ...taskData,
+      postgresTaskId,
+      appMetadata,
+      verificationFlags,
+    }
     const job = await queue.add('verification', fullTaskData, {
       jobId: postgresTaskId,
     })
