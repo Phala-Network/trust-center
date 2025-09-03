@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia'
 
-import type { AppConfigType } from '../db'
+import type { AppConfigType, VerificationTaskStatus } from '../db/schema'
 import { getServices } from '../services/index'
 
 // Types
@@ -145,12 +145,10 @@ const handleTaskStatus = async (taskId: string) => {
 const handleTasksList = async (query: TaskListQuery) => {
   const services = getServices()
   const result = await services.verificationTask.listVerificationTasks({
-    status: query.status as import('../db').VerificationTaskStatus | undefined,
+    status: query.status as VerificationTaskStatus | undefined,
     appId: query.appId,
     appName: query.appName,
-    appConfigType: query.appConfigType as
-      | import('../db').AppConfigType
-      | undefined,
+    appConfigType: query.appConfigType as AppConfigType | undefined,
     contractAddress: query.contractAddress,
     modelOrDomain: query.modelOrDomain,
     fromDate: query.fromDate,

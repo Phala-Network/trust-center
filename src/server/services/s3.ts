@@ -1,6 +1,6 @@
 import { S3Client } from 'bun'
 
-export interface R2Config {
+export interface S3Config {
   endpoint: string
   accessKeyId: string
   secretAccessKey: string
@@ -13,8 +13,8 @@ export interface UploadResult {
   s3Bucket: string
 }
 
-// R2 service factory function
-export const createR2Service = (config: R2Config) => {
+// S3 service factory function
+export const createS3Service = (config: S3Config) => {
   const client = new S3Client({
     endpoint: config.endpoint,
     accessKeyId: config.accessKeyId,
@@ -45,4 +45,4 @@ export const createR2Service = (config: R2Config) => {
   }
 }
 
-export type R2Service = ReturnType<typeof createR2Service>
+export type S3Service = ReturnType<typeof createS3Service>

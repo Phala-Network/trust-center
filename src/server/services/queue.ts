@@ -7,8 +7,8 @@ import type {
   VerificationFlags,
 } from '../../config'
 import type { VerificationService } from '../../verificationService'
-import type { AppConfigType } from '../db'
-import type { R2Service } from './r2'
+import type { AppConfigType } from '../db/schema'
+import type { S3Service } from './s3'
 import type { VerificationTaskService } from './taskService'
 
 export interface QueueConfig {
@@ -42,7 +42,7 @@ export const createQueueService = (
   config: QueueConfig,
   verificationService: VerificationService,
   verificationTaskService: VerificationTaskService,
-  r2Service: R2Service,
+  s3Service: S3Service,
 ) => {
   const redis = new IORedis(config.redisUrl, {
     maxRetriesPerRequest: null,
@@ -192,7 +192,7 @@ export const createQueueService = (
 
       // Store result in R2 if successful
       if (result.success) {
-        const upload = await r2Service.uploadJson(result.verificationResult)
+        const upload = await s3Service.uploadJson(result.verificationResult)
 
         uploadResult = {
           s3Filename: upload.s3Filename,
@@ -201,7 +201,7 @@ export const createQueueService = (
         }
 
         console.log(
-          `[QUEUE] Uploaded verification result to R2: ${upload.s3Filename}`,
+          `[QUEUE] Uploaded verification result to S3: ${upload.s3Filename}`,
         )
       }
 

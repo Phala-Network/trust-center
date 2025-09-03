@@ -358,10 +358,10 @@ HOST: string (default: 'localhost')
 // Database and storage
 DATABASE_URL: string (PostgreSQL connection)
 REDIS_URL: string (Redis connection)
-R2_ENDPOINT: string (Cloudflare R2 endpoint)
-R2_ACCESS_KEY_ID: string
-R2_SECRET_ACCESS_KEY: string
-R2_BUCKET: string
+S3_ENDPOINT: string (AWS S3 or S3-compatible endpoint)
+S3_ACCESS_KEY_ID: string
+S3_SECRET_ACCESS_KEY: string
+S3_BUCKET: string
 
 // Queue configuration
 QUEUE_NAME: string (default: 'verification-queue')
@@ -544,49 +544,49 @@ bun run check
 #### Basic KMS Verification
 
 ```typescript
-import { KmsVerifier } from "./src/verifiers/kmsVerifier";
+import { KmsVerifier } from './src/verifiers/kmsVerifier'
 
 const kmsVerifier = new KmsVerifier(
-  "0xbfd2d557118fc650ea25a0e7d85355d335f259d8"
-);
-const hardwareValid = await kmsVerifier.verifyHardware();
-const osValid = await kmsVerifier.verifyOperatingSystem();
-const sourceValid = await kmsVerifier.verifySourceCode();
+  '0xbfd2d557118fc650ea25a0e7d85355d335f259d8'
+)
+const hardwareValid = await kmsVerifier.verifyHardware()
+const osValid = await kmsVerifier.verifyOperatingSystem()
+const sourceValid = await kmsVerifier.verifySourceCode()
 ```
 
 #### Gateway Domain Verification
 
 ```typescript
-import { GatewayVerifier } from "./src/verifiers/gatewayVerifier";
+import { GatewayVerifier } from './src/verifiers/gatewayVerifier'
 
 const gatewayVerifier = new GatewayVerifier(
-  "0x...",
-  "https://gateway.example.com:9204/"
-);
+  '0x...',
+  'https://gateway.example.com:9204/'
+)
 
-const keyControlled = await gatewayVerifier.verifyTeeControlledKey();
-const certValid = await gatewayVerifier.verifyCertificateKey();
-const dnsValid = await gatewayVerifier.verifyDnsCAA();
-const ctResult = await gatewayVerifier.verifyCTLog();
+const keyControlled = await gatewayVerifier.verifyTeeControlledKey()
+const certValid = await gatewayVerifier.verifyCertificateKey()
+const dnsValid = await gatewayVerifier.verifyDnsCAA()
+const ctResult = await gatewayVerifier.verifyCTLog()
 ```
 
 #### Phala Cloud Application Verification
 
 ```typescript
-import { PhalaCloudVerifier } from "./src/verifiers/phalaCloudVerifier";
+import { PhalaCloudVerifier } from './src/verifiers/phalaCloudVerifier'
 
 const phalaVerifier = new PhalaCloudVerifier(
-  "0x78601222ada762fa7cdcbc167aa66dd7a5f57ece",
-  "phala.network"
-);
+  '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
+  'phala.network'
+)
 
 // Get DStack information directly from Phala Cloud API
 const dstackInfo = await phalaVerifier.getDstackInfo(
-  "78601222ada762fa7cdcbc167aa66dd7a5f57ece"
-);
-const hardwareValid = await phalaVerifier.verifyHardware();
-const osValid = await phalaVerifier.verifyOperatingSystem();
-const sourceValid = await phalaVerifier.verifySourceCode();
+  '78601222ada762fa7cdcbc167aa66dd7a5f57ece'
+)
+const hardwareValid = await phalaVerifier.verifyHardware()
+const osValid = await phalaVerifier.verifyOperatingSystem()
+const sourceValid = await phalaVerifier.verifySourceCode()
 ```
 
 #### Data Object Access and Event Integration
@@ -596,42 +596,42 @@ import {
   getAllDataObjects,
   addDataObjectEventListener,
   configureVerifierRelationships,
-} from "./src/utils/dataObjectCollector";
+} from './src/utils/dataObjectCollector'
 
 // Get all verification data objects
-const allObjects = getAllDataObjects();
+const allObjects = getAllDataObjects()
 
 // Listen for data object events
 addDataObjectEventListener((event) => {
-  console.log("Data object event:", event.type, event.objectId);
-});
+  console.log('Data object event:', event.type, event.objectId)
+})
 
 // Configure relationships between verifiers
 configureVerifierRelationships({
-  kms: { objectIdPrefix: "kms", layer: 1 },
-  gateway: { objectIdPrefix: "gateway", layer: 2 },
-});
+  kms: { objectIdPrefix: 'kms', layer: 1 },
+  gateway: { objectIdPrefix: 'gateway', layer: 2 },
+})
 ```
 
 #### Verification Service Integration
 
 ```typescript
-import { VerificationService } from "./src/verificationService";
-import { getPhalaCloudInfo } from "./src/utils/systemInfo";
+import { VerificationService } from './src/verificationService'
+import { getPhalaCloudInfo } from './src/utils/systemInfo'
 
 // Initialize verification service
-const service = new VerificationService();
+const service = new VerificationService()
 
 // Get system information
 const systemInfo = await getPhalaCloudInfo(
-  "0x78601222ada762fa7cdcbc167aa66dd7a5f57ece"
-);
+  '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece'
+)
 
 // Perform verification
 const response = await service.verifyPhalaCloud({
   app: {
-    contractAddress: "0x78601222ada762fa7cdcbc167aa66dd7a5f57ece",
-    domain: "phala.network",
+    contractAddress: '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
+    domain: 'phala.network',
     metadata: systemInfo,
   },
   flags: {
@@ -639,11 +639,11 @@ const response = await service.verifyPhalaCloud({
     os: true,
     sourceCode: true,
   },
-});
+})
 
-console.log("Success:", response.success);
-console.log("DataObjects:", response.dataObjects.length);
-console.log("Errors:", response.errors);
+console.log('Success:', response.success)
+console.log('DataObjects:', response.dataObjects.length)
+console.log('Errors:', response.errors)
 ```
 
 ## Essential Development Commands

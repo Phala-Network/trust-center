@@ -24,7 +24,7 @@
  * ```
  */
 
-import { startServer } from './src/server'
+import { startServer } from './test-server'
 
 export type {
   AcmeInfo,
@@ -45,29 +45,29 @@ export type {
   QuoteData,
   QuoteResult,
   VerifyQuoteResult,
-} from './src/types'
+} from './types'
 // Export DataObject utilities
 export {
   addDataObjectEventListener,
   clearAllDataObjects,
   configureVerifierRelationships,
   getAllDataObjects,
-} from './src/utils/dataObjectCollector'
+} from './utils/dataObjectCollector'
 // Verification Service
-export { VerificationService } from './src/verificationService'
+export { VerificationService } from './verificationService'
 // Re-export main classes and types for external use
-export { OwnDomain, Verifier } from './src/verifier'
+export { OwnDomain, Verifier } from './verifier'
 // Verifier Chain System
-export { createVerifiers, executeVerifiers } from './src/verifierChain'
+export { createVerifiers, executeVerifiers } from './verifierChain'
 // Gateway Verifier
-export { GatewayVerifier } from './src/verifiers/gatewayVerifier'
+export { GatewayVerifier } from './verifiers/gatewayVerifier'
 // KMS Verifiers
-export { KmsVerifier } from './src/verifiers/kmsVerifier'
-export { PhalaCloudKmsVerifier } from './src/verifiers/phalaCloudKmsVerifier'
+export { KmsVerifier } from './verifiers/kmsVerifier'
+export { PhalaCloudKmsVerifier } from './verifiers/phalaCloudKmsVerifier'
 // Application Verifiers
-export { PhalaCloudVerifier } from './src/verifiers/phalaCloudVerifier'
-export { RedpillKmsVerifier } from './src/verifiers/redpillKmsVerifier'
-export { RedpillVerifier } from './src/verifiers/redpillVerifier'
+export { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
+export { RedpillKmsVerifier } from './verifiers/redpillKmsVerifier'
+export { RedpillVerifier } from './verifiers/redpillVerifier'
 
 // Start the HTTP API server
 await startServer()

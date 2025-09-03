@@ -2,11 +2,9 @@
 
 # Dependencies
 node_modules/
-bun.lock*
 
 # Environment files
 .env*
-!.env.example
 
 # Git and version control
 .git/
@@ -54,10 +52,8 @@ compose*.yml
 Makefile
 
 # Documentation (not needed for runtime)
-README.md
 docs/
 *.md
-!CLAUDE.md
 
 # External downloaded content (handled separately)
 external/dstack-images/*.tar.gz
@@ -73,12 +69,6 @@ vitest.config.ts
 .eslintrc*
 .prettierrc*
 biome.json
-
-# Runtime generated files
-drizzle/
-bin/
-*.sqlite
-*.db
 
 # System and temporary files
 *.pid

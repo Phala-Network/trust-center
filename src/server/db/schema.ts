@@ -22,7 +22,7 @@ export const appConfigTypeEnum = pgEnum('app_config_type', [
 ])
 
 // Verification tasks table - stores VerificationService execution data
-export const verificationTasks = pgTable(
+export const verificationTasksTable = pgTable(
   'verification_tasks',
   {
     id: text()
@@ -78,7 +78,7 @@ export const verificationTasks = pgTable(
   ],
 )
 
-export type VerificationTask = typeof verificationTasks.$inferSelect
+export type VerificationTask = typeof verificationTasksTable.$inferSelect
 export type VerificationTaskStatus =
   (typeof verificationTaskStatusEnum.enumValues)[number]
 export type AppConfigType = (typeof appConfigTypeEnum.enumValues)[number]
