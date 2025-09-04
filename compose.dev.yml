@@ -39,6 +39,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
       args:
         - BUILDKIT_INLINE_CACHE=1
     container_name: dstack-verifier-server-dev

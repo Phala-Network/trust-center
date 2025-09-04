@@ -8,8 +8,8 @@ import type { VmConfig } from '../types'
 /** Promisified version of child_process.exec for async/await usage */
 const execAsync = promisify(exec)
 
-/** Docker image containing the DStack measurement CLI tool */
-const DSTACK_MR_DOCKER_IMAGE = 'shelvenzhou49/dstack-mr-cli:latest'
+/** Path to the local dstack-mr-cli binary */
+const DSTACK_MR_CLI_PATH = '/usr/local/bin/dstack-mr-cli'
 
 /**
  * Configuration options for DStack image measurement operations.
@@ -65,11 +65,10 @@ function buildCliArgs(vmConfiguration: VmConfig): string[] {
 }
 
 /**
- * Measures DStack OS images using the measurement CLI tool in a Docker container.
+ * Measures DStack OS images using the local measurement CLI tool.
  *
- * This function runs the DStack measurement tool in a privileged Docker container
- * to calculate measurement registers (MRTD, RTMRs) for the specified OS images
- * and VM configuration.
+ * This function runs the DStack measurement tool locally to calculate measurement
+ * registers (MRTD, RTMRs) for the specified OS images and VM configuration.
  *
  * @param measurementOptions - Configuration for the measurement operation
  * @returns Promise resolving to measurement results containing MRTD and RTMR values
@@ -84,17 +83,17 @@ export async function measureDstackImages(
   rtmr2: string
 }> {
   const cliArguments = buildCliArgs(measurementOptions.vm_config)
-  const argumentsString = cliArguments.join(' ')
   const absoluteImagePath = path.resolve(measurementOptions.image_folder)
+  const metadataPath = path.join(absoluteImagePath, 'metadata.json')
 
-  const dockerCommand = `docker run --rm --privileged -v "${absoluteImagePath}":/app/dstack-images ${DSTACK_MR_DOCKER_IMAGE} measure /app/dstack-images/metadata.json ${argumentsString}`
+  const command = `${DSTACK_MR_CLI_PATH} measure "${metadataPath}" ${cliArguments.join(' ')}`
 
   try {
-    const { stdout } = await execAsync(dockerCommand)
+    const { stdout } = await execAsync(command)
     return safeParseOsMeasurement(stdout)
-  } catch (dockerError: unknown) {
-    const execError = dockerError as { stderr?: string; message: string }
-    const errorMessage = execError.stderr || execError.message
+  } catch (execError: unknown) {
+    const error = execError as { stderr?: string; message: string }
+    const errorMessage = error.stderr || error.message
     throw new Error(`Failed to run DStack measurement tool: ${errorMessage}`)
   }
 }

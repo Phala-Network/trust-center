@@ -43,23 +43,28 @@ bun run download:dstack-0.5.3
 bun run download:dstack-nvidia-0.5.3
 ```
 
-> **Note**: The `dstack-mr-cli` measurement tool has been separated into its own repository at `./dstack-mr-cli/` with its own Docker build process. See [dstack-mr-cli/README.md](./dstack-mr-cli/README.md) for details.
+> **Note**: The `dstack-mr-cli` measurement tool has been integrated into the main Dockerfile and is available as a local binary at `/usr/local/bin/dstack-mr-cli`. The separate `./dstack-mr-cli/` directory contains the original Docker build configuration for reference.
 
 ### Usage Modes
 
 #### Script Mode (Default)
+
 Run verification examples with default configuration:
+
 ```bash
 bun run index.ts
 ```
 
-#### Server Mode 
+#### Server Mode
+
 Start the HTTP REST API backend service:
+
 ```bash
 bun run index.ts --server
 ```
 
 The server starts on `http://localhost:3000` by default. Configure with environment variables:
+
 ```bash
 PORT=8080 HOST=0.0.0.0 bun run index.ts --server
 ```
@@ -69,6 +74,7 @@ PORT=8080 HOST=0.0.0.0 bun run index.ts --server
 ### API Verification Requests
 
 #### KMS Verification (Fast Mode)
+
 Skip potentially slow operations like Certificate Transparency log queries:
 
 ```bash
@@ -89,11 +95,12 @@ curl -X POST http://localhost:3000/verify \
 ```
 
 #### Gateway Verification with Custom Configuration
+
 ```bash
 curl -X POST http://localhost:3000/verify \
   -H "Content-Type: application/json" \
   -d '{
-    "verifierType": "gateway", 
+    "verifierType": "gateway",
     "config": {
       "gateway": {
         "rpcEndpoint": "https://custom-gateway.example.com:9204/"
@@ -112,6 +119,7 @@ curl -X POST http://localhost:3000/verify \
 ```
 
 #### Complete Response Format
+
 ```json
 {
   "dataObjects": [...],
@@ -138,7 +146,9 @@ curl -X POST http://localhost:3000/verify \
 ```typescript
 import { KmsVerifier } from './src/kmsVerifier'
 
-const kmsVerifier = new KmsVerifier('0xbfd2d557118fc650ea25a0e7d85355d335f259d8')
+const kmsVerifier = new KmsVerifier(
+  '0xbfd2d557118fc650ea25a0e7d85355d335f259d8'
+)
 const hardwareValid = await kmsVerifier.verifyHardware()
 const osValid = await kmsVerifier.verifyOperatingSystem()
 const sourceValid = await kmsVerifier.verifySourceCode()
@@ -196,16 +206,18 @@ cd external/dcap-qvl && cargo test
 ## Configuration & Environment Variables
 
 ### Server Configuration
+
 - `PORT`: Server port (default: 3000)
 - `HOST`: Server host (default: localhost)
 
-### Verifier Configuration  
+### Verifier Configuration
+
 - `KMS_CONTRACT_ADDRESS`: Default KMS contract address
 - `KMS_OS_VERSION`: Default KMS OS version
 - `KMS_GIT_REVISION`: Default KMS git revision
 - `GATEWAY_CONTRACT_ADDRESS`: Default Gateway contract address
 - `GATEWAY_RPC_ENDPOINT`: Default Gateway RPC endpoint
-- `GATEWAY_OS_VERSION`: Default Gateway OS version  
+- `GATEWAY_OS_VERSION`: Default Gateway OS version
 - `GATEWAY_GIT_REVISION`: Default Gateway git revision
 - `REDPILL_CONTRACT_ADDRESS`: Default Redpill contract address
 - `REDPILL_MODEL`: Default Redpill model identifier
@@ -213,6 +225,7 @@ cd external/dcap-qvl && cargo test
 - `REDPILL_GIT_REVISION`: Default Redpill git revision
 
 ### Verification Flags
+
 Control which verification steps to execute:
 
 - `hardware`: TEE quote verification (usually fast)
@@ -229,7 +242,7 @@ Control which verification steps to execute:
 
 - **Runtime**: Bun - High-performance JavaScript runtime
 - **Language**: TypeScript with strict type checking
-- **API Framework**: Bun's built-in HTTP server with REST endpoints  
+- **API Framework**: Bun's built-in HTTP server with REST endpoints
 - **Blockchain**: viem for Base network smart contract interactions
 - **Attestation**: Intel DCAP-QVL (Rust) for TEE quote verification
 - **Containers**: Docker for measurement tools and privileged operations
@@ -239,15 +252,19 @@ Control which verification steps to execute:
 ## API Endpoints
 
 ### GET /
+
 Returns service information and available endpoints.
 
-### GET /health  
+### GET /health
+
 Returns server health status and uptime.
 
 ### POST /verify
+
 Execute verification operations with configurable parameters and verification flags.
 
 **Request Format:**
+
 ```json
 {
   "verifierType": "kms" | "gateway" | "redpill",
@@ -269,6 +286,7 @@ Execute verification operations with configurable parameters and verification fl
 ```
 
 **Response Format:**
+
 ```json
 {
   "dataObjects": [...],
