@@ -6,7 +6,7 @@ import type {
   RedpillConfig,
   VerificationFlags,
 } from '../../config'
-import type { AppMetadata } from '../../types'
+import type { AppMetadata, VerificationResponse } from '../../types'
 import type { VerificationService } from '../../verificationService'
 import type { AppConfigType } from '../db/schema'
 import type { S3Service } from './s3'
@@ -36,7 +36,7 @@ export interface TaskResult {
   success: boolean
   error?: string
   processingTimeMs: number
-  verificationResult?: unknown // The actual verification result
+  verificationResult?: VerificationResponse
 }
 
 export const createQueueService = (
@@ -120,6 +120,11 @@ export const createQueueService = (
           appConfig,
           verificationFlags,
         )
+        if (!verificationResult.success) {
+          throw new Error(
+            verificationResult.errors.map((error) => error.message).join(', '),
+          )
+        }
 
         const processingTimeMs = Date.now() - startTime
 
@@ -184,14 +189,36 @@ export const createQueueService = (
         )
       }
 
-      // Update PostgreSQL task status
-      await verificationTaskService.updateVerificationTask(postgresTaskId, {
-        status: 'completed',
+      // Update PostgreSQL task status based on verification result
+      const taskStatus = result.success ? 'completed' : 'failed'
+      const updateData: {
+        status: 'completed' | 'failed'
+        finishedAt: Date
+        s3Filename?: string
+        s3Key?: string
+        s3Bucket?: string
+        errorMessage?: string
+      } = {
+        status: taskStatus,
         finishedAt: new Date(),
         ...uploadResult,
-      })
+      }
 
-      console.log(`[QUEUE] Task ${postgresTaskId} completed successfully`)
+      // Add error message if verification failed
+      if (!result.success && result.error) {
+        updateData.errorMessage = result.error
+      }
+
+      await verificationTaskService.updateVerificationTask(
+        postgresTaskId,
+        updateData,
+      )
+
+      if (result.success) {
+        console.log(`[QUEUE] Task ${postgresTaskId} completed successfully`)
+      } else {
+        console.log(`[QUEUE] Task ${postgresTaskId} failed: ${result.error}`)
+      }
     } catch (error) {
       console.error(
         `[QUEUE] Failed to handle completion for task ${postgresTaskId}:`,
