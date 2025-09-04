@@ -10,8 +10,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
-      # ports:
-      # - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,8 +25,6 @@ services:
     container_name: dstack-verifier-redis
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password} --appendonly yes
-    # ports:
-    # - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -47,7 +43,6 @@ services:
         - linux/amd64
     container_name: dstack-verifier-server
     restart: unless-stopped
-    privileged: true
     environment:
       # Database configuration
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dstack_verifier}
@@ -81,9 +76,6 @@ services:
       S3_BUCKET: ${S3_BUCKET}
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
-    volumes:
-      # Persistent storage for database migrations
-      - ./drizzle:/app/drizzle
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,11 +84,4 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
-
-networks:
-  default:
-    name: dstack-verifier-prod
-    driver: bridge
