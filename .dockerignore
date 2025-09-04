@@ -55,8 +55,9 @@ Makefile
 docs/
 *.md
 
-# External downloaded content
+# External downloaded content (exclude most, but allow specific subdirectories)
 external/
+!external/dcap-qvl/
 
 # Rust build artifacts
 Cargo.lock
