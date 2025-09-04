@@ -1,14 +1,8 @@
 # DStack Verifier Server - Multi-stage Dockerfile
-FROM docker:28.3.3-dind AS base
+FROM oven/bun:1.2.21-slim AS base
 
 # Set working directory
 WORKDIR /app
-
-# Install Bun and ca-certificates with C++ standard library
-RUN apk add --no-cache curl ca-certificates bash libstdc++
-
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
 
 # Copy package files for dependency resolution
 COPY package.json bun.lock* ./
@@ -96,11 +90,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY src ./src
 COPY drizzle.config.ts ./
 COPY tsconfig.json ./
+COPY drizzle ./drizzle
 
-# Development stage - uses final stage with dev command
-FROM final AS development
-CMD ["sh", "-c", "bun run db:migrate && bun run server:dev"]
-
-# Production stage - uses final stage with prod command
-FROM final AS production
+# Final stage with production command
 CMD ["sh", "-c", "bun run db:migrate && bun run server"]

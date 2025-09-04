@@ -40,7 +40,6 @@ jobs:
         with:
           context: .
           platforms: linux/amd64
-          target: production
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha

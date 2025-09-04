@@ -99,5 +99,4 @@ test/
 
 bin/
 .claude/
-dstack-mr-cli/
 .gitmodules

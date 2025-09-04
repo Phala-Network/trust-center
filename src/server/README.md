@@ -150,11 +150,6 @@ S3_ENDPOINT=https://your-bucket.s3.amazonaws.com
 S3_ACCESS_KEY_ID=your_access_key
 S3_SECRET_ACCESS_KEY=your_secret_key
 S3_BUCKET=verification-results
-
-# DStack Configuration
-DSTACK_BASE_URL=https://api.base.org
-DSTACK_KMS_CONTRACT=0x...
-DSTACK_APP_CONTRACT=0x...
 ```
 
 ## 🛠️ Development

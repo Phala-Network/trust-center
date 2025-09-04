@@ -2,11 +2,7 @@
 # This Makefile provides commands for managing the DStack Verifier Server
 # using Docker Compose for both development and production environments.
 
-.PHONY: help setup dev dev-build dev-logs dev-shell dev-down
-.PHONY: prod prod-build prod-logs prod-shell prod-down
-.PHONY: deps install
-
-.PHONY: down clean clean-all clean-db logs status health test
+.PHONY: help setup dev prod build logs shell down deps install clean clean-all clean-db status health test
 
 # Configuration
 DOCKER_COMPOSE := docker compose
@@ -23,41 +19,30 @@ help:
 	@echo "  dev          - Start development environment"
 	@echo "  prod         - Start production environment"
 	@echo ""
-	@echo "🔧 Development:"
-	@echo "  dev          - Start development with hot reload + Drizzle Studio"
-	@echo "  dev-build    - Build development containers"
-	@echo "  dev-logs     - View development logs (follow)"
-	@echo "  dev-shell    - Open shell in development server container"
-	@echo "  dev-down     - Stop development environment"
-	@echo ""
-	@echo "🚀 Production:"
-	@echo "  prod         - Start production environment"
-	@echo "  prod-build   - Build production containers"
-	@echo "  prod-logs    - View production logs (follow)"
-	@echo "  prod-shell   - Open shell in production server container"
-	@echo "  prod-down    - Stop production environment"
+	@echo "🔧 Commands:"
+	@echo "  build        - Build containers (auto-detect environment)"
+	@echo "  logs         - View logs (auto-detect environment)"
+	@echo "  shell        - Open shell (auto-detect environment)"
+	@echo "  down         - Stop all containers"
 	@echo ""
 	@echo "📦 Dependencies:"
 	@echo "  deps         - Install Bun dependencies"
 	@echo "  install      - Install Bun dependencies (alias)"
 	@echo ""
-
 	@echo "🧹 Management:"
-	@echo "  down         - Stop all containers"
 	@echo "  clean        - Remove containers and images"
 	@echo "  clean-all    - Remove everything including volumes"
 	@echo "  clean-db     - Clear development database volume (⚠️  DESTROYS DEV DATA)"
-	@echo "  logs         - View all logs"
 	@echo "  status       - Show container status"
 	@echo "  health       - Check service health"
 	@echo "  test         - Run tests in container"
 
 # Setup commands
-setup: deps dev-build
+setup: deps build
 	@echo "✅ DStack Verifier Server setup complete!"
 	@echo "Run 'make dev' to start development environment"
 
-# Development environment
+# Environment commands
 dev:
 	@echo "🚀 Starting development environment..."
 	$(DOCKER_COMPOSE_DEV) up -d
@@ -65,48 +50,48 @@ dev:
 	@echo "✅ Development environment started!"
 	@echo "🌐 Application: http://localhost:3000"
 	@echo "📊 Drizzle Studio: http://localhost:4983"
-	@echo "📝 Logs: make dev-logs"
+	@echo "📝 Logs: make logs"
 
-dev-build:
-	@echo "🔨 Building development containers..."
-	$(DOCKER_COMPOSE_DEV) build
-
-dev-logs:
-	@echo "📝 Viewing development logs..."
-	$(DOCKER_COMPOSE_DEV) logs -f
-
-dev-shell:
-	@echo "🐚 Opening development shell..."
-	$(DOCKER_COMPOSE_DEV) exec server /bin/sh
-
-dev-down:
-	@echo "⏹️  Stopping development environment..."
-	$(DOCKER_COMPOSE_DEV) down
-
-# Production environment
 prod:
 	@echo "🚀 Starting production environment..."
 	$(DOCKER_COMPOSE_PROD) up -d
 	@echo ""
 	@echo "✅ Production environment started!"
 	@echo "🌐 Application: http://localhost:3000"
-	@echo "📝 Logs: make prod-logs"
+	@echo "📝 Logs: make logs"
 
-prod-build:
-	@echo "🔨 Building production containers..."
-	$(DOCKER_COMPOSE_PROD) build
+# Generic commands (work with both dev and prod)
+build:
+	@echo "🔨 Building containers..."
+	@if [ -n "$$(docker ps -q -f name=dstack-verifier-server)" ]; then \
+		$(DOCKER_COMPOSE_PROD) build; \
+	elif [ -n "$$(docker ps -q -f name=dstack-verifier-server-dev)" ]; then \
+		$(DOCKER_COMPOSE_DEV) build; \
+	else \
+		echo "❌ No containers running. Use 'make dev' or 'make prod' first"; \
+		exit 1; \
+	fi
 
-prod-logs:
-	@echo "📝 Viewing production logs..."
-	$(DOCKER_COMPOSE_PROD) logs -f
+logs:
+	@echo "📝 Viewing logs..."
+	@if [ -n "$$(docker ps -q -f name=dstack-verifier-server)" ]; then \
+		$(DOCKER_COMPOSE_PROD) logs -f; \
+	elif [ -n "$$(docker ps -q -f name=dstack-verifier-server-dev)" ]; then \
+		$(DOCKER_COMPOSE_DEV) logs -f; \
+	else \
+		echo "❌ No DStack Verifier Server containers running"; \
+	fi
 
-prod-shell:
-	@echo "🐚 Opening production shell..."
-	$(DOCKER_COMPOSE_PROD) exec server /bin/sh
-
-prod-down:
-	@echo "⏹️  Stopping production environment..."
-	$(DOCKER_COMPOSE_PROD) down
+shell:
+	@echo "🐚 Opening shell..."
+	@if [ -n "$$(docker ps -q -f name=dstack-verifier-server)" ]; then \
+		$(DOCKER_COMPOSE_PROD) exec server /bin/sh; \
+	elif [ -n "$$(docker ps -q -f name=dstack-verifier-server-dev)" ]; then \
+		$(DOCKER_COMPOSE_DEV) exec server /bin/sh; \
+	else \
+		echo "❌ No DStack Verifier Server containers running"; \
+		exit 1; \
+	fi
 
 # Dependency management
 deps:
@@ -157,15 +142,6 @@ clean-db:
 		echo "❌ Development database cleanup cancelled."; \
 	fi
 
-logs:
-	@echo "📝 Viewing all service logs..."
-	@if [ -n "$$(docker ps -q -f name=dstack-verifier-server)" ]; then \
-		$(DOCKER_COMPOSE_PROD) logs -f; \
-	elif [ -n "$$(docker ps -q -f name=dstack-verifier-server-dev)" ]; then \
-		$(DOCKER_COMPOSE_DEV) logs -f; \
-	else \
-		echo "❌ No DStack Verifier Server containers running"; \
-	fi
 
 status:
 	@echo "📊 Container Status"
@@ -182,13 +158,11 @@ health:
 	@echo -n "📱 App: "
 	@curl -s -f http://localhost:3000/health >/dev/null 2>&1 && echo "✅ Healthy" || echo "❌ Unhealthy"
 	@echo -n "🗄️  Database: "
-	@docker exec dstack-verifier-postgres pg_isready -U postgres >/dev/null 2>&1 && echo "✅ Healthy" || \
-	 docker exec dstack-verifier-postgres-dev pg_isready -U postgres >/dev/null 2>&1 && echo "✅ Healthy" || \
-	 echo "❌ Unhealthy"
+	@(docker exec dstack-verifier-postgres pg_isready -U postgres >/dev/null 2>&1 || \
+	  docker exec dstack-verifier-postgres-dev pg_isready -U postgres >/dev/null 2>&1) && echo "✅ Healthy" || echo "❌ Unhealthy"
 	@echo -n "📦 Redis: "
-	@docker exec dstack-verifier-redis redis-cli --no-auth-warning -a redis_password ping >/dev/null 2>&1 && echo "✅ Healthy" || \
-	 docker exec dstack-verifier-redis-dev redis-cli --no-auth-warning -a dev_password ping >/dev/null 2>&1 && echo "✅ Healthy" || \
-	 echo "❌ Unhealthy"
+	@(docker exec dstack-verifier-redis redis-cli --no-auth-warning -a redis_password ping >/dev/null 2>&1 || \
+	  docker exec dstack-verifier-redis-dev redis-cli --no-auth-warning -a dev_password ping >/dev/null 2>&1) && echo "✅ Healthy" || echo "❌ Unhealthy"
 
 test:
 	@echo "🧪 Running tests..."

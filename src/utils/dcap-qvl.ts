@@ -11,7 +11,7 @@ import type { QuoteResult, VerifyQuoteResult } from '../types'
 const execAsync = promisify(exec)
 
 /** Path to the DCAP-QVL CLI binary */
-const DCAP_QVL_CLI_PATH = path.join(__dirname, '../..//bin/dcap-qvl')
+const DCAP_QVL_CLI_PATH = path.join(__dirname, '../../bin/dcap-qvl')
 
 /**
  * Decodes a TEE quote file using the DCAP-QVL CLI tool.

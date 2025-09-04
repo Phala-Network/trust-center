@@ -42,7 +42,6 @@ services:
   server:
     build:
       context: .
-      target: production
       dockerfile: Dockerfile
     container_name: dstack-verifier-server
     restart: unless-stopped
@@ -63,12 +62,6 @@ services:
       # Application configuration
       NODE_ENV: ${NODE_ENV:-production}
       PORT: ${PORT:-3000}
-      APP_PORT: ${APP_PORT:-3000}
-
-      # DStack blockchain configuration
-      DSTACK_BASE_URL: ${DSTACK_BASE_URL:-https://api.base.org}
-      DSTACK_KMS_CONTRACT: ${DSTACK_KMS_CONTRACT:-0x...}
-      DSTACK_APP_CONTRACT: ${DSTACK_APP_CONTRACT:-0x...}
 
       # Queue configuration
       QUEUE_NAME: ${QUEUE_NAME:-verification-queue}
@@ -84,25 +77,11 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
       S3_BUCKET: ${S3_BUCKET}
-
-      # TEE verification settings
-      DCAP_QVL_PATH: ${DCAP_QVL_PATH:-/app/bin/dcap-qvl}
-      DCAP_COLLATERAL_URL: ${DCAP_COLLATERAL_URL:-https://api.trustedservices.intel.com/sgx/certification/v4/}
-
-      # DStack measurement settings
-      DSTACK_MEASUREMENT_TIMEOUT: ${DSTACK_MEASUREMENT_TIMEOUT:-300000}
-      DSTACK_DOCKER_PRIVILEGED: ${DSTACK_DOCKER_PRIVILEGED:-true}
-
-      # Certificate verification settings
-      CT_LOG_URL: ${CT_LOG_URL:-https://crt.sh}
-      DNS_SERVER: ${DNS_SERVER:-8.8.8.8}
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       # Persistent storage for database migrations
       - ./drizzle:/app/drizzle
-      # Docker socket for Docker-in-Docker
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy
