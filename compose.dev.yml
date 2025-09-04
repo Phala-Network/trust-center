@@ -45,7 +45,6 @@ services:
         - BUILDKIT_INLINE_CACHE=1
     container_name: dstack-verifier-server-dev
     restart: unless-stopped
-    privileged: true
     # Development command with migrations and hot reload
     command: [ "sh", "-c", "bun run db:migrate && bun run server:dev" ]
     environment:
