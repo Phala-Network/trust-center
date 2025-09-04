@@ -2,7 +2,7 @@
 # This Makefile provides commands for managing the DStack Verifier Server
 # using Docker Compose for both development and production environments.
 
-.PHONY: help setup dev prod build logs shell down deps install clean clean-all clean-db status health test
+.PHONY: help setup dev prod build buildx logs shell down deps install clean clean-all clean-db status health test
 
 # Configuration
 DOCKER_COMPOSE := docker compose
@@ -20,7 +20,8 @@ help:
 	@echo "  prod         - Start production environment"
 	@echo ""
 	@echo "🔧 Commands:"
-	@echo "  build        - Build containers (auto-detect environment)"
+	@echo "  build        - Build containers using docker compose (platform from compose files)"
+	@echo "  buildx       - Build containers using docker buildx for linux/amd64 platform"
 	@echo "  logs         - View logs (auto-detect environment)"
 	@echo "  shell        - Open shell (auto-detect environment)"
 	@echo "  down         - Stop all containers"
@@ -62,7 +63,7 @@ prod:
 
 # Generic commands (work with both dev and prod)
 build:
-	@echo "🔨 Building containers..."
+	@echo "🔨 Building containers with buildx for linux/amd64 platform..."
 	@if [ -n "$$(docker ps -q -f name=dstack-verifier-server)" ]; then \
 		$(DOCKER_COMPOSE_PROD) build; \
 	elif [ -n "$$(docker ps -q -f name=dstack-verifier-server-dev)" ]; then \
@@ -71,6 +72,14 @@ build:
 		echo "❌ No containers running. Use 'make dev' or 'make prod' first"; \
 		exit 1; \
 	fi
+
+buildx:
+	@echo "🔨 Building containers with docker buildx for linux/amd64 platform..."
+	@echo "Building for production environment..."
+	docker buildx build --platform linux/amd64 -f Dockerfile -t dstack-verifier-server .
+	@echo "Building for development environment..."
+	docker buildx build --platform linux/amd64 -f Dockerfile -t dstack-verifier-server-dev .
+	@echo "✅ Build completed for both environments!"
 
 logs:
 	@echo "📝 Viewing logs..."

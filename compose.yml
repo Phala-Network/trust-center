@@ -43,6 +43,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
     container_name: dstack-verifier-server
     restart: unless-stopped
     privileged: true
