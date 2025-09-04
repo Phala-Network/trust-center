@@ -55,10 +55,8 @@ Makefile
 docs/
 *.md
 
-# External downloaded content (handled separately)
-external/dstack-images/*.tar.gz
-external/dcap-qvl/target/
-external/dcap-qvl/cli/target/
+# External downloaded content
+external/
 
 # Rust build artifacts
 Cargo.lock
@@ -97,3 +95,8 @@ test-docker.sh
 *.spec.ts
 __tests__/
 test/
+
+bin/
+.claude/
+dstack-mr-cli/
+.gitmodules
