@@ -44,6 +44,7 @@ services:
         - BUILDKIT_INLINE_CACHE=1
     container_name: dstack-verifier-server-dev
     restart: unless-stopped
+    privileged: true
     # Development command with migrations and hot reload
     command: [ "sh", "-c", "bun run db:migrate && bun run server:dev" ]
     environment:
@@ -102,6 +103,8 @@ services:
       - ./package.json:/app/package.json:ro
       - ./bun.lock:/app/bun.lock:ro
       - ./tsconfig.json:/app/tsconfig.json:ro
+      # Docker socket for Docker-in-Docker
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy

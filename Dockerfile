@@ -4,14 +4,6 @@ FROM oven/bun:1 AS base
 # Set working directory
 WORKDIR /app
 
-# # Install system dependencies for server operations
-# RUN apt-get update && apt-get install -y \
-#   curl \
-#   wget \
-#   ca-certificates \
-#   postgresql-client \
-#   && rm -rf /var/lib/apt/lists/* \
-#   && apt-get clean
 
 # Copy package files for dependency resolution
 COPY package.json bun.lock* ./
@@ -20,17 +12,47 @@ COPY package.json bun.lock* ./
 FROM base AS deps
 RUN bun install --frozen-lockfile
 
-# Development stage - optimized for hot reload and database tools
-FROM deps AS development
+# Rust build stage - for building dcap-qvl binary
+FROM rust:1.89-slim AS rust-builder
 
-# Copy entire source code for development
-COPY . .
+# Install system dependencies for Rust compilation
+RUN apt-get update && apt-get install -y \
+  build-essential \
+  pkg-config \
+  libssl-dev \
+  && rm -rf /var/lib/apt/lists/* \
+  && apt-get clean
 
-# Default development command with migrations
-CMD ["sh", "-c", "bun run db:migrate && bun run server:dev"]
+WORKDIR /app
 
-# Production stage - minimal runtime image
-FROM base AS production
+# Copy external/dcap-qvl for building
+COPY external/dcap-qvl ./external/dcap-qvl
+
+# Build dcap-qvl CLI
+WORKDIR /app/external/dcap-qvl/cli
+RUN cargo build --release
+
+# Runtime stage - shared base for both development and production
+FROM deps AS runtime
+
+# Install Docker CLI for Docker-in-Docker support
+RUN apt-get update && apt-get install -y \
+  docker.io \
+  ca-certificates \
+  curl \
+  gnupg \
+  lsb-release \
+  && rm -rf /var/lib/apt/lists/* \
+  && apt-get clean
+
+# Copy built dcap-qvl binary
+COPY --from=rust-builder /app/external/dcap-qvl/cli/target/release/dcap-qvl ./bin/
+
+# Create bin directory and ensure dcap-qvl is executable
+RUN mkdir -p bin && chmod +x bin/dcap-qvl
+
+# Final stage - shared base with all necessary files
+FROM runtime AS final
 
 # Copy production dependencies only
 COPY --from=deps /app/node_modules ./node_modules
@@ -40,5 +62,10 @@ COPY src ./src
 COPY drizzle.config.ts ./
 COPY tsconfig.json ./
 
-# Start the server with migrations
+# Development stage - uses final stage with dev command
+FROM final AS development
+CMD ["sh", "-c", "bun run db:migrate && bun run server:dev"]
+
+# Production stage - uses final stage with prod command
+FROM final AS production
 CMD ["sh", "-c", "bun run db:migrate && bun run server"]
