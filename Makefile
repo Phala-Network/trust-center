@@ -69,7 +69,7 @@ dev:
 
 dev-build:
 	@echo "🔨 Building development containers..."
-	$(DOCKER_COMPOSE_DEV) build --no-cache
+	$(DOCKER_COMPOSE_DEV) build
 
 dev-logs:
 	@echo "📝 Viewing development logs..."
@@ -94,7 +94,7 @@ prod:
 
 prod-build:
 	@echo "🔨 Building production containers..."
-	$(DOCKER_COMPOSE_PROD) build --no-cache
+	$(DOCKER_COMPOSE_PROD) build
 
 prod-logs:
 	@echo "📝 Viewing production logs..."
