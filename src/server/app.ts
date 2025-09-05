@@ -1,17 +1,10 @@
-import { cors } from '@elysiajs/cors'
 import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
 
+import { authMiddleware } from './plugin/auth'
 import { healthRoutes } from './routes/health'
 import { queueRoutes } from './routes/queue'
 import { taskRoutes } from './routes/tasks'
-
-// Pure configuration objects
-const corsConfig = {
-  origin: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-}
 
 // Pure error mapping function
 const mapErrorResponse = (code: string | number, error: unknown) => {
@@ -35,33 +28,22 @@ const mapErrorResponse = (code: string | number, error: unknown) => {
   }
 }
 
-// Functional plugin composition
-const withCors = (app: Elysia) => app.use(cors(corsConfig))
-const withOpenapi = (app: Elysia) => app.use(openapi())
-const withRoutes = (app: Elysia) =>
-  app
+// Pure app factory
+export const createApp = () => {
+  const app = new Elysia()
+    .use(openapi())
     .group('/health', (app) => app.use(healthRoutes))
     .group('/api/v1', (app) =>
       app
-        .group('/tasks', (app) => app.use(taskRoutes))
-        .group('/queue', (app) => app.use(queueRoutes)),
+        .group('/tasks', (app) => app.use(authMiddleware).use(taskRoutes))
+        .group('/queue', (app) => app.use(authMiddleware).use(queueRoutes)),
     )
+    .onError(({ code, error, set }) => {
+      console.error('[ERROR]', code, error)
+      const response = mapErrorResponse(code, error)
+      set.status = response.status
+      return response.body
+    })
 
-const withErrorHandler = (app: Elysia) =>
-  app.onError(({ code, error, set }) => {
-    console.error('[ERROR]', code, error)
-    const response = mapErrorResponse(code, error)
-    set.status = response.status
-    return response.body
-  })
-
-// Functional composition pipeline
-const compose =
-  (...fns: Array<(app: Elysia) => Elysia>) =>
-  (app: Elysia) =>
-    fns.reduce((acc, fn) => fn(acc), app)
-
-const appPipeline = compose(withCors, withOpenapi, withRoutes, withErrorHandler)
-
-// Pure app factory
-export const createApp = (): Elysia => appPipeline(new Elysia())
+  return app
+}

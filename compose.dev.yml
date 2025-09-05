@@ -48,6 +48,9 @@ services:
     # Development command with migrations and hot reload
     command: [ "sh", "-c", "bun run db:migrate && bun run server:dev" ]
     environment:
+      # Authentication configuration
+      BEARER_TOKEN: ${BEARER_TOKEN:-dev_token}
+
       # Database configuration
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dstack_verifier_dev}
       POSTGRES_DB: ${POSTGRES_DB:-dstack_verifier_dev}

@@ -209,6 +209,7 @@ cd external/dcap-qvl && cargo test
 
 - `PORT`: Server port (default: 3000)
 - `HOST`: Server host (default: localhost)
+- `BEARER_TOKEN`: Bearer token for API authentication (optional, for production)
 
 ### Verifier Configuration
 
@@ -248,6 +249,26 @@ Control which verification steps to execute:
 - **Containers**: Docker for measurement tools and privileged operations
 - **Code Quality**: Biome for formatting and linting
 - **Validation**: Zod for runtime schema validation
+
+## Authentication
+
+The server includes Bearer token authentication for protected endpoints:
+
+- **Public endpoints**: `/health/*` (no authentication required)
+- **Protected endpoints**: `/api/v1/tasks/*` and `/api/v1/queue/*` (require Bearer token)
+
+### Making Authenticated Requests
+
+Include the Bearer token in the `Authorization` header:
+
+```bash
+curl -H "Authorization: Bearer your-token-here" \
+     http://localhost:3000/api/v1/tasks
+```
+
+For development, any non-empty token is accepted. For production, implement proper token validation in `/src/server/middleware/auth.ts`.
+
+See [AUTHENTICATION.md](./AUTHENTICATION.md) for detailed authentication documentation.
 
 ## API Endpoints
 
