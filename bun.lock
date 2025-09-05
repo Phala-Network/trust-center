@@ -4,7 +4,7 @@
     "": {
       "name": "play-ts",
       "dependencies": {
-        "@elysiajs/cors": "^1.3.3",
+        "@elysiajs/bearer": "^1.3.0",
         "@elysiajs/openapi": "^1.3.7",
         "@t3-oss/env-core": "^0.13.8",
         "bullmq": "^5.58.4",
@@ -52,7 +52,7 @@
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
-    "@elysiajs/cors": ["@elysiajs/cors@1.3.3", "", { "peerDependencies": { "elysia": ">= 1.3.0" } }, "sha512-mYIU6PyMM6xIJuj7d27Vt0/wuzVKIEnFPjcvlkyd7t/m9xspAG37cwNjFxVOnyvY43oOd2I/oW2DB85utXpA2Q=="],
+    "@elysiajs/bearer": ["@elysiajs/bearer@1.3.0", "", { "peerDependencies": { "elysia": ">= 1.3.0" } }, "sha512-isi/dxBgXdITDtrzC152uPrGicbjjuAkKwawGhIlHiughnnm0k7fEfDk7atiGYp0g21+/qZU2jhaxEx609wtLQ=="],
 
     "@elysiajs/openapi": ["@elysiajs/openapi@1.3.7", "", { "dependencies": { "@sinclair/typemap": "^0.10.1", "openapi-types": "^12.1.3" }, "peerDependencies": { "elysia": ">= 1.3.0" } }, "sha512-mASmuOxDuH4yfAnfA1/nCg7Yofd6qoVBUQG92sKmkTo5SxH74goWdj1fMDalb5/xPHn6mVvqinTrUTK8Rq5FkA=="],
 

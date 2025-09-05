@@ -50,7 +50,6 @@ dev:
 	@echo ""
 	@echo "✅ Development environment started!"
 	@echo "🌐 Application: http://localhost:3000"
-	@echo "📊 Drizzle Studio: http://localhost:4983"
 	@echo "📝 Logs: make logs"
 
 prod:
@@ -146,7 +145,6 @@ clean-db:
 		$(DOCKER_COMPOSE_DEV) up -d; \
 		echo "✅ Development database volume cleared and full environment started!"; \
 		echo "🌐 Application: http://localhost:3000"; \
-		echo "📊 Drizzle Studio: http://localhost:4983"; \
 	else \
 		echo "❌ Development database cleanup cancelled."; \
 	fi
