@@ -10,15 +10,6 @@ import type {
 } from '../types'
 
 /**
- * Global type mapping for different verifier types.
- */
-const TYPE_MAP = {
-  kms: 'trust_authority',
-  gateway: 'network_report',
-  app: 'application_report',
-} as const
-
-/**
  * Base class for generating DataObjects across different verifier types.
  */
 export abstract class BaseDataObjectGenerator {
@@ -46,7 +37,6 @@ export abstract class BaseDataObjectGenerator {
    */
   protected generateCpuHardwareObject(
     verificationResult: VerifyQuoteResult,
-    layer: number = 3,
   ): DataObject {
     return {
       id: this.generateObjectId('cpu'),
@@ -58,8 +48,6 @@ export abstract class BaseDataObjectGenerator {
         security_feature: this.metadata.hardware.securityFeature,
         verification_status: verificationResult.status,
       },
-      layer,
-      type: 'hardware_report',
       kind: this.verifierType,
       measuredBy: [
         {
@@ -74,7 +62,6 @@ export abstract class BaseDataObjectGenerator {
    */
   protected generateQuoteObject(
     verificationResult: VerifyQuoteResult,
-    layer: number = 3,
   ): DataObject {
     return {
       id: this.generateObjectId('quote'),
@@ -97,8 +84,6 @@ export abstract class BaseDataObjectGenerator {
         rtmr3: verificationResult.report?.TD10?.rt_mr3 || '',
         reportdata: verificationResult.report?.TD10?.report_data || '',
       },
-      layer,
-      type: TYPE_MAP[this.verifierType],
       kind: this.verifierType,
       measuredBy: [
         {
@@ -115,7 +100,6 @@ export abstract class BaseDataObjectGenerator {
   protected generateOSObject(
     appInfo: AppInfo,
     measurementResult: any,
-    layer: number = 3,
     hasNvidiaSupport: boolean = false,
   ): DataObject {
     const osVersionString = this.metadata.osSource.version
@@ -141,8 +125,6 @@ export abstract class BaseDataObjectGenerator {
         measured_rtmr2: measurementResult.rtmr2,
         ...(isNvidiaVariant && { gpu_enabled: true }),
       },
-      layer,
-      type: TYPE_MAP[this.verifierType],
       kind: this.verifierType,
       calculations: [
         {
@@ -203,7 +185,7 @@ export abstract class BaseDataObjectGenerator {
   /**
    * Generates OS Code DataObjects for operating system source code information.
    */
-  protected generateOSCodeObject(layer: number = 1): DataObject {
+  protected generateOSCodeObject(): DataObject {
     return {
       id: this.generateObjectId('os-code'),
       name: `${this.verifierType.toUpperCase()} OS Code`,
@@ -213,8 +195,6 @@ export abstract class BaseDataObjectGenerator {
         git_commit: this.metadata.osSource.git_commit,
         version: this.metadata.osSource.version,
       },
-      layer,
-      type: TYPE_MAP[this.verifierType],
       kind: this.verifierType,
       measuredBy: [
         {
@@ -257,7 +237,6 @@ export abstract class BaseDataObjectGenerator {
   private createEventLogDataObjects(
     eventLog: LogEntry[],
     objectIdPrefix: string,
-    layer: number,
   ): DataObject[] {
     const groupedLogs = BaseDataObjectGenerator.groupEventLogsByIMR(eventLog)
     const dataObjects: DataObject[] = []
@@ -294,8 +273,6 @@ export abstract class BaseDataObjectGenerator {
         name: `Event Logs for RTMR${imr}`,
         description: getIMRDescription(imrNumber),
         fields,
-        layer,
-        type: TYPE_MAP[this.verifierType],
         kind: this.verifierType,
         calculations: [
           {
@@ -332,7 +309,7 @@ export abstract class BaseDataObjectGenerator {
     // Configure object ID prefix based on verifier type
     const objectIdPrefix = this.generateObjectId('event-logs')
 
-    return this.createEventLogDataObjects(eventlog, objectIdPrefix, 4)
+    return this.createEventLogDataObjects(eventlog, objectIdPrefix)
   }
 
   /**
@@ -341,7 +318,6 @@ export abstract class BaseDataObjectGenerator {
   protected generateCodeObject(
     appInfo: AppInfo,
     isRegistered?: boolean,
-    layer: number = 3,
   ): DataObject {
     const fields: Record<string, unknown> = {
       compose_file: appInfo.tcb_info.app_compose,
@@ -367,8 +343,6 @@ export abstract class BaseDataObjectGenerator {
       name: `${this.verifierType.toUpperCase()} Code`,
       description: `Source code and deployment configuration for the ${this.verifierType} service, including compose files and version information.`,
       fields,
-      layer,
-      type: TYPE_MAP[this.verifierType],
       kind: this.verifierType,
       calculations: [
         {

@@ -27,10 +27,10 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
     const objects: DataObject[] = []
 
     // Gateway hardware object
-    objects.push(this.generateCpuHardwareObject(verificationResult, 1))
+    objects.push(this.generateCpuHardwareObject(verificationResult))
 
     // Gateway quote object
-    objects.push(this.generateQuoteObject(verificationResult, 3))
+    objects.push(this.generateQuoteObject(verificationResult))
 
     // Event log objects
     objects.push(...this.generateEventLogObjects(quoteData.eventlog))
@@ -48,10 +48,10 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
     const objects: DataObject[] = []
 
     // Gateway OS object
-    objects.push(this.generateOSObject(appInfo, measurementResult, 2))
+    objects.push(this.generateOSObject(appInfo, measurementResult))
 
     // Gateway OS Code object
-    objects.push(this.generateOSCodeObject(1))
+    objects.push(this.generateOSCodeObject())
 
     return objects
   }
@@ -96,8 +96,6 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
           : undefined,
         endpoint: gatewayRpcEndpoint,
       },
-      layer: 3,
-      type: 'network_report',
       kind: 'gateway',
       measuredBy: [
         {
@@ -118,7 +116,7 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
     }
 
     // Gateway code object
-    const gatewayCode = this.generateCodeObject(appInfo, isRegistered, 3)
+    const gatewayCode = this.generateCodeObject(appInfo, isRegistered)
 
     objects.push(gateway, gatewayCode)
     return objects
@@ -151,8 +149,6 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
         historical_keys: acmeInfo.hist_keys,
         active_certificate: acmeInfo.active_cert,
       },
-      layer: 4,
-      type: 'domain_verification',
       kind: 'gateway',
       measuredBy: [
         {
