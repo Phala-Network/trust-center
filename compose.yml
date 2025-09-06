@@ -36,14 +36,13 @@ services:
 
   # DStack Verifier Server
   server:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      platforms:
-        - linux/amd64
+    image: kdon1204/dstack-verifier:latest
     container_name: dstack-verifier-server
     restart: unless-stopped
     environment:
+      # Authentication configuration
+      BEARER_TOKEN: ${BEARER_TOKEN}
+
       # Database configuration
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dstack_verifier}
       POSTGRES_DB: ${POSTGRES_DB:-dstack_verifier}
