@@ -27,8 +27,8 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
     const objects: DataObject[] = []
 
     // App CPU hardware object
-    objects.push(this.generateCpuHardwareObject(verificationResult, 3))
-    objects.push(this.generateQuoteObject(verificationResult, 4))
+    objects.push(this.generateCpuHardwareObject(verificationResult))
+    objects.push(this.generateQuoteObject(verificationResult))
     objects.push(...this.generateEventLogObjects(quoteData.eventlog))
 
     // Only generate GPU objects if attestationBundle is provided
@@ -47,8 +47,6 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
           memory: '141GB x 8',
           security_feature: 'Confidential Computing mode',
         },
-        layer: 3,
-        type: 'hardware_report',
         kind: 'app',
         measuredBy: [
           {
@@ -73,8 +71,6 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
             })) || [],
           arch: attestationBundle.nvidia_payload.arch || 'HOPPER',
         },
-        layer: 3,
-        type: 'application_report',
         kind: 'app',
         measuredBy: [
           {
@@ -102,11 +98,11 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
 
     // App OS object
     objects.push(
-      this.generateOSObject(appInfo, measurementResult, 3, hasNvidiaSupport),
+      this.generateOSObject(appInfo, measurementResult, hasNvidiaSupport),
     )
 
     // App OS Code object
-    objects.push(this.generateOSCodeObject(1))
+    objects.push(this.generateOSCodeObject())
 
     return objects
   }
@@ -144,8 +140,6 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
         os_image_hash: appInfo.os_image_hash,
         is_registered: isRegistered,
       },
-      layer: 3,
-      type: 'application_report',
       kind: 'app',
     }
 
@@ -153,7 +147,7 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
 
     // Only generate app code object if appSource metadata is present
     if ((this.metadata as AppMetadata).appSource) {
-      const appCode = this.generateCodeObject(appInfo, isRegistered, 3)
+      const appCode = this.generateCodeObject(appInfo, isRegistered)
       objects.push(appCode)
     }
 

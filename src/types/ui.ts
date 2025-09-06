@@ -10,8 +10,6 @@ export interface DataObject {
   name: string
   description?: string
   fields: Record<string, unknown>
-  layer: number
-  type: string
   kind?: 'gateway' | 'kms' | 'app'
   measuredBy?: {
     objectId: string

@@ -25,10 +25,10 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
     const objects: DataObject[] = []
 
     // KMS hardware object
-    objects.push(this.generateCpuHardwareObject(verificationResult, 1))
+    objects.push(this.generateCpuHardwareObject(verificationResult))
 
     // KMS quote object
-    objects.push(this.generateQuoteObject(verificationResult, 2))
+    objects.push(this.generateQuoteObject(verificationResult))
 
     // Event log objects
     objects.push(...this.generateEventLogObjects(quoteData.eventlog))
@@ -46,10 +46,10 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
     const objects: DataObject[] = []
 
     // KMS OS object
-    objects.push(this.generateOSObject(appInfo, measurementResult, 3))
+    objects.push(this.generateOSObject(appInfo, measurementResult))
 
     // KMS OS Code object
-    objects.push(this.generateOSCodeObject(1))
+    objects.push(this.generateOSCodeObject())
 
     return objects
   }
@@ -83,13 +83,11 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
         event_log: JSON.stringify(quoteData.eventlog),
         gateway_app_id: gatewayAppId,
       },
-      layer: 2,
-      type: 'trust_authority',
       kind: 'kms',
     }
 
     // KMS code object
-    const kmsCode = this.generateCodeObject(appInfo, undefined, 2)
+    const kmsCode = this.generateCodeObject(appInfo, undefined)
 
     objects.push(kms, kmsCode)
     return objects
