@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, like, or, type SQL, sql } from 'drizzle-orm'
 
 import type { AppMetadata, VerificationFlags } from '../../types'
 import { createDbConnection, type DbConnection } from '../db'
@@ -8,26 +8,35 @@ import {
   type VerificationTaskStatus,
   verificationTasksTable,
 } from '../db/schema'
+import { TASK_CONSTANTS } from '../routes/tasks/constants'
 
 // Types
 export interface TaskFilter {
-  jobName?: string
+  // Basic filters
   status?: VerificationTaskStatus
   appId?: string
   appName?: string
   appConfigType?: AppConfigType
   contractAddress?: string
-  modelOrDomain?: string
-  fromDate?: string
-  toDate?: string
+
+  // Search filters
+  keyword?: string
+
+  // Pagination
   page?: number
   limit?: number
+
+  // Sorting
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
 }
 
 export interface PaginatedResult<T> {
   data: T[]
   total: number
   hasNext: boolean
+  page: number
+  limit: number
 }
 
 export interface CreateVerificationTaskData {
@@ -142,22 +151,22 @@ export const createVerificationTaskService = (
     filter: TaskFilter = {},
   ): Promise<PaginatedResult<VerificationTask>> => {
     const {
-      jobName,
       status,
       appId,
       appName,
       appConfigType,
       contractAddress,
-      modelOrDomain,
-      fromDate,
-      toDate,
-      page = 1,
-      limit = 50,
+      keyword,
+      sortBy = TASK_CONSTANTS.DEFAULT_SORT_BY,
+      sortOrder = TASK_CONSTANTS.DEFAULT_SORT_ORDER,
+      page = TASK_CONSTANTS.DEFAULT_PAGE,
+      limit = TASK_CONSTANTS.DEFAULT_LIMIT,
     } = filter
 
     // Build where conditions
     const conditions = []
-    if (jobName) conditions.push(eq(verificationTasksTable.jobName, jobName))
+
+    // Basic filters
     if (status) conditions.push(eq(verificationTasksTable.status, status))
     if (appId) conditions.push(eq(verificationTasksTable.appId, appId))
     if (appName) conditions.push(eq(verificationTasksTable.appName, appName))
@@ -167,12 +176,32 @@ export const createVerificationTaskService = (
       conditions.push(
         eq(verificationTasksTable.contractAddress, contractAddress),
       )
-    if (modelOrDomain)
-      conditions.push(eq(verificationTasksTable.modelOrDomain, modelOrDomain))
-    if (fromDate)
-      conditions.push(gte(verificationTasksTable.createdAt, new Date(fromDate)))
-    if (toDate)
-      conditions.push(lte(verificationTasksTable.createdAt, new Date(toDate)))
+
+    // Keyword search condition - search in configured fields
+    if (keyword) {
+      const keywordPattern = `%${keyword}%`
+      const searchConditions = TASK_CONSTANTS.KEYWORD_SEARCH_FIELDS.map(
+        (field) => {
+          switch (field) {
+            case 'appName':
+              return like(verificationTasksTable.appName, keywordPattern)
+            case 'appId':
+              return like(verificationTasksTable.appId, keywordPattern)
+            case 'contractAddress':
+              return like(
+                verificationTasksTable.contractAddress,
+                keywordPattern,
+              )
+            default:
+              return null
+          }
+        },
+      ).filter(Boolean) as SQL[]
+
+      if (searchConditions.length > 0) {
+        conditions.push(or(...searchConditions))
+      }
+    }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined
 
@@ -184,20 +213,59 @@ export const createVerificationTaskService = (
 
     const total = totalResult[0]?.count || 0
 
+    // Build order by clause - only support configured time-related fields
+    let orderByClause: ReturnType<typeof asc> | ReturnType<typeof desc>
+
+    // Validate sort field
+    const validSortBy = TASK_CONSTANTS.SORT_FIELDS.includes(sortBy as any)
+      ? sortBy
+      : TASK_CONSTANTS.DEFAULT_SORT_BY
+
+    switch (validSortBy) {
+      case 'startedAt':
+        orderByClause =
+          sortOrder === 'asc'
+            ? asc(verificationTasksTable.startedAt)
+            : desc(verificationTasksTable.startedAt)
+        break
+      case 'finishedAt':
+        orderByClause =
+          sortOrder === 'asc'
+            ? asc(verificationTasksTable.finishedAt)
+            : desc(verificationTasksTable.finishedAt)
+        break
+      case 'createdAt':
+      default:
+        orderByClause =
+          sortOrder === 'asc'
+            ? asc(verificationTasksTable.createdAt)
+            : desc(verificationTasksTable.createdAt)
+        break
+    }
+
+    // Validate and limit pagination parameters
+    const validatedPage = Math.max(1, page)
+    const validatedLimit = Math.min(
+      Math.max(1, limit),
+      TASK_CONSTANTS.MAX_LIMIT,
+    )
+
     // Get paginated data
-    const offset = (page - 1) * limit
+    const offset = (validatedPage - 1) * validatedLimit
     const data = await db
       .select()
       .from(verificationTasksTable)
       .where(whereClause)
-      .orderBy(desc(verificationTasksTable.createdAt))
-      .limit(limit)
+      .orderBy(orderByClause)
+      .limit(validatedLimit)
       .offset(offset)
 
     return {
       data,
       total,
-      hasNext: offset + limit < total,
+      hasNext: offset + validatedLimit < total,
+      page: validatedPage,
+      limit: validatedLimit,
     }
   }
 
