@@ -1,5 +1,5 @@
 import { KeyProviderSchema, TcbInfoSchema, VmConfigSchema } from '../schemas'
-import { type AppInfo, type KmsMetadata, parseJsonFields } from '../types'
+import { type AppInfo, parseJsonFields } from '../types'
 import { KmsVerifier } from './kmsVerifier'
 
 const DeepseekKmsInfo = {
@@ -29,17 +29,6 @@ const DeepseekKmsInfo = {
  * It extends the base KmsVerifier class and provides the DeepseekKmsInfo for getAppInfo().
  */
 export class RedpillKmsVerifier extends KmsVerifier {
-  /**
-   * Creates a new Redpill KMS verifier instance.
-   */
-  constructor(
-    contractAddress: `0x${string}`,
-    metadata: KmsMetadata,
-    chainId = 8453, // Base mainnet
-  ) {
-    super(contractAddress, metadata, chainId)
-  }
-
   /**
    * Retrieves application information using hardcoded DeepseekKmsInfo.
    * This is the original behavior that worked for Redpill apps.

@@ -6,7 +6,7 @@
 
 import type { SystemInfo } from './types/application'
 import type { AppSourceInfo } from './types/metadata'
-import { createAppMetadata } from './utils/metadataUtils'
+import { completeAppMetadata } from './utils/metadataUtils'
 import { getPhalaCloudInfo, getRedpillInfo } from './utils/systemInfo'
 import { VerificationService } from './verificationService'
 
@@ -79,18 +79,16 @@ async function runTests() {
           testCase.config.contractAddress,
           testCase.config.model || '',
         )
-        testCase.config.metadata = createAppMetadata(
+        testCase.config.metadata = completeAppMetadata(
           systemInfo,
-          (testCase.config as any).appSource,
-          (testCase.config as any).hasNvidiaSupport,
+          testCase.config.metadata
         )
       } else if ('domain' in testCase.config) {
         // PhalaCloud config
         systemInfo = await getPhalaCloudInfo(testCase.config.contractAddress)
-        testCase.config.metadata = createAppMetadata(
+        testCase.config.metadata = completeAppMetadata(
           systemInfo,
-          undefined,
-          true,
+          testCase.config.metadata
         )
       } else {
         throw new Error('Invalid test case configuration')

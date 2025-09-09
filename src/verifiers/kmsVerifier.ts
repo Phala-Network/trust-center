@@ -38,7 +38,7 @@ export abstract class KmsVerifier extends Verifier {
   constructor(
     contractAddress: `0x${string}`,
     metadata: KmsMetadata,
-    chainId = 8453, // Base mainnet
+    chainId: number,
   ) {
     super(metadata, 'kms')
     this.registrySmartContract = new DstackKms(contractAddress, chainId)

@@ -1,4 +1,4 @@
-import type { AppInfo, KmsMetadata } from '../types'
+import type { AppInfo } from '../types'
 import { KmsVerifier } from './kmsVerifier'
 
 /**
@@ -8,17 +8,6 @@ import { KmsVerifier } from './kmsVerifier'
  * similar to how PhalaCloudVerifier works but for KMS context.
  */
 export class PhalaCloudKmsVerifier extends KmsVerifier {
-  /**
-   * Creates a new Phala Cloud KMS verifier instance.
-   */
-  constructor(
-    contractAddress: `0x${string}`,
-    metadata: KmsMetadata,
-    chainId = 8453, // Base mainnet
-  ) {
-    super(contractAddress, metadata, chainId)
-  }
-
   /**
    * Retrieves application information from the Phala Cloud API.
    * This method fetches app info from the /prpc/Info endpoint.

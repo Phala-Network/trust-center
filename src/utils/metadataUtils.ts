@@ -5,7 +5,6 @@
 import type { SystemInfo } from '../types/application'
 import type {
   AppMetadata,
-  AppSourceInfo,
   GatewayMetadata,
   GovernanceInfo,
   HardwareInfo,
@@ -51,7 +50,7 @@ export function versionToOSSourceInfo(version: string): OSSourceInfo {
     : `dstack-${cleanVersion}`
 
   return {
-    github_repo: 'https://github.com/dstack-org/dstack',
+    github_repo: 'https://github.com/Dstack-TEE/dstack',
     git_commit: gitCommit,
     version:
       isNvidiaVersion && !repoVersion.includes('nvidia')
@@ -69,13 +68,13 @@ export function chainIdToGovernanceInfo(chainId: number): GovernanceInfo {
       return {
         blockchain: 'Base',
         blockchainExplorerUrl: 'https://basescan.org',
-        chainId: 8453,
+        chainId,
       }
     case 1:
       return {
         blockchain: 'Ethereum',
         blockchainExplorerUrl: 'https://etherscan.io',
-        chainId: 1,
+        chainId,
       }
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`)
@@ -121,15 +120,18 @@ export function createGatewayMetadata(systemInfo: SystemInfo): GatewayMetadata {
 /**
  * Create App metadata from SystemInfo
  */
-export function createAppMetadata(
+export function completeAppMetadata(
   systemInfo: SystemInfo,
-  appSource?: AppSourceInfo,
-  hasNvidiaSupport?: boolean,
+  appMetadata?: AppMetadata,
 ): AppMetadata {
   return {
-    osSource: versionToOSSourceInfo(systemInfo.kms_info.version),
-    appSource,
-    hardware: createDefaultHardwareInfo(hasNvidiaSupport),
-    governance: chainIdToGovernanceInfo(systemInfo.kms_info.chain_id),
+    osSource:
+      appMetadata?.osSource ||
+      versionToOSSourceInfo(systemInfo.kms_info.version),
+    appSource: appMetadata?.appSource,
+    hardware: appMetadata?.hardware || createDefaultHardwareInfo(),
+    governance:
+      appMetadata?.governance ||
+      chainIdToGovernanceInfo(systemInfo.kms_info.chain_id),
   }
 }
