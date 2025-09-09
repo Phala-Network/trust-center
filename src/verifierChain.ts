@@ -65,6 +65,7 @@ export function createVerifiers(
         systemInfo.kms_info.contract_address as `0x${string}`,
         kmsMetadata,
         chainId,
+        systemInfo,
       ),
       new GatewayVerifier(
         systemInfo.kms_info.gateway_app_id as `0x${string}`,
