@@ -21,8 +21,9 @@ import {
   clearAllDataObjects,
   configureVerifierRelationships,
 } from './utils/dataObjectCollector'
-import { getPhalaCloudInfo, getRedpillInfo } from './utils/systemInfo'
 import { createVerifiers, executeVerifiers } from './verifierChain'
+import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
+import { RedpillVerifier } from './verifiers/redpillVerifier'
 
 /**
  * Service class for orchestrating verification operations
@@ -121,17 +122,20 @@ export class VerificationService {
   }
 
   /**
-   * Get DStack info using extracted utility functions
+   * Get DStack info using verifier static methods
    */
   private async getSystemInfo(
     appConfig: RedpillConfig | PhalaCloudConfig,
   ): Promise<SystemInfo> {
     if ('model' in appConfig) {
       // RedpillConfig
-      return await getRedpillInfo(appConfig.contractAddress, appConfig.model)
+      return await RedpillVerifier.getSystemInfo(
+        appConfig.contractAddress,
+        appConfig.model,
+      )
     } else {
       // PhalaCloudConfig
-      return await getPhalaCloudInfo(appConfig.contractAddress)
+      return await PhalaCloudVerifier.getSystemInfo(appConfig.contractAddress)
     }
   }
 
