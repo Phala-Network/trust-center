@@ -47,33 +47,42 @@ bun run download:dstack-nvidia-0.5.3
 
 ### Usage Modes
 
-#### Script Mode (Default)
+#### Simple REST API Server (Default)
 
-Run verification examples with default configuration:
+Start the simple HTTP REST API server:
 
 ```bash
-bun run index.ts
+bun run start
 ```
 
-#### Server Mode
+#### Advanced Server Mode
 
-Start the HTTP REST API backend service:
+Start the advanced Elysia HTTP API server with database and queue support:
 
 ```bash
-bun run index.ts --server
+bun run server
+```
+
+#### Development Mode
+
+Start development servers with hot reload:
+
+```bash
+bun run dev         # Simple server
+bun run server:dev  # Advanced server
 ```
 
 The server starts on `http://localhost:3000` by default. Configure with environment variables:
 
 ```bash
-PORT=8080 HOST=0.0.0.0 bun run index.ts --server
+PORT=8080 HOST=0.0.0.0 bun run start
 ```
 
 ## Usage Examples
 
 ### API Verification Requests
 
-#### KMS Verification (Fast Mode)
+#### Redpill ML Application Verification (Fast Mode)
 
 Skip potentially slow operations like Certificate Transparency log queries:
 
@@ -81,7 +90,23 @@ Skip potentially slow operations like Certificate Transparency log queries:
 curl -X POST http://localhost:3000/verify \
   -H "Content-Type: application/json" \
   -d '{
-    "verifierType": "kms",
+    "app": {
+      "contractAddress": "0x78601222ada762fa7cdcbc167aa66dd7a5f57ece",
+      "model": "phala/deepseek-chat-v3-0324",
+      "metadata": {
+        "osSource": {
+          "github_repo": "https://github.com/Dstack-TEE/dstack",
+          "git_commit": "c06e524bd460fd9c9add",
+          "version": "v0.5.3"
+        },
+        "hardware": {
+          "cpuManufacturer": "Intel Corporation",
+          "cpuModel": "Intel(R) Xeon(R) CPU",
+          "securityFeature": "Intel Trust Domain Extensions (TDX)",
+          "hasNvidiaSupport": true
+        }
+      }
+    },
     "flags": {
       "hardware": true,
       "os": true,
@@ -94,16 +119,26 @@ curl -X POST http://localhost:3000/verify \
   }'
 ```
 
-#### Gateway Verification with Custom Configuration
+#### Phala Cloud Application Verification
 
 ```bash
 curl -X POST http://localhost:3000/verify \
   -H "Content-Type: application/json" \
   -d '{
-    "verifierType": "gateway",
-    "config": {
-      "gateway": {
-        "rpcEndpoint": "https://custom-gateway.example.com:9204/"
+    "app": {
+      "contractAddress": "0x78601222ada762fa7cdcbc167aa66dd7a5f57ece",
+      "domain": "phala.network",
+      "metadata": {
+        "osSource": {
+          "github_repo": "https://github.com/Dstack-TEE/dstack",
+          "git_commit": "c06e524bd460fd9c9add",
+          "version": "v0.5.3"
+        },
+        "hardware": {
+          "cpuManufacturer": "Intel Corporation",
+          "cpuModel": "Intel(R) Xeon(R) CPU",
+          "securityFeature": "Intel Trust Domain Extensions (TDX)"
+        }
       }
     },
     "flags": {
@@ -141,43 +176,101 @@ curl -X POST http://localhost:3000/verify \
 
 ### Programmatic Usage
 
-#### Basic KMS Verification
+#### Verifier Chain System
 
 ```typescript
-import { KmsVerifier } from './src/kmsVerifier'
+import { createVerifiers, executeVerifiers } from './src/verifierChain'
+import type { RedpillConfig, VerificationFlags, SystemInfo } from './src/types'
 
-const kmsVerifier = new KmsVerifier(
-  '0xbfd2d557118fc650ea25a0e7d85355d335f259d8'
-)
-const hardwareValid = await kmsVerifier.verifyHardware()
-const osValid = await kmsVerifier.verifyOperatingSystem()
-const sourceValid = await kmsVerifier.verifySourceCode()
+// Create app configuration
+const appConfig: RedpillConfig = {
+  contractAddress: '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
+  model: 'phala/deepseek-chat-v3-0324',
+  metadata: {
+    osSource: {
+      github_repo: 'https://github.com/Dstack-TEE/dstack',
+      git_commit: 'c06e524bd460fd9c9add',
+      version: 'v0.5.3' as const,
+    },
+    hardware: {
+      cpuManufacturer: 'Intel Corporation',
+      cpuModel: 'Intel(R) Xeon(R) CPU',
+      securityFeature: 'Intel Trust Domain Extensions (TDX)',
+      hasNvidiaSupport: true,
+    },
+  },
+}
+
+const flags: VerificationFlags = {
+  hardware: true,
+  os: true,
+  sourceCode: true,
+}
+
+// Create and execute verifier chain
+const systemInfo: SystemInfo = // ... retrieve system information
+const verifiers = createVerifiers(appConfig, systemInfo)
+const result = await executeVerifiers(verifiers, flags)
+
+console.log('Success:', result.success)
+console.log('Errors:', result.errors)
 ```
 
-#### Gateway Domain Verification
+#### Direct Verifier Usage
 
 ```typescript
-import { GatewayVerifier } from './src/gatewayVerifier'
+import { RedpillVerifier, GatewayVerifier } from './src/verifiers'
+import type { AppMetadata } from './src/types/metadata'
 
-const gatewayVerifier = new GatewayVerifier(
-  '0x...',
-  'https://gateway.example.com:9204/'
+// Create metadata
+const metadata: AppMetadata = {
+  osSource: {
+    github_repo: 'https://github.com/Dstack-TEE/dstack',
+    git_commit: 'c06e524bd460fd9c9add',
+    version: 'v0.5.3' as const,
+  },
+  hardware: {
+    cpuManufacturer: 'Intel Corporation',
+    cpuModel: 'Intel(R) Xeon(R) CPU',
+    securityFeature: 'Intel Trust Domain Extensions (TDX)',
+  },
+}
+
+// Redpill verification
+const redpillVerifier = new RedpillVerifier(
+  '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
+  'phala/deepseek-chat-v3-0324',
+  metadata,
+  8453
 )
 
-const keyControlled = await gatewayVerifier.verifyTeeControlledKey()
-const certValid = await gatewayVerifier.verifyCertificateKey()
-const dnsValid = await gatewayVerifier.verifyDnsCAA()
-const ctResult = await gatewayVerifier.verifyCTLog()
+const hardwareValid = await redpillVerifier.verifyHardware()
+const osValid = await redpillVerifier.verifyOperatingSystem()
+const sourceValid = await redpillVerifier.verifySourceCode()
 ```
 
 #### Data Object Access
 
 ```typescript
-import { UIDataInterface } from './src/ui-exports'
+import {
+  getAllDataObjects,
+  addDataObjectEventListener,
+  configureVerifierRelationships,
+} from './src/utils/dataObjectCollector'
 
-const ui = new UIDataInterface()
-const allObjects = ui.getAllDataObjects()
-const filteredObjects = ui.filterDataObjects({ type: 'hardware' })
+// Get all verification data objects
+const allObjects = getAllDataObjects()
+
+// Listen for data object events
+addDataObjectEventListener((event) => {
+  console.log('Data object event:', event.type, event.objectId)
+})
+
+// Configure relationships between verifiers
+configureVerifierRelationships({
+  kms: { objectIdPrefix: 'kms', layer: 1 },
+  gateway: { objectIdPrefix: 'gateway', layer: 2 },
+})
 ```
 
 ## Development
@@ -252,10 +345,12 @@ Control which verification steps to execute:
 
 ## Authentication
 
-The server includes Bearer token authentication for protected endpoints:
+The advanced Elysia server includes Bearer token authentication for protected endpoints:
 
-- **Public endpoints**: `/health/*` (no authentication required)
-- **Protected endpoints**: `/api/v1/tasks/*` and `/api/v1/queue/*` (require Bearer token)
+- **Simple Server**: All endpoints are public (no authentication)
+- **Advanced Server**: 
+  - **Public endpoints**: `/health/*` (no authentication required)
+  - **Protected endpoints**: `/api/v1/tasks/*` and `/api/v1/queue/*` (require Bearer token)
 
 ### Making Authenticated Requests
 
@@ -284,15 +379,58 @@ Returns server health status and uptime.
 
 Execute verification operations with configurable parameters and verification flags.
 
-**Request Format:**
+**Request Format (Redpill):**
 
 ```json
 {
-  "verifierType": "kms" | "gateway" | "redpill",
-  "config": {
-    "kms": { "contractAddress": "0x...", "metadata": {...} },
-    "gateway": { "contractAddress": "0x...", "rpcEndpoint": "https://...", "metadata": {...} },
-    "redpill": { "contractAddress": "0x...", "model": "model-name", "metadata": {...} }
+  "app": {
+    "contractAddress": "0x78601222ada762fa7cdcbc167aa66dd7a5f57ece",
+    "model": "phala/deepseek-chat-v3-0324",
+    "metadata": {
+      "osSource": {
+        "github_repo": "https://github.com/Dstack-TEE/dstack",
+        "git_commit": "c06e524bd460fd9c9add",
+        "version": "v0.5.3"
+      },
+      "hardware": {
+        "cpuManufacturer": "Intel Corporation",
+        "cpuModel": "Intel(R) Xeon(R) CPU",
+        "securityFeature": "Intel Trust Domain Extensions (TDX)",
+        "hasNvidiaSupport": true
+      }
+    }
+  },
+  "flags": {
+    "hardware": true,
+    "os": true,
+    "sourceCode": true,
+    "teeControlledKey": false,
+    "certificateKey": false,
+    "dnsCAA": false,     // Default: false (can be slow)
+    "ctLog": false       // Default: false (very slow)
+  }
+}
+```
+
+**Request Format (Phala Cloud):**
+
+```json
+{
+  "app": {
+    "contractAddress": "0x78601222ada762fa7cdcbc167aa66dd7a5f57ece",
+    "domain": "phala.network",
+    "metadata": {
+      "osSource": {
+        "github_repo": "https://github.com/Dstack-TEE/dstack",
+        "git_commit": "c06e524bd460fd9c9add",
+        "version": "v0.5.3"
+      },
+      "hardware": {
+        "cpuManufacturer": "Intel Corporation",
+        "cpuModel": "Intel(R) Xeon(R) CPU",
+        "securityFeature": "Intel Trust Domain Extensions (TDX)"
+      }
+    }
   },
   "flags": {
     "hardware": true,
@@ -300,8 +438,8 @@ Execute verification operations with configurable parameters and verification fl
     "sourceCode": true,
     "teeControlledKey": true,
     "certificateKey": true,
-    "dnsCAA": true,     // Default: true (can be slow)
-    "ctLog": false      // Default: false (very slow)
+    "dnsCAA": false,     // Default: false (can be slow)
+    "ctLog": false       // Default: false (very slow)
   }
 }
 ```
@@ -311,16 +449,13 @@ Execute verification operations with configurable parameters and verification fl
 ```json
 {
   "dataObjects": [...],
-  "metadata": {
-    "totalTimeMs": 2340,
-    "stepTimes": {...},
-    "executedSteps": [...],
-    "skippedSteps": [...],
-    "startedAt": "ISO timestamp",
-    "completedAt": "ISO timestamp"
-  },
-  "errors": [...],
-  "success": boolean
+  "completedAt": "2024-01-01T00:00:02.340Z",
+  "errors": [
+    {
+      "message": "Error description if any"
+    }
+  ],
+  "success": true
 }
 ```
 
@@ -329,19 +464,27 @@ Execute verification operations with configurable parameters and verification fl
 ```
 src/
 ├── config.ts                 # Configuration system and environment variables
-├── server.ts                 # HTTP REST API server
-├── verificationService.ts    # Verification orchestration service
+├── index.ts                  # Main entry point (simple REST API server)
+├── test-server.ts            # Simple REST API server implementation
+├── verificationService.ts    # High-level verification orchestration
+├── verifierChain.ts          # Verifier chain creation and execution
 ├── types/                    # Modular type system
 │   ├── api.ts               # API request/response types
+│   ├── metadata.ts          # Structured metadata types
+│   ├── verifierChain.ts     # Verifier chain types
 │   └── ...                  # Core, attestation, domain types
+├── constants/               # Constants and configuration
 ├── verifier.ts              # Abstract base classes
-├── kmsVerifier.ts           # KMS verification
-├── gatewayVerifier.ts       # Gateway + domain verification
-├── redpillVerifier.ts       # ML application verification
+├── verifiers/               # Verifier implementations
+│   ├── index.ts            # Centralized exports
+│   ├── kmsVerifier.ts      # KMS verification
+│   ├── gatewayVerifier.ts  # Gateway + domain verification
+│   └── ...                 # Redpill, Phala Cloud verifiers
 ├── dataObjects/             # Data object generation
 ├── verification/            # Modular verification functions
+├── server/                  # Advanced Elysia server (database + queues)
 ├── utils/                   # Utility modules and integrations
-└── ui-exports.ts           # UI interface for data access
+└── schemas.ts              # Validation schemas
 ```
 
 For detailed API usage instructions, see [API_USAGE.md](./API_USAGE.md).

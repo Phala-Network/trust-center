@@ -6,9 +6,10 @@
 
 import type { SystemInfo } from './types/application'
 import type { AppSourceInfo } from './types/metadata'
-import { createAppMetadata } from './utils/metadataUtils'
-import { getPhalaCloudInfo, getRedpillInfo } from './utils/systemInfo'
+import { completeAppMetadata } from './utils/metadataUtils'
 import { VerificationService } from './verificationService'
+import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
+import { RedpillVerifier } from './verifiers/redpillVerifier'
 
 // Sample app source info for ML applications
 const deepseekAppSource: AppSourceInfo = {
@@ -75,22 +76,22 @@ async function runTests() {
       let systemInfo: SystemInfo
       if ('model' in testCase.config) {
         // Redpill config
-        systemInfo = await getRedpillInfo(
+        systemInfo = await RedpillVerifier.getSystemInfo(
           testCase.config.contractAddress,
           testCase.config.model || '',
         )
-        testCase.config.metadata = createAppMetadata(
+        testCase.config.metadata = completeAppMetadata(
           systemInfo,
-          (testCase.config as any).appSource,
-          (testCase.config as any).hasNvidiaSupport,
+          testCase.config.metadata,
         )
       } else if ('domain' in testCase.config) {
         // PhalaCloud config
-        systemInfo = await getPhalaCloudInfo(testCase.config.contractAddress)
-        testCase.config.metadata = createAppMetadata(
+        systemInfo = await PhalaCloudVerifier.getSystemInfo(
+          testCase.config.contractAddress,
+        )
+        testCase.config.metadata = completeAppMetadata(
           systemInfo,
-          undefined,
-          true,
+          testCase.config.metadata,
         )
       } else {
         throw new Error('Invalid test case configuration')

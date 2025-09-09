@@ -21,8 +21,9 @@ import {
   clearAllDataObjects,
   configureVerifierRelationships,
 } from './utils/dataObjectCollector'
-import { getPhalaCloudInfo, getRedpillInfo } from './utils/systemInfo'
 import { createVerifiers, executeVerifiers } from './verifierChain'
+import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
+import { RedpillVerifier } from './verifiers/redpillVerifier'
 
 /**
  * Service class for orchestrating verification operations
@@ -54,9 +55,9 @@ export class VerificationService {
 
       // Create and execute verifier chain
       const verifiers = createVerifiers(appConfig, systemInfo)
-      this.configureVerifierRelationships()
 
       const result = await executeVerifiers(verifiers, mergedFlags)
+      this.configureVerifierRelationships()
 
       // Convert errors to the expected format
       this.errors = result.errors.map((error) => ({ message: error }))
@@ -104,21 +105,21 @@ export class VerificationService {
       // KMS -> Gateway relationships
       {
         sourceObjectId: 'kms-main',
-        targetObjectId: 'gateway-main',
         sourceField: 'gateway_app_id',
+        targetObjectId: 'gateway-main',
         targetField: 'app_id',
       },
       {
         sourceObjectId: 'kms-main',
-        targetObjectId: 'gateway-main',
         sourceField: 'cert_pubkey',
+        targetObjectId: 'gateway-main',
         targetField: 'app_cert',
       },
       // KMS -> App relationships
       {
         sourceObjectId: 'kms-main',
-        targetObjectId: 'app-main',
         sourceField: 'cert_pubkey',
+        targetObjectId: 'app-main',
         targetField: 'app_cert',
       },
     ]
@@ -127,17 +128,20 @@ export class VerificationService {
   }
 
   /**
-   * Get DStack info using extracted utility functions
+   * Get DStack info using verifier static methods
    */
   private async getSystemInfo(
     appConfig: RedpillConfig | PhalaCloudConfig,
   ): Promise<SystemInfo> {
     if ('model' in appConfig) {
       // RedpillConfig
-      return await getRedpillInfo(appConfig.contractAddress, appConfig.model)
+      return await RedpillVerifier.getSystemInfo(
+        appConfig.contractAddress,
+        appConfig.model,
+      )
     } else {
       // PhalaCloudConfig
-      return await getPhalaCloudInfo(appConfig.contractAddress)
+      return await PhalaCloudVerifier.getSystemInfo(appConfig.contractAddress)
     }
   }
 

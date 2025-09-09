@@ -6,6 +6,12 @@
  */
 
 /**
+ * Version string that starts with 'v' prefix.
+ * Examples: "v0.5.3", "v0.5.3 (git:c06e524bd460fd9c9add)"
+ */
+export type VersionString = `v${string}`
+
+/**
  * Operating system source code information.
  */
 export interface OSSourceInfo {
@@ -13,8 +19,8 @@ export interface OSSourceInfo {
   github_repo: string
   /** Git commit hash of the OS build */
   git_commit: string
-  /** Version string of the OS (e.g., "dstack-0.5.3", "dstack-nvidia-0.5.3") */
-  version: string
+  /** Version string of the OS that starts with 'v' prefix */
+  version: VersionString
 }
 
 /**
@@ -63,6 +69,8 @@ export interface GovernanceInfo {
 export interface KmsMetadata {
   /** Operating system source information (required) */
   osSource: OSSourceInfo
+  /** Application source information (required) */
+  appSource: AppSourceInfo
   /** Hardware platform information (required) */
   hardware: HardwareInfo
   /** Governance contract information (optional) */
@@ -75,6 +83,8 @@ export interface KmsMetadata {
 export interface GatewayMetadata {
   /** Operating system source information (required) */
   osSource: OSSourceInfo
+  /** Application source information (required) */
+  appSource: AppSourceInfo
   /** Hardware platform information (required) */
   hardware: HardwareInfo
   /** Governance contract information (optional) */

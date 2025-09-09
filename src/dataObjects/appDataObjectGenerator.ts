@@ -91,15 +91,12 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
    */
   generateOSDataObjects(
     appInfo: AppInfo,
-    measurementResult: any,
     hasNvidiaSupport: boolean = false,
   ): DataObject[] {
     const objects: DataObject[] = []
 
     // App OS object
-    objects.push(
-      this.generateOSObject(appInfo, measurementResult, hasNvidiaSupport),
-    )
+    objects.push(this.generateOSObject(appInfo, hasNvidiaSupport))
 
     // App OS Code object
     objects.push(this.generateOSCodeObject())
@@ -116,6 +113,7 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
     calculatedHash: string,
     isRegistered: boolean,
     attestationBundle?: AttestationBundle,
+    endpoint?: string,
   ): DataObject[] {
     const objects: DataObject[] = []
 
@@ -128,6 +126,8 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
       fields: {
         app_id: appInfo.app_id,
         instance_id: appInfo.instance_id || '',
+        registry_smart_contract: `${(this.metadata as AppMetadata).governance?.blockchainExplorerUrl}/address/${appInfo.app_id}`,
+        endpoint: endpoint,
         intel_attestation_report: quoteData.quote,
         nvidia_attestation_report: attestationBundle?.nvidia_payload
           ? JSON.stringify(attestationBundle.nvidia_payload)
@@ -145,11 +145,8 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
 
     objects.push(app)
 
-    // Only generate app code object if appSource metadata is present
-    if ((this.metadata as AppMetadata).appSource) {
-      const appCode = this.generateCodeObject(appInfo, isRegistered)
-      objects.push(appCode)
-    }
+    const appCode = this.generateCodeObject(appInfo, isRegistered)
+    objects.push(appCode)
 
     return objects
   }

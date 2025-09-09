@@ -1,14 +1,19 @@
 import { AppDataObjectGenerator } from '../dataObjects/appDataObjectGenerator'
-import { KeyProviderSchema, TcbInfoSchema, VmConfigSchema } from '../schemas'
+import {
+  KeyProviderSchema,
+  SystemInfoSchema,
+  TcbInfoSchema,
+  VmConfigSchema,
+} from '../schemas'
 import {
   type AppInfo,
   type AppMetadata,
   type AttestationBundle,
   parseJsonFields,
   type QuoteData,
+  type SystemInfo,
 } from '../types'
 import { DstackApp } from '../utils/dstackContract'
-import { getPhalaCloudInfo, hasNvidiaSupport } from '../utils/systemInfo'
 import {
   isUpToDate,
   verifyTeeQuote,
@@ -30,7 +35,7 @@ export class PhalaCloudVerifier extends Verifier {
     contractAddress: `0x${string}`,
     domain: string,
     metadata: AppMetadata,
-    chainId = 8453, // Base mainnet
+    chainId: number,
   ) {
     super(metadata, 'app')
     this.registrySmartContract = new DstackApp(contractAddress, chainId)
@@ -43,9 +48,16 @@ export class PhalaCloudVerifier extends Verifier {
     this.dataObjectGenerator = new AppDataObjectGenerator(metadata)
   }
 
+  /**
+   * Determines if an application has NVIDIA GPU support based on VM configuration
+   */
+  private hasNvidiaSupport(appInfo: AppInfo): boolean {
+    return appInfo.vm_config.num_gpus > 0
+  }
+
   protected async getQuote(): Promise<QuoteData> {
     try {
-      const systemInfo = await getPhalaCloudInfo(
+      const systemInfo = await PhalaCloudVerifier.getSystemInfo(
         this.registrySmartContract.address,
       )
 
@@ -95,7 +107,7 @@ export class PhalaCloudVerifier extends Verifier {
       }) as AppInfo
 
       // Update metadata with NVIDIA support detection
-      const nvidiaSupported = hasNvidiaSupport(appInfo)
+      const nvidiaSupported = this.hasNvidiaSupport(appInfo)
       this.appMetadata = {
         ...this.appMetadata,
         hardware: {
@@ -115,6 +127,68 @@ export class PhalaCloudVerifier extends Verifier {
           ? error.message
           : `Unknown error fetching app info from ${infoUrl}`
       throw new Error(`Failed to fetch Phala Cloud app info: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * Static method to fetch system info from Phala Cloud API without instantiating the verifier
+   */
+  public static async getSystemInfo(
+    contractAddress: string,
+  ): Promise<SystemInfo> {
+    // Remove 0x prefix if present for the API call
+    const cleanAppId = contractAddress.startsWith('0x')
+      ? contractAddress.slice(2)
+      : contractAddress
+
+    const apiUrl = `https://cloud-api.phala.network/api/v1/apps/${cleanAppId}/attestations`
+
+    try {
+      const response = await fetch(apiUrl)
+      if (!response.ok) {
+        if (response.status === 500) {
+          throw new Error(
+            `App '${contractAddress}' not found or is currently down on Phala Cloud (URL: ${apiUrl})`,
+          )
+        }
+        throw new Error(
+          `Phala Cloud API request failed: ${response.status} ${response.statusText} (URL: ${apiUrl})`,
+        )
+      }
+
+      const rawData = await response.json()
+      if (typeof rawData !== 'object' || rawData === null) {
+        throw new Error('Invalid response format from Phala Cloud API')
+      }
+
+      // Parse and validate the response using Zod schema
+      const parseResult = SystemInfoSchema.safeParse(rawData)
+      if (!parseResult.success) {
+        throw new Error(
+          `Failed to parse Phala Cloud response: ${parseResult.error.message}`,
+        )
+      }
+
+      // Transform quotes to ensure they have 0x prefix
+      const transformedData: SystemInfo = {
+        ...parseResult.data,
+        instances: parseResult.data.instances.map((instance) => ({
+          ...instance,
+          quote: instance.quote.startsWith('0x')
+            ? (instance.quote as `0x${string}`)
+            : (`0x${instance.quote}` as `0x${string}`),
+        })),
+      }
+
+      return transformedData
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching from Phala Cloud API (${apiUrl})`
+      throw new Error(
+        `Failed to fetch system info from Phala Cloud: ${errorMessage}`,
+      )
     }
   }
 
@@ -143,7 +217,6 @@ export class PhalaCloudVerifier extends Verifier {
     // Generate DataObjects for App OS verification
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
       appInfo,
-      {} /* measurement result */,
       false,
     )
     dataObjects.forEach((obj) => {
@@ -169,6 +242,8 @@ export class PhalaCloudVerifier extends Verifier {
       quoteData,
       calculatedHash,
       isRegistered ?? false,
+      undefined,
+      this.rpcEndpoint,
     )
     dataObjects.forEach((obj) => {
       this.createDataObject(obj)

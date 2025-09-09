@@ -5,6 +5,7 @@ import type {
   AttestationBundle,
   KmsMetadata,
   QuoteData,
+  SystemInfo,
 } from '../types'
 import { DstackKms } from '../utils/dstackContract'
 import {
@@ -31,18 +32,20 @@ export abstract class KmsVerifier extends Verifier {
   public certificateAuthorityPublicKey: `0x${string}` = '0x'
   /** Data object generator for KMS-specific objects */
   protected dataObjectGenerator: KmsDataObjectGenerator
+  /** System information for this KMS instance */
+  protected systemInfo: SystemInfo
 
   /**
    * Creates a new KMS verifier instance.
    */
-  constructor(
-    contractAddress: `0x${string}`,
-    metadata: KmsMetadata,
-    chainId = 8453, // Base mainnet
-  ) {
+  constructor(metadata: KmsMetadata, systemInfo: SystemInfo) {
     super(metadata, 'kms')
-    this.registrySmartContract = new DstackKms(contractAddress, chainId)
+    this.registrySmartContract = new DstackKms(
+      systemInfo.kms_info.contract_address as `0x${string}`,
+      systemInfo.kms_info.chain_id,
+    )
     this.dataObjectGenerator = new KmsDataObjectGenerator(metadata)
+    this.systemInfo = systemInfo
   }
 
   /**
@@ -112,10 +115,7 @@ export abstract class KmsVerifier extends Verifier {
     const measurementResult = await verifyOSIntegrity(appInfo, imageFolderName)
 
     // Generate DataObjects for KMS OS verification
-    const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
-      appInfo,
-      measurementResult,
-    )
+    const dataObjects = this.dataObjectGenerator.generateOSDataObjects(appInfo)
     dataObjects.forEach((obj) => {
       this.createDataObject(obj)
     })
