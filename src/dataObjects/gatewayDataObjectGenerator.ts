@@ -41,14 +41,11 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
   /**
    * Generates all DataObjects for Gateway OS verification.
    */
-  generateOSDataObjects(
-    appInfo: AppInfo,
-    measurementResult: any,
-  ): DataObject[] {
+  generateOSDataObjects(appInfo: AppInfo): DataObject[] {
     const objects: DataObject[] = []
 
     // Gateway OS object
-    objects.push(this.generateOSObject(appInfo, measurementResult))
+    objects.push(this.generateOSObject(appInfo))
 
     // Gateway OS Code object
     objects.push(this.generateOSCodeObject())

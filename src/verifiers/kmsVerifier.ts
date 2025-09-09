@@ -115,10 +115,7 @@ export abstract class KmsVerifier extends Verifier {
     const measurementResult = await verifyOSIntegrity(appInfo, imageFolderName)
 
     // Generate DataObjects for KMS OS verification
-    const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
-      appInfo,
-      measurementResult,
-    )
+    const dataObjects = this.dataObjectGenerator.generateOSDataObjects(appInfo)
     dataObjects.forEach((obj) => {
       this.createDataObject(obj)
     })
