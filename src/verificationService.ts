@@ -48,9 +48,9 @@ export class VerificationService {
 
       // Create and execute verifier chain
       const verifiers = createVerifiers(appConfig, systemInfo)
-      this.configureVerifierRelationships()
 
       const result = await executeVerifiers(verifiers, flags)
+      this.configureVerifierRelationships()
 
       // Convert errors to the expected format
       this.errors = result.errors.map((error) => ({ message: error }))
@@ -98,21 +98,21 @@ export class VerificationService {
       // KMS -> Gateway relationships
       {
         sourceObjectId: 'kms-main',
-        targetObjectId: 'gateway-main',
         sourceField: 'gateway_app_id',
+        targetObjectId: 'gateway-main',
         targetField: 'app_id',
       },
       {
         sourceObjectId: 'kms-main',
-        targetObjectId: 'gateway-main',
         sourceField: 'cert_pubkey',
+        targetObjectId: 'gateway-main',
         targetField: 'app_cert',
       },
       // KMS -> App relationships
       {
         sourceObjectId: 'kms-main',
-        targetObjectId: 'app-main',
         sourceField: 'cert_pubkey',
+        targetObjectId: 'app-main',
         targetField: 'app_cert',
       },
     ]
