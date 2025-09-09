@@ -53,7 +53,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   constructor(metadata: GatewayMetadata, systemInfo: SystemInfo) {
     super(metadata, 'gateway')
     this.registrySmartContract = new DstackApp(
-      systemInfo.kms_info.contract_address as `0x${string}`,
+      systemInfo.kms_info.gateway_app_id as `0x${string}`,
       systemInfo.kms_info.chain_id,
     )
     this.rpcEndpoint = systemInfo.kms_info.gateway_app_url
