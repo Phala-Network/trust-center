@@ -52,7 +52,7 @@ export const TaskCreateRequestSchema = t.Object({
   appConfigType: t.Union([t.Literal('redpill'), t.Literal('phala_cloud')]),
   contractAddress: t.String(),
   modelOrDomain: t.String(),
-  appConfig: AppConfigSchema,
+  appConfig: t.Optional(AppConfigSchema),
   flags: t.Optional(VerificationFlagsSchema),
 })
 
