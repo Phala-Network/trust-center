@@ -51,7 +51,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     contractAddress: `0x${string}`,
     rpcEndpoint: string,
     metadata: GatewayMetadata,
-    chainId = 8453, // Base mainnet
+    chainId: number, // Base mainnet
   ) {
     super(metadata, 'gateway')
     this.registrySmartContract = new DstackApp(contractAddress, chainId)
@@ -92,8 +92,8 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
           `Gateway app-info request failed: ${response.status} ${response.statusText} (URL: ${appInfoUrl})`,
         )
       }
+      
       const responseData = await response.json()
-      console.log('Gateway app-info response:', responseData)
       return parseJsonFields(responseData as Record<string, unknown>, {
         tcb_info: TcbInfoSchema,
         key_provider_info: KeyProviderSchema,

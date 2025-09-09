@@ -145,11 +145,8 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
 
     objects.push(app)
 
-    // Only generate app code object if appSource metadata is present
-    if ((this.metadata as AppMetadata).appSource) {
-      const appCode = this.generateCodeObject(appInfo, isRegistered)
-      objects.push(appCode)
-    }
+    const appCode = this.generateCodeObject(appInfo, isRegistered)
+    objects.push(appCode)
 
     return objects
   }

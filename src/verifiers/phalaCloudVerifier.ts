@@ -30,7 +30,7 @@ export class PhalaCloudVerifier extends Verifier {
     contractAddress: `0x${string}`,
     domain: string,
     metadata: AppMetadata,
-    chainId = 8453, // Base mainnet
+    chainId: number,
   ) {
     super(metadata, 'app')
     this.registrySmartContract = new DstackApp(contractAddress, chainId)
