@@ -14,6 +14,7 @@ import {
   type GatewayMetadata,
   parseJsonFields,
   type QuoteData,
+  type SystemInfo,
 } from '../types'
 import { DstackApp } from '../utils/dstackContract'
 import {
@@ -43,21 +44,21 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   public rpcEndpoint: string
   /** Data object generator for Gateway-specific objects */
   private dataObjectGenerator: GatewayDataObjectGenerator
+  /** System information for this Gateway instance */
+  protected systemInfo: SystemInfo
 
   /**
    * Creates a new Gateway verifier instance.
    */
-  constructor(
-    contractAddress: `0x${string}`,
-    rpcEndpoint: string,
-    metadata: GatewayMetadata,
-    chainId: number, // Base mainnet
-  ) {
+  constructor(metadata: GatewayMetadata, systemInfo: SystemInfo) {
     super(metadata, 'gateway')
-    this.registrySmartContract = new DstackApp(contractAddress, chainId)
-    console.log('gateway rpcEndpoint', rpcEndpoint)
-    this.rpcEndpoint = rpcEndpoint
+    this.registrySmartContract = new DstackApp(
+      systemInfo.kms_info.contract_address as `0x${string}`,
+      systemInfo.kms_info.chain_id,
+    )
+    this.rpcEndpoint = systemInfo.kms_info.gateway_app_url
     this.dataObjectGenerator = new GatewayDataObjectGenerator(metadata)
+    this.systemInfo = systemInfo
   }
 
   /**
@@ -92,7 +93,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
           `Gateway app-info request failed: ${response.status} ${response.statusText} (URL: ${appInfoUrl})`,
         )
       }
-      
+
       const responseData = await response.json()
       return parseJsonFields(responseData as Record<string, unknown>, {
         tcb_info: TcbInfoSchema,
