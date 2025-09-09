@@ -1,6 +1,7 @@
 import { KeyProviderSchema, TcbInfoSchema, VmConfigSchema } from '../schemas'
 import type { AppInfo, KmsInfo } from '../types'
 import { parseJsonFields } from '../types'
+import { parseVersionString } from '../utils/metadataUtils'
 
 const prod6EthV053 = {
   app_cert:
@@ -141,8 +142,7 @@ const prod7PhalaV053 = {
 }
 
 function getRawKmsAppInfo(systemInfo: KmsInfo): Record<string, unknown> {
-  // Extract version string, removing git hash part (e.g., "v0.5.3 (git:ca4af023e974427e4153)" -> "v0.5.3")
-  const version = systemInfo.version.split(' ')[0]
+  const { version, gitCommit: _ } = parseVersionString(systemInfo.version)
   const chainId = systemInfo.chain_id
 
   // Extract prod environment from URL (e.g., "https://kms.dstack-base-prod7.phala.network" -> "prod7")

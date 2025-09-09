@@ -40,17 +40,8 @@ export function createVerifiers(
   if ('model' in appConfig) {
     // Redpill app chain: RedpillKms -> Gateway -> RedpillApp
     verifiers.push(
-      new RedpillKmsVerifier(
-        systemInfo.kms_info.contract_address as `0x${string}`,
-        kmsMetadata,
-        chainId,
-      ),
-      new GatewayVerifier(
-        systemInfo.kms_info.gateway_app_id as `0x${string}`,
-        systemInfo.kms_info.gateway_app_url,
-        gatewayMetadata,
-        chainId,
-      ),
+      new RedpillKmsVerifier(kmsMetadata, systemInfo),
+      new GatewayVerifier(gatewayMetadata, systemInfo),
       new RedpillVerifier(
         appConfig.contractAddress,
         appConfig.model,
@@ -61,18 +52,8 @@ export function createVerifiers(
   } else {
     // Phala Cloud app chain: PhalaKms -> Gateway -> PhalaApp
     verifiers.push(
-      new PhalaCloudKmsVerifier(
-        systemInfo.kms_info.contract_address as `0x${string}`,
-        kmsMetadata,
-        chainId,
-        systemInfo,
-      ),
-      new GatewayVerifier(
-        systemInfo.kms_info.gateway_app_id as `0x${string}`,
-        systemInfo.kms_info.gateway_app_url,
-        gatewayMetadata,
-        chainId,
-      ),
+      new PhalaCloudKmsVerifier(kmsMetadata, systemInfo),
+      new GatewayVerifier(gatewayMetadata, systemInfo),
       new PhalaCloudVerifier(
         appConfig.contractAddress,
         appConfig.domain,
