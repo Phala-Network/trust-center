@@ -153,22 +153,14 @@ export class DStackVerifierServer {
         ...('model' in verificationRequest.app
           ? { model: verificationRequest.app.model }
           : { domain: verificationRequest.app.domain }),
-        metadata: verificationRequest.app.metadata || {},
+        metadata: verificationRequest.app.metadata,
       }
 
-      // Parse verification flags with proper defaults
-      const flags = {
-        hardware: verificationRequest.flags?.hardware ?? true,
-        os: verificationRequest.flags?.os ?? true,
-        sourceCode: verificationRequest.flags?.sourceCode ?? true,
-        teeControlledKey: verificationRequest.flags?.teeControlledKey ?? true,
-        certificateKey: verificationRequest.flags?.certificateKey ?? true,
-        dnsCAA: verificationRequest.flags?.dnsCAA ?? true,
-        ctLog: verificationRequest.flags?.ctLog ?? false,
-      }
-
-      // Execute verification with app config only
-      const response = await this.verificationService.verify(appConfig, flags)
+      // Execute verification with app config and flags
+      const response = await this.verificationService.verify(
+        appConfig,
+        verificationRequest.flags,
+      )
 
       return this.createJsonResponse(response)
     } catch (error) {

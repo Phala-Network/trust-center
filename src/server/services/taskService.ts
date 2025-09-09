@@ -1,6 +1,6 @@
 import { and, asc, count, desc, eq, like, or, type SQL, sql } from 'drizzle-orm'
 
-import type { AppMetadata, VerificationFlags } from '../../types'
+import type { AppMetadata } from '../../types'
 import { createDbConnection, type DbConnection } from '../db'
 import {
   type AppConfigType,
@@ -9,6 +9,7 @@ import {
   verificationTasksTable,
 } from '../db/schema'
 import { TASK_CONSTANTS } from '../routes/tasks/constants'
+import type { VerificationFlags } from '../routes/tasks/schemas'
 
 // Types
 export interface TaskFilter {
@@ -46,7 +47,7 @@ export interface CreateVerificationTaskData {
   contractAddress: string
   modelOrDomain: string
   appMetadata?: AppMetadata
-  verificationFlags?: VerificationFlags
+  verificationFlags?: Partial<VerificationFlags>
 }
 
 export interface UpdateVerificationTaskData {
