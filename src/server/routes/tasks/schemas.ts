@@ -15,69 +15,61 @@ export const AppSourceInfoSchema = t.Object({
 })
 
 export const HardwareInfoSchema = t.Object({
-  cpuManufacturer: t.String(),
-  cpuModel: t.String(),
-  securityFeature: t.String(),
-  hasNvidiaSupport: t.Optional(t.Boolean()),
+  cpu: t.String(),
+  memory: t.String(),
+  storage: t.String(),
 })
 
-export const GovernanceInfoSchema = t.Object({
-  blockchain: t.String(),
-  blockchainExplorerUrl: t.String(),
-  chainId: t.Optional(t.Number()),
-})
-
-export const AppMetadataSchema = t.Object({
-  osSource: OSSourceInfoSchema,
+export const MetadataSchema = t.Object({
+  osSource: t.Optional(OSSourceInfoSchema),
   appSource: t.Optional(AppSourceInfoSchema),
-  hardware: HardwareInfoSchema,
-  governance: t.Optional(GovernanceInfoSchema),
+  hardware: t.Optional(HardwareInfoSchema),
 })
+
+export const RedpillConfigSchema = t.Object({
+  metadata: MetadataSchema,
+})
+
+export const PhalaCloudConfigSchema = t.Object({
+  metadata: MetadataSchema,
+})
+
+export const AppConfigSchema = t.Union([
+  RedpillConfigSchema,
+  PhalaCloudConfigSchema,
+])
 
 export const VerificationFlagsSchema = t.Object({
-  hardware: t.Optional(t.Boolean()),
-  os: t.Optional(t.Boolean()),
-  sourceCode: t.Optional(t.Boolean()),
-  teeControlledKey: t.Optional(t.Boolean()),
+  skip_os_verification: t.Optional(t.Boolean()),
+  skip_app_verification: t.Optional(t.Boolean()),
+  skip_hardware_verification: t.Optional(t.Boolean()),
 })
 
 // Request schemas
 export const TaskCreateRequestSchema = t.Object({
-  appId: t.String(),
-  appName: t.String(),
-  appConfigType: t.Union([t.Literal('redpill'), t.Literal('phala_cloud')]),
-  contractAddress: t.String(),
-  modelOrDomain: t.String(),
-  appMetadata: AppMetadataSchema,
-  verificationFlags: VerificationFlagsSchema,
+  app_id: t.String(),
+  app_name: t.String(),
+  app_config_type: t.Union([t.Literal('redpill'), t.Literal('phala_cloud')]),
+  contract_address: t.String(),
+  model_or_domain: t.String(),
+  app_config: AppConfigSchema,
+  flags: t.Optional(VerificationFlagsSchema),
 })
 
-export const BatchCreateRequestSchema = t.Object({
+export const TaskBatchCreateRequestSchema = t.Object({
   tasks: t.Array(TaskCreateRequestSchema),
 })
 
-// Query schemas
 export const TaskListQuerySchema = t.Object({
-  // Basic filters
+  app_id: t.Optional(t.String()),
   status: t.Optional(t.String()),
-  appId: t.Optional(t.String()),
-  appName: t.Optional(t.String()),
-  appConfigType: t.Optional(t.String()),
-  contractAddress: t.Optional(t.String()),
-
-  // Search filters
-  keyword: t.Optional(t.String()),
-
-  // Pagination
+  per_page: t.Optional(t.Number()),
   page: t.Optional(t.Number()),
-  limit: t.Optional(t.Number()),
-
-  // Sorting
-  sortBy: t.Optional(t.String()),
-  sortOrder: t.Optional(t.Union([t.Literal('asc'), t.Literal('desc')])),
+  sort_by: t.Optional(t.String()),
+  sort_order: t.Optional(t.Union([t.Literal('asc'), t.Literal('desc')])),
 })
 
-// Response schemas
+// Response data schemas
 export const TaskResponseSchema = t.Object({
   id: t.String(),
   appId: t.String(),
@@ -85,46 +77,46 @@ export const TaskResponseSchema = t.Object({
   appConfigType: t.String(),
   contractAddress: t.String(),
   modelOrDomain: t.String(),
-  verificationFlags: t.Optional(VerificationFlagsSchema),
   status: t.String(),
-  errorMessage: t.Optional(t.String()),
-  s3Filename: t.Optional(t.String()),
-  s3Key: t.Optional(t.String()),
-  s3Bucket: t.Optional(t.String()),
   createdAt: t.String(),
-  startedAt: t.Optional(t.String()),
-  finishedAt: t.Optional(t.String()),
 })
 
-export const TaskListResponseSchema = t.Object({
-  success: t.Literal(true),
-  data: t.Array(TaskResponseSchema),
+export const TaskListDataSchema = t.Object({
+  tasks: t.Array(TaskResponseSchema),
   pagination: t.Object({
+    currentPage: t.Number(),
+    perPage: t.Number(),
     total: t.Number(),
-    page: t.Number(),
-    limit: t.Number(),
+    totalPages: t.Number(),
     hasNext: t.Boolean(),
+    hasPrev: t.Boolean(),
   }),
 })
 
-export const TaskDetailResponseSchema = t.Object({
-  success: t.Boolean(),
-  task: t.Optional(TaskResponseSchema),
-  error: t.Optional(t.String()),
+export const TaskDetailDataSchema = t.Object({
+  task: TaskResponseSchema,
 })
 
-export const ErrorResponseSchema = t.Object({
-  success: t.Literal(false),
-  error: t.String(),
-})
-
-export const SuccessResponseSchema = t.Object({
-  success: t.Literal(true),
+export const TaskCreateDataSchema = t.Object({
+  taskId: t.String(),
   message: t.String(),
 })
 
-export const TaskStatsResponseSchema = t.Object({
-  success: t.Literal(true),
+export const TaskBatchCreateDataSchema = t.Object({
+  total: t.Number(),
+  successful: t.Number(),
+  failed: t.Number(),
+  results: t.Array(
+    t.Object({
+      index: t.Number(),
+      success: t.Boolean(),
+      taskId: t.Union([t.String(), t.Null()]),
+      error: t.Union([t.String(), t.Null()]),
+    }),
+  ),
+})
+
+export const TaskStatsDataSchema = t.Object({
   stats: t.Object({
     total: t.Number(),
     pending: t.Number(),
@@ -134,13 +126,27 @@ export const TaskStatsResponseSchema = t.Object({
   }),
 })
 
-export const StorageInfoResponseSchema = t.Object({
-  success: t.Literal(true),
-  storageInfo: t.Object({
-    s3Key: t.String(),
-    s3Bucket: t.String(),
-    s3Filename: t.Optional(t.String()),
-    fileSize: t.Optional(t.Number()),
-    message: t.String(),
-  }),
+export const TaskCancelDataSchema = t.Object({
+  taskId: t.String(),
+  message: t.String(),
+})
+
+// Base schemas for consistent error
+export const BaseErrorSchema = t.Object({
+  code: t.String(),
+  message: t.String(),
+  details: t.Optional(t.String()),
+})
+
+// Response schemas
+export const TaskListResponseSchema = TaskListDataSchema
+export const TaskDetailResponseSchema = TaskDetailDataSchema
+export const TaskCreateResponseSchema = TaskCreateDataSchema
+export const TaskBatchCreateResponseSchema = TaskBatchCreateDataSchema
+export const TaskStatsResponseSchema = TaskStatsDataSchema
+export const TaskCancelResponseSchema = TaskCancelDataSchema
+
+// Error response schema
+export const ErrorResponseSchema = t.Object({
+  error: BaseErrorSchema,
 })

@@ -4,63 +4,47 @@ import {
   handleBatchCreation,
   handleTaskCancellation,
   handleTaskCreation,
-  handleTaskResult,
   handleTaskStats,
   handleTaskStatus,
   handleTasksList,
 } from './tasks/handlers'
 // Import schemas and handlers from modular files
 import {
-  BatchCreateRequestSchema,
   ErrorResponseSchema,
-  StorageInfoResponseSchema,
-  SuccessResponseSchema,
+  TaskBatchCreateRequestSchema,
+  TaskBatchCreateResponseSchema,
+  TaskCancelResponseSchema,
   TaskCreateRequestSchema,
+  TaskCreateResponseSchema,
   TaskDetailResponseSchema,
   TaskListQuerySchema,
   TaskListResponseSchema,
   TaskStatsResponseSchema,
 } from './tasks/schemas'
+import { createErrorResponse, getErrorStatusCode } from './tasks/utils'
 
 // Main task routes
-export const taskRoutes = new Elysia({ prefix: '/tasks' })
+export const taskRoutes = new Elysia({ tags: ['Tasks'] })
   // Create single task
   .post(
     '/',
     async ({ body, set }) => {
       try {
-        const result = await handleTaskCreation(body)
-        if (result.success) {
-          return {
-            success: true as const,
-            taskId: 'task-created',
-            message: result.message,
-          }
-        } else {
-          return {
-            success: false as const,
-            error: (result as any).error || 'Unknown error',
-          }
-        }
+        return await handleTaskCreation(body)
       } catch (error) {
-        set.status = 500
-        return {
-          success: false,
-          error:
-            error instanceof Error ? error.message : 'Failed to create task',
-        }
+        set.status = getErrorStatusCode(error)
+        return createErrorResponse(error, 'Failed to create task')
       }
     },
     {
       body: TaskCreateRequestSchema,
-      response: t.Union([
-        t.Object({
-          success: t.Literal(true),
-          taskId: t.String(),
-          message: t.String(),
-        }),
-        ErrorResponseSchema,
-      ]),
+      response: t.Union([TaskCreateResponseSchema, ErrorResponseSchema]),
+      detail: {
+        summary: 'Create a new verification task',
+        description:
+          'Creates a single verification task for an application. The task will be queued for processing and verification according to the specified flags.',
+        tags: ['Tasks'],
+      },
     },
   )
   // Create batch tasks
@@ -68,47 +52,21 @@ export const taskRoutes = new Elysia({ prefix: '/tasks' })
     '/batch',
     async ({ body, set }) => {
       try {
-        const result = await handleBatchCreation(body)
-        if (result.success) {
-          return {
-            success: true as const,
-            message: result.message,
-            results: [], // Could be enhanced to return individual results
-          }
-        } else {
-          return {
-            success: false as const,
-            error: (result as any).error || 'Unknown error',
-          }
-        }
+        return await handleBatchCreation(body)
       } catch (error) {
-        set.status = 500
-        return {
-          success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Failed to create batch tasks',
-        }
+        set.status = getErrorStatusCode(error)
+        return createErrorResponse(error, 'Failed to create batch tasks')
       }
     },
     {
-      body: BatchCreateRequestSchema,
-      response: t.Union([
-        t.Object({
-          success: t.Literal(true),
-          message: t.String(),
-          results: t.Array(
-            t.Object({
-              index: t.Number(),
-              success: t.Boolean(),
-              taskId: t.Union([t.String(), t.Null()]),
-              error: t.Union([t.String(), t.Null()]),
-            }),
-          ),
-        }),
-        ErrorResponseSchema,
-      ]),
+      body: TaskBatchCreateRequestSchema,
+      response: t.Union([TaskBatchCreateResponseSchema, ErrorResponseSchema]),
+      detail: {
+        summary: 'Create multiple verification tasks in batch',
+        description:
+          'Creates multiple verification tasks at once for efficient bulk processing. Each task in the batch will be queued independently.',
+        tags: ['Tasks'],
+      },
     },
   )
   // Get single task
@@ -116,24 +74,23 @@ export const taskRoutes = new Elysia({ prefix: '/tasks' })
     '/:taskId',
     async ({ params, set }) => {
       try {
-        const result = await handleTaskStatus(params.taskId)
-        return result
+        return await handleTaskStatus(params.taskId)
       } catch (error) {
-        set.status = 500
-        return {
-          success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Failed to get task status',
-        }
+        set.status = getErrorStatusCode(error)
+        return createErrorResponse(error, 'Failed to get task status')
       }
     },
     {
       params: t.Object({
         taskId: t.String(),
       }),
-      response: TaskDetailResponseSchema,
+      response: t.Union([TaskDetailResponseSchema, ErrorResponseSchema]),
+      detail: {
+        summary: 'Get task details by ID',
+        description:
+          'Retrieves detailed information about a specific verification task including its current status, progress, and metadata.',
+        tags: ['Tasks'],
+      },
     },
   )
   // Get task list
@@ -141,32 +98,21 @@ export const taskRoutes = new Elysia({ prefix: '/tasks' })
     '/',
     async ({ query, set }) => {
       try {
-        const result = await handleTasksList(query)
-        if (result.success) {
-          return {
-            success: true as const,
-            data: result.data,
-            pagination: result.pagination,
-          }
-        } else {
-          set.status = 400
-          return {
-            success: false as const,
-            error: (result as any).error || 'Unknown error',
-          }
-        }
+        return await handleTasksList(query)
       } catch (error) {
-        set.status = 500
-        return {
-          success: false,
-          error:
-            error instanceof Error ? error.message : 'Failed to list tasks',
-        }
+        set.status = getErrorStatusCode(error)
+        return createErrorResponse(error, 'Failed to list tasks')
       }
     },
     {
       query: TaskListQuerySchema,
       response: t.Union([TaskListResponseSchema, ErrorResponseSchema]),
+      detail: {
+        summary: 'List verification tasks',
+        description:
+          'Retrieves a paginated list of verification tasks with optional filtering by status, app type, and search keywords. Supports sorting and pagination.',
+        tags: ['Tasks'],
+      },
     },
   )
   // Get task stats
@@ -174,26 +120,20 @@ export const taskRoutes = new Elysia({ prefix: '/tasks' })
     '/stats/summary',
     async ({ set }) => {
       try {
-        const result = await handleTaskStats()
-        if (result.success) {
-          return { success: true as const, stats: result.stats }
-        } else {
-          return {
-            success: false as const,
-            error: (result as any).error || 'Unknown error',
-          }
-        }
+        return await handleTaskStats()
       } catch (error) {
-        set.status = 500
-        return {
-          success: false,
-          error:
-            error instanceof Error ? error.message : 'Failed to get task stats',
-        }
+        set.status = getErrorStatusCode(error)
+        return createErrorResponse(error, 'Failed to get task stats')
       }
     },
     {
       response: t.Union([TaskStatsResponseSchema, ErrorResponseSchema]),
+      detail: {
+        summary: 'Get task statistics summary',
+        description:
+          'Retrieves aggregated statistics about verification tasks including counts by status, processing times, and other metrics.',
+        tags: ['Tasks'],
+      },
     },
   )
   // Cancel task
@@ -201,61 +141,22 @@ export const taskRoutes = new Elysia({ prefix: '/tasks' })
     '/:taskId',
     async ({ params, set }) => {
       try {
-        const result = await handleTaskCancellation(params.taskId)
-        if (result.success) {
-          return {
-            success: true as const,
-            message: result.message || 'Task cancelled successfully',
-          }
-        } else {
-          return {
-            success: false as const,
-            error: (result as any).error || 'Unknown error',
-          }
-        }
+        return await handleTaskCancellation(params.taskId)
       } catch (error) {
-        set.status = 500
-        return {
-          success: false,
-          error:
-            error instanceof Error ? error.message : 'Failed to cancel task',
-        }
+        set.status = getErrorStatusCode(error)
+        return createErrorResponse(error, 'Failed to cancel task')
       }
     },
     {
       params: t.Object({
         taskId: t.String(),
       }),
-      response: t.Union([SuccessResponseSchema, ErrorResponseSchema]),
-    },
-  )
-  // Get task result
-  .get(
-    '/:taskId/result',
-    async ({ params, set }) => {
-      try {
-        const result = await handleTaskResult(params.taskId)
-        if (result.success) {
-          return result
-        } else {
-          set.status = 400
-          return result
-        }
-      } catch (error) {
-        set.status = 500
-        return {
-          success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Failed to get task result',
-        }
-      }
-    },
-    {
-      params: t.Object({
-        taskId: t.String(),
-      }),
-      response: t.Union([StorageInfoResponseSchema, ErrorResponseSchema]),
+      response: t.Union([TaskCancelResponseSchema, ErrorResponseSchema]),
+      detail: {
+        summary: 'Cancel a verification task',
+        description:
+          'Cancels a running or pending verification task. Only tasks that are not yet completed can be cancelled.',
+        tags: ['Tasks'],
+      },
     },
   )

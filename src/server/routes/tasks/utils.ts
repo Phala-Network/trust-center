@@ -17,25 +17,49 @@ export const createErrorResponse = (
 ) => {
   if (error instanceof TaskError) {
     return {
-      success: false as const,
-      error: error.message,
-      statusCode: error.statusCode,
+      error: {
+        code: error.code || 'TASK_ERROR',
+        message: error.message,
+        details: error.message,
+      },
     }
   }
 
   if (error instanceof Error) {
     return {
-      success: false as const,
-      error: error.message,
-      statusCode: 500,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message,
+        details: error.stack,
+      },
     }
   }
 
   return {
-    success: false as const,
-    error: defaultMessage,
-    statusCode: 500,
+    error: {
+      code: 'UNKNOWN_ERROR',
+      message: defaultMessage,
+      details: 'An unexpected error occurred',
+    },
   }
+}
+
+// Helper function to determine HTTP status code based on error
+export const getErrorStatusCode = (error: unknown): number => {
+  if (error instanceof TaskError) {
+    return error.statusCode
+  }
+
+  if (error instanceof Error) {
+    if (error.message.includes('not found')) {
+      return 404
+    }
+    if (error.message.includes('Invalid request data')) {
+      return 400
+    }
+  }
+
+  return 500
 }
 
 export const validatePaginationParams = (page?: number, limit?: number) => {
