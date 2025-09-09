@@ -17,15 +17,22 @@ The project implements a multi-layered verification approach encompassing hardwa
 - **Code Quality**: Biome for formatting and linting (single quotes, minimal semicolons)
 - **External Dependencies**: Rust DCAP-QVL tool and Docker containers for measurements
 - **Testing**: Vitest test framework with comprehensive test coverage
-- **Backend Architecture**: Elysia HTTP server with PostgreSQL database and Redis queue management
+- **Backend Architecture**: Dual server architecture - simple REST API server and advanced Elysia server with PostgreSQL database and Redis queue management
 - **Blockchain**: Smart contract integration with Base network via viem
 - **Data Objects**: Structured verification data generation with real-time event system
 - **Modular Verification**: Separate modules for hardware, OS, source code, and domain verification
+- **Verifier Chain**: Automated verifier chain system with typed metadata and utility functions
 - **Production Ready**: Docker deployment, database migrations, queue workers, and API documentation
 
 ## Architecture & Design
 
 ### Core Components
+
+#### Constants System (`src/constants/`)
+
+- **`index.ts`**: Centralized export of all constants
+- **`phalaCloudKmsInfo.ts`**: Phala Cloud KMS-specific configuration and constants
+- **`redpillKmsInfo.ts`**: Redpill KMS-specific configuration and constants
 
 #### Abstract Base Classes
 
@@ -84,6 +91,13 @@ The project implements a multi-layered verification approach encompassing hardwa
 - **`GatewayDataObjectGenerator`**: Gateway verification data with domain control
 - **`AppDataObjectGenerator`**: ML application verification data objects (formerly RedpillDataObjectGenerator)
 
+#### Verifier Chain System (`src/verifierChain.ts`)
+
+- **Automated Verifier Creation**: Creates appropriate verifier chains based on app configuration
+- **Chain Execution**: Executes complete verification chains with configurable flags
+- **Type-Safe Configuration**: Uses typed metadata and configuration objects
+- **Flexible Architecture**: Supports both Redpill and Phala Cloud verification flows
+
 #### Data Object Collection System (`src/utils/dataObjectCollector.ts`)
 
 - **Global Data Object Management**: Centralized collection and event system for all verification data objects
@@ -109,30 +123,47 @@ The project implements a multi-layered verification approach encompassing hardwa
 - **`domain.ts`**: ACME and Certificate Transparency types
 - **`quote.ts`**: Quote parsing and verification result types
 - **`utils.ts`**: Utility types for metadata and configuration
+- **`metadata.ts`**: Structured metadata types for KMS, Gateway, and App verifiers with typed source information
+- **`verifierChain.ts`**: Simple types for verifier chain configuration (KmsVerifierType, AppVerifierType)
 - **`api.ts`**: HTTP API request/response types with Zod validation schemas
 - **`index.ts`**: Centralized type exports
 
-### Backend Server System (`src/server/`)
+### Dual Server Architecture
 
-#### Core Server Components
+#### Simple REST API Server (`src/test-server.ts`)
+
+- **`DStackVerifierServer`**: Lightweight HTTP REST API server using Bun's built-in server
+- **Direct Verification**: Calls VerificationService directly without queue system
+- **CORS Support**: Built-in CORS handling for frontend integration
+- **Simple Endpoints**: `/`, `/health`, `/verify` for basic verification operations
+- **Error Handling**: Comprehensive error handling with proper HTTP status codes
+
+#### Advanced Backend Server System (`src/server/`)
+
+##### Core Server Components
 
 - **`app.ts`**: Functional Elysia application factory with plugin composition pipeline
 - **`index.ts`**: Server lifecycle management with graceful shutdown handling
 - **`db/schema.ts`**: PostgreSQL database schema with Drizzle ORM for verification task persistence
 - **`db/index.ts`**: Database connection and query utilities
 
-#### API Routes (`src/server/routes/`)
+##### API Routes (`src/server/routes/`)
 
 - **`health.ts`**: Health check endpoints for monitoring and load balancer integration
 - **`tasks.ts`**: Verification task management endpoints (create, status, results)
+- **`tasks/`**: Task-specific route components with handlers, schemas, types, utils, and constants
 - **`queue.ts`**: Queue status and management endpoints for operational visibility
 
-#### Services (`src/server/services/`)
+##### Services (`src/server/services/`)
 
 - **`queue.ts`**: BullMQ integration for background verification task processing
-- **`r2.ts`**: Cloudflare R2 object storage integration for verification result persistence
+- **`s3.ts`**: S3-compatible object storage integration for verification result persistence (replaces r2.ts)
 - **`taskService.ts`**: High-level verification task orchestration and lifecycle management
 - **`index.ts`**: Service lifecycle management with connection pooling and graceful cleanup
+
+##### Authentication (`src/server/plugin/`)
+
+- **`auth.ts`**: Bearer token authentication plugin for protected endpoints
 
 ### Utility Modules
 
@@ -168,19 +199,19 @@ The project implements a multi-layered verification approach encompassing hardwa
 - Relationship configuration and resolution between verifiers for complex workflows
 - Streamlined API with core functionality focus (removed deprecated UI-specific methods)
 
-#### System Information Utilities (`src/utils/systemInfo.ts`)
+#### Metadata Utilities (`src/utils/metadataUtils.ts`)
 
-- Modular system information retrieval functions extracted from verifiers
-- `getPhalaCloudInfo()`: Phala Cloud API integration for DStack system information
-- `getRedpillInfo()`: Direct contract-based system information retrieval
-- Clean separation of concerns from verifier classes for better testability
+- **Version Parsing**: Parse version strings with git commit information
+- **Source Info Generation**: Create GitHub repository links from version and commit data
+- **Governance Mapping**: Map chain IDs to blockchain governance information
+- **Metadata Construction**: Helper functions for creating KMS, Gateway, and App metadata
+- **Type-Safe Defaults**: Default hardware information and metadata completion functions
 
 ## Project Structure
 
 ```
 dstack-verifier/
 ├── src/                           # Core source code
-│   ├── types.ts                   # Legacy type definitions (being migrated)
 │   ├── types/                     # Modular type system
 │   │   ├── core.ts               # Base verification types
 │   │   ├── attestation.ts        # Attestation bundle types
@@ -189,14 +220,23 @@ dstack-verifier/
 │   │   ├── domain.ts             # Domain verification types
 │   │   ├── quote.ts              # Quote verification types
 │   │   ├── utils.ts              # Utility and metadata types
+│   │   ├── metadata.ts           # Structured metadata types for verifiers
+│   │   ├── verifierChain.ts      # Verifier chain configuration types
 │   │   ├── api.ts                # HTTP API request/response types
 │   │   └── index.ts              # Centralized type exports
+│   ├── constants/                 # Constants and configuration data
+│   │   ├── index.ts              # Centralized constant exports
+│   │   ├── phalaCloudKmsInfo.ts  # Phala Cloud KMS configuration
+│   │   └── redpillKmsInfo.ts     # Redpill KMS configuration
 │   ├── verifier.ts                # Abstract base classes
 │   ├── verifiers/                 # Verifier implementations
+│   │   ├── index.ts              # Centralized verifier exports
 │   │   ├── kmsVerifier.ts        # KMS verification implementation
 │   │   ├── gatewayVerifier.ts    # Gateway verification with domain validation
-│   │   ├── redpillVerifier.ts    # ML application verifier (direct contract)
-│   │   └── phalaCloudVerifier.ts # Phala Cloud ML application verifier
+│   │   ├── phalaCloudKmsVerifier.ts # Phala Cloud KMS verifier
+│   │   ├── redpillKmsVerifier.ts # Redpill KMS verifier
+│   │   ├── phalaCloudVerifier.ts # Phala Cloud ML application verifier
+│   │   └── redpillVerifier.ts    # ML application verifier (direct contract)
 │   ├── dataObjects/               # Data object generation system
 │   │   ├── baseDataObjectGenerator.ts      # Base generator class
 │   │   ├── kmsDataObjectGenerator.ts       # KMS data objects
@@ -207,30 +247,43 @@ dstack-verifier/
 │   │   ├── osVerification.ts               # OS integrity verification
 │   │   ├── sourceCodeVerification.ts      # Source code verification
 │   │   └── domainVerification.ts          # Domain ownership verification
-│   ├── server/                    # Backend HTTP API server
+│   ├── server/                    # Advanced Backend HTTP API server
 │   │   ├── app.ts                # Elysia application factory
 │   │   ├── index.ts              # Server lifecycle management
+│   │   ├── README.md             # Server documentation
 │   │   ├── db/                   # Database layer
 │   │   │   ├── index.ts          # Database connection utilities
 │   │   │   └── schema.ts         # Drizzle ORM schema definitions
+│   │   ├── plugin/               # Elysia plugins
+│   │   │   └── auth.ts           # Bearer token authentication
 │   │   ├── routes/               # API route handlers
 │   │   │   ├── health.ts         # Health check endpoints
 │   │   │   ├── tasks.ts          # Verification task endpoints
+│   │   │   ├── tasks/            # Task route components
+│   │   │   │   ├── constants.ts  # Task constants
+│   │   │   │   ├── handlers.ts   # Task request handlers
+│   │   │   │   ├── schemas.ts    # Task validation schemas
+│   │   │   │   ├── types.ts      # Task-specific types
+│   │   │   │   └── utils.ts      # Task utility functions
 │   │   │   └── queue.ts          # Queue management endpoints
 │   │   └── services/             # Backend services
 │   │       ├── index.ts          # Service lifecycle management
 │   │       ├── queue.ts          # BullMQ queue integration
-│   │       ├── r2.ts             # Cloudflare R2 storage
+│   │       ├── s3.ts             # S3-compatible storage (replaces r2.ts)
 │   │       └── taskService.ts    # Task orchestration service
 │   ├── config.ts                  # Application configuration
 │   ├── env.ts                     # Environment variable validation with @t3-oss/env-core
+│   ├── schemas.ts                 # Validation schemas
+│   ├── index.ts                   # Main entry point (server mode)
+│   ├── test-server.ts             # Simple REST API server
+│   ├── test.ts                    # Test utilities
 │   ├── verificationService.ts     # High-level verification orchestration
-│   ├── consts.ts                  # Constants and configuration data
+│   ├── verifierChain.ts           # Verifier chain creation and execution
 │   └── utils/                     # Utility modules
 │       ├── dcap-qvl.ts           # Intel DCAP quote verification
 │       ├── dstack-mr.ts          # DStack measurement integration
 │       ├── dstackContract.ts     # Smart contract interactions
-│       ├── systemInfo.ts         # System information utilities
+│       ├── metadataUtils.ts      # Metadata construction utilities
 │       ├── dataObjectCollector.ts # Global data object management
 │       └── abi/                  # Smart contract ABI definitions
 │           ├── DstackApp.json    # App registry contract ABI
@@ -372,15 +425,26 @@ QUEUE_BACKOFF_DELAY: string (default: '2000')
 
 ### Build Scripts
 
+- `start`: Starts the main application (server mode) with `src/index.ts`
+- `dev`: Starts development mode with hot reload
 - `build:dcap-qvl`: Compiles Rust DCAP-QVL CLI tool with release optimizations
 - `download:dstack-0.5.3`: Downloads and extracts DStack OS images for measurement
-- `server`: Starts the HTTP API server in production mode
-- `server:dev`: Starts the server in development mode with hot reload
+- `download:dstack-nvidia-0.5.3`: Downloads NVIDIA-enabled DStack images
+- `download:dstack-nvidia-dev-0.5.3`: Downloads NVIDIA dev DStack images
+- `server`: Starts the advanced Elysia server (`src/server/index.ts`)
+- `server:dev`: Starts the advanced server in development mode with hot reload
 - `db:generate`: Generates database migration files
 - `db:migrate`: Applies database migrations
 - `db:push`: Pushes schema changes to database
+- `db:studio`: Opens Drizzle database studio
 - `test`: Runs test suite with Vitest
+- `test:run`: Runs tests once
+- `test:watch`: Runs tests in watch mode
 - `test:coverage`: Runs tests with coverage reporting
+- `format`: Formats code with Biome
+- `lint`: Lints code with Biome
+- `check`: Formats and lints code with Biome
+- `typecheck`: TypeScript type checking
 
 ### Development Environment
 
@@ -467,10 +531,12 @@ QUEUE_BACKOFF_DELAY: string (default: '2000')
 #### HTTP API Server Mode
 
 ```bash
-# Start the API server (now default behavior)
-bun run index.ts
+# Start the main application (simple REST API server)
+bun run start
+# or
+bun run src/index.ts
 
-# Or explicitly start server
+# Start the advanced Elysia server with database and queue support
 bun run server
 
 # Start development server with hot reload
@@ -613,32 +679,75 @@ configureVerifierRelationships({
 })
 ```
 
+#### Verifier Chain Integration
+
+```typescript
+import { createVerifiers, executeVerifiers } from './src/verifierChain'
+import type { PhalaCloudConfig, VerificationFlags } from './src/config'
+import type { SystemInfo } from './src/types'
+
+// Create app configuration
+const appConfig: PhalaCloudConfig = {
+  contractAddress: '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
+  domain: 'phala.network',
+  metadata: {
+    // Optional metadata override
+  },
+}
+
+// Create verification flags
+const flags: VerificationFlags = {
+  hardware: true,
+  os: true,
+  sourceCode: true,
+  teeControlledKey: true,
+  certificateKey: true,
+  dnsCAA: false,
+  ctLog: false,
+}
+
+// Get system info and create verifier chain
+const systemInfo: SystemInfo = // ... retrieve system information
+const verifiers = createVerifiers(appConfig, systemInfo)
+
+// Execute verifier chain
+const result = await executeVerifiers(verifiers, flags)
+console.log('Success:', result.success)
+console.log('Errors:', result.errors)
+```
+
 #### Verification Service Integration
 
 ```typescript
 import { VerificationService } from './src/verificationService'
-import { getPhalaCloudInfo } from './src/utils/systemInfo'
+import { completeAppMetadata } from './src/utils/metadataUtils'
 
 // Initialize verification service
 const service = new VerificationService()
 
-// Get system information
-const systemInfo = await getPhalaCloudInfo(
-  '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece'
-)
+// Create app config with typed metadata
+const appConfig = {
+  contractAddress: '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece' as `0x${string}`,
+  domain: 'phala.network',
+  metadata: {
+    osSource: {
+      github_repo: 'https://github.com/Dstack-TEE/dstack',
+      git_commit: 'c06e524bd460fd9c9add',
+      version: 'v0.5.3' as const,
+    },
+    hardware: {
+      cpuManufacturer: 'Intel Corporation',
+      cpuModel: 'Intel(R) Xeon(R) CPU',
+      securityFeature: 'Intel Trust Domain Extensions (TDX)',
+    },
+  },
+}
 
 // Perform verification
-const response = await service.verifyPhalaCloud({
-  app: {
-    contractAddress: '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece',
-    domain: 'phala.network',
-    metadata: systemInfo,
-  },
-  flags: {
-    hardware: true,
-    os: true,
-    sourceCode: true,
-  },
+const response = await service.verify(appConfig, {
+  hardware: true,
+  os: true,
+  sourceCode: true,
 })
 
 console.log('Success:', response.success)
@@ -652,11 +761,15 @@ console.log('Errors:', response.errors)
 # Install dependencies
 bun install
 
-# Start the HTTP API server
-bun run index.ts
+# Start the simple HTTP API server
+bun run start
+
+# Start the advanced Elysia HTTP API server
+bun run server
 
 # Development server with hot reload
-bun run server:dev
+bun run dev         # Simple server
+bun run server:dev  # Advanced server
 
 # Code quality and formatting
 bunx biome format --write .    # Format code
@@ -729,11 +842,13 @@ bunx tsc --noEmit
 
 ### Development Notes
 
-- **Server-First Architecture**: The main entry point now starts the HTTP API server by default
-- **Database Integration**: PostgreSQL with Drizzle ORM provides robust data persistence
+- **Dual Server Architecture**: Main entry point starts simple REST API server, advanced Elysia server available separately
+- **Verifier Chain System**: Automated verifier creation and execution with typed configurations
+- **Structured Metadata**: Type-safe metadata system with utility functions for construction
+- **Constants Organization**: Centralized constants with verifier-specific configurations
+- **Database Integration**: PostgreSQL with Drizzle ORM provides robust data persistence for advanced server
 - **Queue Management**: BullMQ with Redis enables scalable background verification processing
 - **Simplified Data Objects**: UI-specific functionality removed in favor of streamlined core API
-- **System Info Utilities**: DStack information retrieval extracted from verifiers for better modularity
 - **Environment Safety**: Type-safe environment variable validation with comprehensive configuration
 - **Container Orchestration**: Docker Compose setup for both development and production environments
 - **Migration Support**: Database schema versioning with automated migration capabilities
