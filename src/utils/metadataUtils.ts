@@ -5,58 +5,60 @@
 import type { SystemInfo } from '../types/application'
 import type {
   AppMetadata,
-  AppSourceInfo,
   GatewayMetadata,
   GovernanceInfo,
   HardwareInfo,
   KmsMetadata,
-  OSSourceInfo,
+  VersionString,
 } from '../types/metadata'
 
-/**
- * Convert version string to OS source information.
- * Parses version strings like "v0.5.3 (git:c06e524bd460fd9c9add)" or "dstack-0.5.3"
- */
-export function versionToOSSourceInfo(version: string): OSSourceInfo {
-  // Handle different version string formats
-  let cleanVersion: string
-  let gitCommit: string
+export function parseVersionString(version: string): {
+  version: VersionString
+  gitCommit: string
+} {
+  // Format: "v0.5.3 (git:c06e524bd460fd9c9add)"
+  const versionMatch = version.match(/^v?([^(]+)\s*\(git:([^)]+)\)/)
+  if (versionMatch?.[1] && versionMatch?.[2]) {
+    const cleanVersion = versionMatch[1].trim()
+    const gitCommit = versionMatch[2].trim()
 
-  if (version.includes('(git:') && version.includes(')')) {
-    // Format: "v0.5.3 (git:c06e524bd460fd9c9add)"
-    const versionMatch = version.match(/^v?([^(]+)\s*\(git:([^)]+)\)/)
-    if (versionMatch?.[1] && versionMatch?.[2]) {
-      cleanVersion = versionMatch[1].trim()
-      gitCommit = versionMatch[2].trim()
-    } else {
-      throw new Error(`Unable to parse version format: ${version}`)
+    // Ensure version has 'v' prefix
+    const versionWithPrefix = cleanVersion.startsWith('v')
+      ? (cleanVersion as VersionString)
+      : (`v${cleanVersion}` as VersionString)
+
+    return {
+      version: versionWithPrefix,
+      gitCommit,
     }
-  } else if (version.startsWith('dstack-')) {
-    // Format: "dstack-0.5.3" or "dstack-nvidia-0.5.3"
-    cleanVersion = version
-    gitCommit = 'unknown' // Will need to be updated when commit info is available
   } else {
-    // Fallback: treat as version without commit
-    cleanVersion = version.replace(/^v/, '')
-    gitCommit = 'unknown'
+    throw new Error(`Unable to parse version format: ${version}`)
   }
+}
 
-  // Determine if this is an NVIDIA version
-  const isNvidiaVersion =
-    cleanVersion.includes('nvidia') || version.includes('nvidia')
+/**
+ * Generic function to create source information with custom repository path.
+ * Can be used as a base for all source info generation functions.
+ */
+export function versionToSourceInfo(
+  version: string,
+  repoPath?: string,
+): {
+  github_repo: string
+  git_commit: string
+  version: VersionString
+} {
+  const { version: versionWithPrefix, gitCommit } = parseVersionString(version)
+  const baseUrl = 'https://github.com/Dstack-TEE/dstack'
 
-  // Determine the appropriate version string for the repo
-  const repoVersion = cleanVersion.startsWith('dstack-')
-    ? cleanVersion
-    : `dstack-${cleanVersion}`
+  const github_repo = repoPath
+    ? `${baseUrl}/tree/${gitCommit}/${repoPath}`
+    : baseUrl
 
   return {
-    github_repo: 'https://github.com/dstack-org/dstack',
+    github_repo,
     git_commit: gitCommit,
-    version:
-      isNvidiaVersion && !repoVersion.includes('nvidia')
-        ? repoVersion.replace('dstack-', 'dstack-nvidia-')
-        : repoVersion,
+    version: versionWithPrefix,
   }
 }
 
@@ -69,13 +71,13 @@ export function chainIdToGovernanceInfo(chainId: number): GovernanceInfo {
       return {
         blockchain: 'Base',
         blockchainExplorerUrl: 'https://basescan.org',
-        chainId: 8453,
+        chainId,
       }
     case 1:
       return {
         blockchain: 'Ethereum',
         blockchainExplorerUrl: 'https://etherscan.io',
-        chainId: 1,
+        chainId,
       }
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`)
@@ -101,7 +103,8 @@ export function createDefaultHardwareInfo(
  */
 export function createKmsMetadata(systemInfo: SystemInfo): KmsMetadata {
   return {
-    osSource: versionToOSSourceInfo(systemInfo.kms_info.version),
+    osSource: versionToSourceInfo(systemInfo.kms_info.version),
+    appSource: versionToSourceInfo(systemInfo.kms_info.version, 'kms'),
     hardware: createDefaultHardwareInfo(),
     governance: chainIdToGovernanceInfo(systemInfo.kms_info.chain_id),
   }
@@ -112,7 +115,8 @@ export function createKmsMetadata(systemInfo: SystemInfo): KmsMetadata {
  */
 export function createGatewayMetadata(systemInfo: SystemInfo): GatewayMetadata {
   return {
-    osSource: versionToOSSourceInfo(systemInfo.kms_info.version),
+    osSource: versionToSourceInfo(systemInfo.kms_info.version),
+    appSource: versionToSourceInfo(systemInfo.kms_info.version, 'gateway'),
     hardware: createDefaultHardwareInfo(),
     governance: chainIdToGovernanceInfo(systemInfo.kms_info.chain_id),
   }
@@ -121,15 +125,17 @@ export function createGatewayMetadata(systemInfo: SystemInfo): GatewayMetadata {
 /**
  * Create App metadata from SystemInfo
  */
-export function createAppMetadata(
+export function completeAppMetadata(
   systemInfo: SystemInfo,
-  appSource?: AppSourceInfo,
-  hasNvidiaSupport?: boolean,
+  appMetadata?: AppMetadata,
 ): AppMetadata {
   return {
-    osSource: versionToOSSourceInfo(systemInfo.kms_info.version),
-    appSource,
-    hardware: createDefaultHardwareInfo(hasNvidiaSupport),
-    governance: chainIdToGovernanceInfo(systemInfo.kms_info.chain_id),
+    osSource:
+      appMetadata?.osSource || versionToSourceInfo(systemInfo.kms_info.version),
+    appSource: appMetadata?.appSource,
+    hardware: appMetadata?.hardware || createDefaultHardwareInfo(),
+    governance:
+      appMetadata?.governance ||
+      chainIdToGovernanceInfo(systemInfo.kms_info.chain_id),
   }
 }

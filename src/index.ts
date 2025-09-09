@@ -6,21 +6,24 @@
  * including hardware attestation, operating system integrity, and source code authenticity.
  *
  * Key Components:
- * - KmsVerifier: Verifies Key Management Service attestations using smart contract data
- * - GatewayVerifier: Verifies Gateway service attestations with domain ownership verification
+ * - Verifier Chain: Automated verifier creation and execution with typed configurations
+ * - Multiple Verifiers: KMS, Gateway, Redpill, and Phala Cloud verifiers
+ * - Structured Metadata: Type-safe metadata system with utility functions
+ * - Simple REST API: Lightweight HTTP server using Bun's built-in server
+ * - Data Objects: Structured verification data generation with event system
  * - DCAP-QVL: Intel TDX/SGX quote verification library
- * - Smart Contract Integration: Retrieves attestation data from blockchain
- * - Backend API Server: HTTP REST API for verification operations
+ * - Smart Contract Integration: Retrieves attestation data from Base blockchain
  *
  * Usage:
- * - Server mode: `bun run index.ts` (starts API server)
+ * - Simple server: `bun run start` or `bun run src/index.ts`
+ * - Advanced server: `bun run server` (with database and queue support)
  *
  * @example
  * ```typescript
- * import { KmsVerifier } from './src/kmsVerifier'
+ * import { createVerifiers, executeVerifiers } from './verifierChain'
  *
- * const kmsVerifier = new KmsVerifier('0x...')
- * const isValid = await kmsVerifier.verifyHardware()
+ * const verifiers = createVerifiers(appConfig, systemInfo)
+ * const result = await executeVerifiers(verifiers, flags)
  * ```
  */
 

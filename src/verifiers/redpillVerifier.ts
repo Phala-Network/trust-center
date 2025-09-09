@@ -5,6 +5,7 @@ import type {
   AppMetadata,
   AttestationBundle,
   QuoteData,
+  SystemInfo,
 } from '../types'
 import { parseAttestationBundle } from '../types'
 import { DstackApp } from '../utils/dstackContract'
@@ -30,7 +31,7 @@ export class RedpillVerifier extends Verifier {
     contractAddress: `0x${string}`,
     model: string,
     metadata: AppMetadata,
-    chainId = 8453, // Base mainnet
+    chainId: number,
   ) {
     super(metadata, 'app')
     this.registrySmartContract = new DstackApp(contractAddress, chainId)
@@ -97,6 +98,70 @@ export class RedpillVerifier extends Verifier {
     return (await this.getAttestationBundle()).info
   }
 
+  /**
+   * Static method to fetch system info from Redpill API without instantiating the verifier
+   */
+  public static async getSystemInfo(
+    contractAddress: string,
+    model: string,
+  ): Promise<SystemInfo> {
+    const rpcEndpoint = `${BASE_URL}?model=${model}`
+
+    try {
+      const response = await fetch(rpcEndpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer test`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(
+          `Redpill API request failed for model '${model}': ${response.status} ${response.statusText} (URL: ${rpcEndpoint})`,
+        )
+      }
+
+      // Get quote data from the response
+      const quoteData = (await response.json()) as {
+        quote: `0x${string}`
+        eventlog: any
+      }
+
+      const systemInfo: SystemInfo = {
+        app_id: contractAddress.startsWith('0x')
+          ? contractAddress.slice(2)
+          : contractAddress,
+        contract_address: contractAddress.startsWith('0x')
+          ? (contractAddress as `0x${string}`)
+          : (`0x${contractAddress}` as `0x${string}`),
+        kms_info: {
+          contract_address: '0xbfd2d557118fc650ea25a0e7d85355d335f259d8',
+          chain_id: 8453,
+          version: 'v0.5.3 (git:c06e524bd460fd9c9add)',
+          url: '',
+          gateway_app_id: '0x39F2f3373CEcFf85BD8BBd985adeeF32547a302c',
+          gateway_app_url: 'https://gateway.llm-04.phala.network:9204',
+        },
+        instances: [
+          {
+            quote: quoteData.quote,
+            eventlog: quoteData.eventlog,
+            image_version: 'dstack-0.5.3',
+          },
+        ],
+      }
+
+      return systemInfo
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching from Redpill API (${rpcEndpoint})`
+      throw new Error(`Failed to fetch Redpill info: ${errorMessage}`)
+    }
+  }
+
   public async verifyHardware(): Promise<boolean> {
     const quoteData = await this.getQuote()
     const attestationBundle = await this.getAttestationBundle()
@@ -124,7 +189,6 @@ export class RedpillVerifier extends Verifier {
     // Generate DataObjects for App OS verification
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
       appInfo,
-      {} /* measurement result */,
       true,
     )
     dataObjects.forEach((obj) => {

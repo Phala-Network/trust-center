@@ -39,14 +39,11 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
   /**
    * Generates all DataObjects for KMS OS verification.
    */
-  generateOSDataObjects(
-    appInfo: AppInfo,
-    measurementResult: any,
-  ): DataObject[] {
+  generateOSDataObjects(appInfo: AppInfo): DataObject[] {
     const objects: DataObject[] = []
 
     // KMS OS object
-    objects.push(this.generateOSObject(appInfo, measurementResult))
+    objects.push(this.generateOSObject(appInfo))
 
     // KMS OS Code object
     objects.push(this.generateOSCodeObject())
