@@ -28,7 +28,7 @@ export interface TaskData {
   contractAddress: string
   modelOrDomain: string
   appMetadata?: AppMetadata
-  verificationFlags?: VerificationFlags
+  verificationFlags?: Partial<VerificationFlags>
 }
 
 export interface TaskResult {
@@ -104,18 +104,19 @@ export const createQueueService = (
           appConfig = {
             contractAddress: contractAddress as `0x${string}`,
             model: modelOrDomain,
-            metadata: appMetadata || ({} as AppMetadata),
+            metadata: appMetadata,
           }
         } else {
           // phala_cloud config
           appConfig = {
             contractAddress: contractAddress as `0x${string}`,
             domain: modelOrDomain,
-            metadata: appMetadata || ({} as AppMetadata),
+            metadata: appMetadata,
           }
         }
 
         // Execute verification using VerificationService
+        // verificationFlags can be partial - VerificationService will merge with defaults
         const verificationResult = await verificationService.verify(
           appConfig,
           verificationFlags,

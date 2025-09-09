@@ -8,19 +8,11 @@
 import { z } from 'zod'
 
 import type { DataObject } from './index'
+import type { AppMetadata } from './metadata'
+import type { VerificationFlags } from '../config'
 
-/**
- * Verification flags to control which steps to execute
- */
-export interface VerificationFlags {
-  hardware?: boolean
-  os?: boolean
-  sourceCode?: boolean
-  teeControlledKey?: boolean
-  certificateKey?: boolean
-  dnsCAA?: boolean
-  ctLog?: boolean
-}
+// Re-export VerificationFlags from config for API use
+export type { VerificationFlags }
 
 /**
  * Verification request payload for Redpill verifier
@@ -29,25 +21,7 @@ export interface RedpillVerificationRequest {
   app: {
     contractAddress: `0x${string}`
     model: string
-    metadata?: {
-      osSource?: {
-        github_repo?: string
-        git_commit?: string
-        version?: string
-      }
-      appSource?: {
-        github_repo?: string
-        git_commit?: string
-        version?: string
-        model_name?: string
-      }
-      hardware?: {
-        cpuManufacturer?: string
-        cpuModel?: string
-        securityFeature?: string
-        hasNvidiaSupport?: boolean
-      }
-    }
+    metadata?: AppMetadata
   }
   /** Verification flags to control which steps to execute */
   flags?: VerificationFlags
@@ -60,25 +34,7 @@ export interface PhalaCloudVerificationRequest {
   app: {
     contractAddress: `0x${string}`
     domain: string
-    metadata?: {
-      osSource?: {
-        github_repo?: string
-        git_commit?: string
-        version?: string
-      }
-      appSource?: {
-        github_repo?: string
-        git_commit?: string
-        version?: string
-        model_name?: string
-      }
-      hardware?: {
-        cpuManufacturer?: string
-        cpuModel?: string
-        securityFeature?: string
-        hasNvidiaSupport?: boolean
-      }
-    }
+    metadata?: AppMetadata
   }
   /** Verification flags to control which steps to execute */
   flags?: VerificationFlags
@@ -123,63 +79,64 @@ const HexStringSchema = z
 /**
  * Zod schema for OS source metadata
  */
-const OSSourceSchema = z
-  .object({
-    github_repo: z.string().optional(),
-    git_commit: z.string().optional(),
-    version: z.string().optional(),
-  })
-  .optional()
+const OSSourceSchema = z.object({
+  github_repo: z.string(),
+  git_commit: z.string(),
+  version: z.string(),
+})
 
 /**
  * Zod schema for App source metadata
  */
-const AppSourceSchema = z
-  .object({
-    github_repo: z.string().optional(),
-    git_commit: z.string().optional(),
-    version: z.string().optional(),
-    model_name: z.string().optional(),
-  })
-  .optional()
+const AppSourceSchema = z.object({
+  github_repo: z.string(),
+  git_commit: z.string(),
+  version: z.string(),
+  model_name: z.string().optional(),
+})
 
 /**
  * Zod schema for hardware metadata
  */
-const HardwareSchema = z
-  .object({
-    cpuManufacturer: z.string().optional(),
-    cpuModel: z.string().optional(),
-    securityFeature: z.string().optional(),
-    hasNvidiaSupport: z.boolean().optional(),
-  })
-  .optional()
+const HardwareSchema = z.object({
+  cpuManufacturer: z.string(),
+  cpuModel: z.string(),
+  securityFeature: z.string(),
+  hasNvidiaSupport: z.boolean().optional(),
+})
+
+/**
+ * Zod schema for governance metadata
+ */
+const GovernanceSchema = z.object({
+  blockchain: z.string(),
+  blockchainExplorerUrl: z.string(),
+  chainId: z.number().optional(),
+})
 
 /**
  * Zod schema for structured verifier metadata
+ * Matches AppMetadata type structure exactly
  */
-const StructuredMetadataSchema = z
-  .object({
-    osSource: OSSourceSchema,
-    appSource: AppSourceSchema,
-    hardware: HardwareSchema,
-  })
-  .optional()
+const StructuredMetadataSchema = z.object({
+  osSource: OSSourceSchema, // Required in AppMetadata
+  appSource: AppSourceSchema.optional(), // Optional in AppMetadata
+  hardware: HardwareSchema, // Required in AppMetadata
+  governance: GovernanceSchema.optional(), // Optional in AppMetadata
+})
 
 /**
  * Zod schema for verification flags
  */
-const VerificationFlagsSchema = z
-  .object({
-    hardware: z.boolean().optional(),
-    os: z.boolean().optional(),
-    sourceCode: z.boolean().optional(),
-    teeControlledKey: z.boolean().optional(),
-    certificateKey: z.boolean().optional(),
-    dnsCAA: z.boolean().optional(),
-    ctLog: z.boolean().optional(),
-  })
-  .optional()
+const VerificationFlagsSchema = z.object({
+  hardware: z.boolean(),
+  os: z.boolean(),
+  sourceCode: z.boolean(),
+  teeControlledKey: z.boolean(),
+  certificateKey: z.boolean(),
+  dnsCAA: z.boolean(),
+  ctLog: z.boolean(),
+}).optional()
 
 /**
  * Zod schema for Redpill verification request

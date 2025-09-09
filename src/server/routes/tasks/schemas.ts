@@ -1,58 +1,58 @@
 import { t } from 'elysia'
 
-// Validation schemas for structured types
-export const OSSourceInfoSchema = t.Object({
-  github_repo: t.String(),
-  git_commit: t.String(),
-  version: t.String(),
-})
-
-export const AppSourceInfoSchema = t.Object({
-  github_repo: t.String(),
-  git_commit: t.String(),
-  version: t.String(),
-  model_name: t.Optional(t.String()),
-})
-
-export const HardwareInfoSchema = t.Object({
-  cpu: t.String(),
-  memory: t.String(),
-  storage: t.String(),
+// Define schemas based on config VerificationFlags
+// All fields are optional in API - VerificationService will merge with defaults
+export const VerificationFlagsSchema = t.Object({
+  hardware: t.Optional(t.Boolean()),
+  os: t.Optional(t.Boolean()),
+  sourceCode: t.Optional(t.Boolean()),
+  teeControlledKey: t.Optional(t.Boolean()),
+  certificateKey: t.Optional(t.Boolean()),
+  dnsCAA: t.Optional(t.Boolean()),
+  ctLog: t.Optional(t.Boolean()),
 })
 
 export const MetadataSchema = t.Object({
-  osSource: t.Optional(OSSourceInfoSchema),
-  appSource: t.Optional(AppSourceInfoSchema),
-  hardware: t.Optional(HardwareInfoSchema),
+  osSource: t.Object({
+    github_repo: t.String(),
+    git_commit: t.String(),
+    version: t.String(),
+  }),
+  appSource: t.Optional(
+    t.Object({
+      github_repo: t.String(),
+      git_commit: t.String(),
+      version: t.String(),
+      model_name: t.Optional(t.String()),
+    }),
+  ),
+  hardware: t.Object({
+    cpuManufacturer: t.String(),
+    cpuModel: t.String(),
+    securityFeature: t.String(),
+    hasNvidiaSupport: t.Optional(t.Boolean()),
+  }),
+  governance: t.Optional(
+    t.Object({
+      blockchain: t.String(),
+      blockchainExplorerUrl: t.String(),
+      chainId: t.Optional(t.Number()),
+    }),
+  ),
 })
 
-export const RedpillConfigSchema = t.Object({
-  metadata: MetadataSchema,
-})
-
-export const PhalaCloudConfigSchema = t.Object({
-  metadata: MetadataSchema,
-})
-
-export const AppConfigSchema = t.Union([
-  RedpillConfigSchema,
-  PhalaCloudConfigSchema,
-])
-
-export const VerificationFlagsSchema = t.Object({
-  skip_os_verification: t.Optional(t.Boolean()),
-  skip_app_verification: t.Optional(t.Boolean()),
-  skip_hardware_verification: t.Optional(t.Boolean()),
+export const AppConfigSchema = t.Object({
+  metadata: t.Optional(MetadataSchema),
 })
 
 // Request schemas
 export const TaskCreateRequestSchema = t.Object({
-  app_id: t.String(),
-  app_name: t.String(),
-  app_config_type: t.Union([t.Literal('redpill'), t.Literal('phala_cloud')]),
-  contract_address: t.String(),
-  model_or_domain: t.String(),
-  app_config: AppConfigSchema,
+  appId: t.String(),
+  appName: t.String(),
+  appConfigType: t.Union([t.Literal('redpill'), t.Literal('phala_cloud')]),
+  contractAddress: t.String(),
+  modelOrDomain: t.String(),
+  appConfig: t.Optional(AppConfigSchema),
   flags: t.Optional(VerificationFlagsSchema),
 })
 
@@ -62,11 +62,17 @@ export const TaskBatchCreateRequestSchema = t.Object({
 
 export const TaskListQuerySchema = t.Object({
   app_id: t.Optional(t.String()),
+  app_name: t.Optional(t.String()),
+  app_config_type: t.Optional(t.String()),
+  contract_address: t.Optional(t.String()),
+  keyword: t.Optional(t.String()),
   status: t.Optional(t.String()),
   per_page: t.Optional(t.Number()),
   page: t.Optional(t.Number()),
   sort_by: t.Optional(t.String()),
   sort_order: t.Optional(t.Union([t.Literal('asc'), t.Literal('desc')])),
+  created_after: t.Optional(t.String()),
+  created_before: t.Optional(t.String()),
 })
 
 // Response data schemas
@@ -77,8 +83,15 @@ export const TaskResponseSchema = t.Object({
   appConfigType: t.String(),
   contractAddress: t.String(),
   modelOrDomain: t.String(),
+  verificationFlags: t.Optional(t.Union([VerificationFlagsSchema, t.Null()])),
   status: t.String(),
+  errorMessage: t.Optional(t.String()),
+  s3Filename: t.Optional(t.String()),
+  s3Key: t.Optional(t.String()),
+  s3Bucket: t.Optional(t.String()),
   createdAt: t.String(),
+  startedAt: t.Optional(t.String()),
+  finishedAt: t.Optional(t.String()),
 })
 
 export const TaskListDataSchema = t.Object({
@@ -138,15 +151,25 @@ export const BaseErrorSchema = t.Object({
   details: t.Optional(t.String()),
 })
 
-// Response schemas
-export const TaskListResponseSchema = TaskListDataSchema
-export const TaskDetailResponseSchema = TaskDetailDataSchema
-export const TaskCreateResponseSchema = TaskCreateDataSchema
-export const TaskBatchCreateResponseSchema = TaskBatchCreateDataSchema
-export const TaskStatsResponseSchema = TaskStatsDataSchema
-export const TaskCancelResponseSchema = TaskCancelDataSchema
-
 // Error response schema
 export const ErrorResponseSchema = t.Object({
   error: BaseErrorSchema,
 })
+
+// Type definitions based on schemas
+export type VerificationFlags = typeof VerificationFlagsSchema.static
+
+// Request types - using Elysia schema static types
+export type TaskCreateRequest = typeof TaskCreateRequestSchema.static
+export type BatchCreateRequest = typeof TaskBatchCreateRequestSchema.static
+export type TaskListQuery = typeof TaskListQuerySchema.static
+
+// Response types - using Elysia schema static types
+export type TaskResponse = typeof TaskResponseSchema.static
+export type TaskListResponse = typeof TaskListDataSchema.static
+export type TaskDetailResponse = typeof TaskDetailDataSchema.static
+export type TaskCreateResponse = typeof TaskCreateDataSchema.static
+export type TaskBatchCreateResponse = typeof TaskBatchCreateDataSchema.static
+export type TaskStatsResponse = typeof TaskStatsDataSchema.static
+export type TaskCancelResponse = typeof TaskCancelDataSchema.static
+export type ErrorResponse = typeof ErrorResponseSchema.static
