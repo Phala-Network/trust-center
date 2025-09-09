@@ -35,9 +35,15 @@ export class VerificationService {
    */
   async verify(
     appConfig: RedpillConfig | PhalaCloudConfig,
-    flags: VerificationFlags = DEFAULT_VERIFICATION_FLAGS,
+    flags?: Partial<VerificationFlags>,
   ): Promise<VerificationResponse> {
     this.errors = []
+
+    // Merge provided flags with default flags
+    const mergedFlags: VerificationFlags = {
+      ...DEFAULT_VERIFICATION_FLAGS,
+      ...flags,
+    }
 
     // Clear any existing DataObjects
     clearAllDataObjects()
@@ -50,7 +56,7 @@ export class VerificationService {
       const verifiers = createVerifiers(appConfig, systemInfo)
       this.configureVerifierRelationships()
 
-      const result = await executeVerifiers(verifiers, flags)
+      const result = await executeVerifiers(verifiers, mergedFlags)
 
       // Convert errors to the expected format
       this.errors = result.errors.map((error) => ({ message: error }))

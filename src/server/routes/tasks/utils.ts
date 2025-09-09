@@ -1,4 +1,10 @@
 // Utility functions for task routes
+import type {
+  AppConfigType,
+  VerificationTask,
+  VerificationTaskStatus,
+} from '../../db/schema'
+import type { TaskResponse, VerificationFlags } from './schemas'
 
 export class TaskError extends Error {
   constructor(
@@ -97,3 +103,35 @@ export const sanitizeKeyword = (keyword?: string): string | undefined => {
   // Remove potentially dangerous characters and trim
   return keyword.trim().replace(/[<>'"]/g, '')
 }
+
+// Type guards
+export const isValidAppConfigType = (value: string): value is AppConfigType => {
+  return value === 'redpill' || value === 'phala_cloud'
+}
+
+export const isValidVerificationTaskStatus = (
+  value: string,
+): value is VerificationTaskStatus => {
+  return ['pending', 'active', 'completed', 'failed'].includes(value)
+}
+
+// Utility functions
+export const convertTaskForResponse = (
+  task: VerificationTask,
+): TaskResponse => ({
+  id: task.id,
+  appId: task.appId,
+  appName: task.appName,
+  appConfigType: task.appConfigType,
+  contractAddress: task.contractAddress,
+  modelOrDomain: task.modelOrDomain,
+  verificationFlags: task.verificationFlags as VerificationFlags | undefined,
+  status: task.status,
+  errorMessage: task.errorMessage ?? undefined,
+  s3Filename: task.s3Filename ?? undefined,
+  s3Key: task.s3Key ?? undefined,
+  s3Bucket: task.s3Bucket ?? undefined,
+  createdAt: task.createdAt.toISOString(),
+  startedAt: task.startedAt?.toISOString(),
+  finishedAt: task.finishedAt?.toISOString(),
+})

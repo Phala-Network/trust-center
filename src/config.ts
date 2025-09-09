@@ -14,8 +14,8 @@ import type { AppMetadata, GatewayMetadata, KmsMetadata } from './types'
 export interface KmsConfig {
   /** KMS smart contract address */
   contractAddress: `0x${string}`
-  /** Verifier metadata */
-  metadata: KmsMetadata
+  /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
+  metadata?: KmsMetadata
 }
 
 /**
@@ -26,8 +26,8 @@ export interface GatewayConfig {
   contractAddress: `0x${string}`
   /** Gateway RPC endpoint URL */
   rpcEndpoint: string
-  /** Verifier metadata */
-  metadata: GatewayMetadata
+  /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
+  metadata?: GatewayMetadata
 }
 
 /**
@@ -38,8 +38,8 @@ export interface RedpillConfig {
   contractAddress: `0x${string}`
   /** Model identifier */
   model: string
-  /** Verifier metadata */
-  metadata: AppMetadata
+  /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
+  metadata?: AppMetadata
 }
 
 /**
@@ -50,8 +50,8 @@ export interface PhalaCloudConfig {
   contractAddress: `0x${string}`
   /** Domain identifier */
   domain: string
-  /** Verifier metadata */
-  metadata: AppMetadata
+  /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
+  metadata?: AppMetadata
 }
 
 /**
