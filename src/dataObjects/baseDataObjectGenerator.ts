@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import type {
   AppInfo,
   AppMetadata,
@@ -8,6 +11,21 @@ import type {
   QuoteData,
   VerifyQuoteResult,
 } from '../types'
+
+/**
+ * Interface for DStack image metadata from external/dstack-images directory
+ */
+interface DStackImageMetadata {
+  bios: string
+  kernel: string
+  cmdline: string
+  initrd: string
+  rootfs: string
+  version: string
+  git_revision: string
+  shared_ro: boolean
+  is_dev: boolean
+}
 
 /**
  * Base class for generating DataObjects across different verifier types.
@@ -30,6 +48,48 @@ export abstract class BaseDataObjectGenerator {
   protected generateObjectId(component: string): string {
     // Use kebab-case to match tee-visualization TRUST_ITEMS
     return `${this.verifierType}-${component}`
+  }
+
+  /**
+   * Reads DStack image metadata from external/dstack-images directory
+   */
+  protected readDStackImageMetadata(
+    version: string,
+    isNvidiaVariant: boolean,
+  ): DStackImageMetadata {
+    // Strip 'v' prefix if present
+    const cleanVersion = version.startsWith('v') ? version.slice(1) : version
+    const imageDirName = isNvidiaVariant
+      ? `dstack-nvidia-${cleanVersion}`
+      : `dstack-${cleanVersion}`
+    const metadataPath = join(
+      process.cwd(),
+      'external',
+      'dstack-images',
+      imageDirName,
+      'metadata.json',
+    )
+
+    try {
+      const metadataContent = readFileSync(metadataPath, 'utf8')
+      return JSON.parse(metadataContent) as DStackImageMetadata
+    } catch {
+      // Fallback to hardcoded values if metadata file is not found
+      console.warn(
+        `Warning: Could not read metadata from ${metadataPath}, using fallback values`,
+      )
+      return {
+        bios: 'ovmf.fd',
+        kernel: 'bzImage',
+        cmdline: '',
+        initrd: 'initramfs.cpio.gz',
+        rootfs: 'rootfs.img.verity',
+        version: cleanVersion,
+        git_revision: '',
+        shared_ro: true,
+        is_dev: false,
+      }
+    }
   }
 
   /**
@@ -99,12 +159,17 @@ export abstract class BaseDataObjectGenerator {
    */
   protected generateOSObject(
     appInfo: AppInfo,
-    measurementResult: any,
     hasNvidiaSupport: boolean = false,
   ): DataObject {
     const osVersionString = this.metadata.osSource.version
     const isNvidiaVariant =
       hasNvidiaSupport || this.metadata.hardware.hasNvidiaSupport
+
+    // Read dynamic metadata from dstack-images
+    const imageMetadata = this.readDStackImageMetadata(
+      osVersionString,
+      Boolean(isNvidiaVariant),
+    )
 
     return {
       id: this.generateObjectId('os'),
@@ -112,18 +177,18 @@ export abstract class BaseDataObjectGenerator {
       description: `Integrity measurements and configuration of the ${this.verifierType} operating system, including boot parameters and system components.`,
       fields: {
         os: osVersionString,
-        shared_ro: true,
-        is_dev: true,
-        bios: 'ovmf.fd',
+        artifacts: isNvidiaVariant
+          ? `https://github.com/nearai/private-ml-sdk/releases/tag/${osVersionString}`
+          : `https://github.com/Dstack-TEE/meta-dstack/releases/tag/${osVersionString}`,
         vm_config: JSON.stringify(appInfo.vm_config),
-        kernel: 'bzImage',
-        initrd: 'initramfs.cpio.gz',
-        rootfs: 'rootfs.img.verity',
-        measured_mrtd: measurementResult.mrtd,
-        measured_rtmr0: measurementResult.rtmr0,
-        measured_rtmr1: measurementResult.rtmr1,
-        measured_rtmr2: measurementResult.rtmr2,
         ...(isNvidiaVariant && { gpu_enabled: true }),
+        bios: imageMetadata.bios,
+        kernel: imageMetadata.kernel,
+        cmdline: imageMetadata.cmdline,
+        initrd: imageMetadata.initrd,
+        rootfs: imageMetadata.rootfs,
+        shared_ro: imageMetadata.shared_ro,
+        is_dev: imageMetadata.is_dev,
       },
       kind: this.verifierType,
       calculations: [
@@ -138,7 +203,7 @@ export abstract class BaseDataObjectGenerator {
           outputs: ['rtmr0'],
         },
         {
-          inputs: ['kernel', 'initrd'],
+          inputs: ['kernel', 'cmdline', 'initrd'],
           calcFunc: 'sha384',
           outputs: ['rtmr1'],
         },
@@ -146,6 +211,11 @@ export abstract class BaseDataObjectGenerator {
           inputs: ['rootfs'],
           calcFunc: 'sha384',
           outputs: ['rtmr2'],
+        },
+        {
+          inputs: ['artifacts'],
+          calcFunc: 'sha384',
+          outputs: ['os_image_hash'],
         },
         ...(isNvidiaVariant
           ? [
@@ -178,6 +248,11 @@ export abstract class BaseDataObjectGenerator {
           objectId: this.generateObjectId('quote'),
           fieldName: 'rtmr2',
         },
+        {
+          selfCalcOutputName: 'os_image_hash',
+          objectId: this.generateObjectId('event-logs-imr3'),
+          fieldName: 'os-image-hash',
+        },
       ],
     }
   }
@@ -198,15 +273,16 @@ export abstract class BaseDataObjectGenerator {
       kind: this.verifierType,
       measuredBy: [
         {
+          selfCalcOutputName: 'artifacts',
           objectId: this.generateObjectId('os'),
-          fieldName: 'os',
+          fieldName: 'artifacts',
         },
       ],
       calculations: [
         {
-          inputs: ['ovmf.fd'],
-          calcFunc: 'sha256',
-          outputs: ['bios'],
+          inputs: ['*'],
+          calcFunc: 'reproducible_build',
+          outputs: ['artifacts'],
         },
       ],
     }

@@ -189,7 +189,6 @@ export class RedpillVerifier extends Verifier {
     // Generate DataObjects for App OS verification
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
       appInfo,
-      {} /* measurement result */,
       true,
     )
     dataObjects.forEach((obj) => {

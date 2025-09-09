@@ -91,15 +91,12 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
    */
   generateOSDataObjects(
     appInfo: AppInfo,
-    measurementResult: any,
     hasNvidiaSupport: boolean = false,
   ): DataObject[] {
     const objects: DataObject[] = []
 
     // App OS object
-    objects.push(
-      this.generateOSObject(appInfo, measurementResult, hasNvidiaSupport),
-    )
+    objects.push(this.generateOSObject(appInfo, hasNvidiaSupport))
 
     // App OS Code object
     objects.push(this.generateOSCodeObject())

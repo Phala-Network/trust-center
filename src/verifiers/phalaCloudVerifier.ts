@@ -217,7 +217,6 @@ export class PhalaCloudVerifier extends Verifier {
     // Generate DataObjects for App OS verification
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
       appInfo,
-      {} /* measurement result */,
       false,
     )
     dataObjects.forEach((obj) => {

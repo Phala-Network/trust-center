@@ -138,10 +138,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     const isValid = await verifyOSIntegrity(appInfo, imageFolderName)
 
     // Generate DataObjects for Gateway OS verification
-    const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
-      appInfo,
-      {} /* measurement result */,
-    )
+    const dataObjects = this.dataObjectGenerator.generateOSDataObjects(appInfo)
     dataObjects.forEach((obj) => {
       this.createDataObject(obj)
     })
