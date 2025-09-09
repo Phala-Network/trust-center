@@ -23,21 +23,32 @@ export interface BatchCreateRequest {
 export interface TaskListQuery {
   // Basic filters
   status?: string
-  appId?: string
-  appName?: string
-  appConfigType?: string
-  contractAddress?: string
+  app_id?: string
+  app_name?: string
+  app_config_type?: string
+  contract_address?: string
 
   // Search filters
   keyword?: string
 
-  // Pagination
+  // Pagination - using standard naming
   page?: number
-  limit?: number
+  per_page?: number
 
-  // Sorting
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
+  // Sorting - using standard naming
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+
+  // Date filters
+  created_after?: string
+  created_before?: string
+}
+
+// Base types for consistency
+export interface BaseError {
+  code: string
+  message: string
+  details?: string
 }
 
 // Response types
@@ -59,35 +70,42 @@ export interface TaskResponse {
   finishedAt?: string
 }
 
+export interface Pagination {
+  currentPage: number
+  perPage: number
+  total: number
+  totalPages: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
 export interface TaskListResponse {
-  success: true
-  data: TaskResponse[]
-  pagination: {
-    total: number
-    page: number
-    limit: number
-    hasNext: boolean
-  }
+  tasks: TaskResponse[]
+  pagination: Pagination
 }
 
 export interface TaskDetailResponse {
-  success: boolean
-  task?: TaskResponse
-  error?: string
+  task: TaskResponse
 }
 
-export interface ErrorResponse {
-  success: false
-  error: string
-}
-
-export interface SuccessResponse {
-  success: true
+export interface TaskCreateResponse {
+  taskId: string
   message: string
 }
 
+export interface TaskBatchCreateResponse {
+  total: number
+  successful: number
+  failed: number
+  results: Array<{
+    index: number
+    success: boolean
+    taskId: string | null
+    error: string | null
+  }>
+}
+
 export interface TaskStatsResponse {
-  success: true
   stats: {
     total: number
     pending: number
@@ -97,15 +115,14 @@ export interface TaskStatsResponse {
   }
 }
 
-export interface StorageInfoResponse {
-  success: true
-  storageInfo: {
-    s3Key: string
-    s3Bucket: string
-    s3Filename?: string
-    fileSize?: number
-    message: string
-  }
+export interface TaskCancelResponse {
+  taskId: string
+  message: string
+}
+
+// Error response type
+export interface ErrorResponse {
+  error: BaseError
 }
 
 // Type guards
