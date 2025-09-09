@@ -113,6 +113,7 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
     calculatedHash: string,
     isRegistered: boolean,
     attestationBundle?: AttestationBundle,
+    endpoint?: string,
   ): DataObject[] {
     const objects: DataObject[] = []
 
@@ -126,6 +127,7 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
         app_id: appInfo.app_id,
         instance_id: appInfo.instance_id || '',
         registry_smart_contract: `${(this.metadata as AppMetadata).governance?.blockchainExplorerUrl}/address/${appInfo.app_id}`,
+        endpoint: endpoint,
         intel_attestation_report: quoteData.quote,
         nvidia_attestation_report: attestationBundle?.nvidia_payload
           ? JSON.stringify(attestationBundle.nvidia_payload)

@@ -242,6 +242,8 @@ export class PhalaCloudVerifier extends Verifier {
       quoteData,
       calculatedHash,
       isRegistered ?? false,
+      undefined,
+      this.rpcEndpoint,
     )
     dataObjects.forEach((obj) => {
       this.createDataObject(obj)
