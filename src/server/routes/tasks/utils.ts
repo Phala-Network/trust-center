@@ -125,7 +125,7 @@ export const convertTaskForResponse = (
   appConfigType: task.appConfigType,
   contractAddress: task.contractAddress,
   modelOrDomain: task.modelOrDomain,
-  verificationFlags: task.verificationFlags as VerificationFlags | undefined,
+  verificationFlags: task.verificationFlags as VerificationFlags | null,
   status: task.status,
   errorMessage: task.errorMessage ?? undefined,
   s3Filename: task.s3Filename ?? undefined,

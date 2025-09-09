@@ -11,15 +11,15 @@ import {
 // Import schemas and handlers from modular files
 import {
   ErrorResponseSchema,
+  TaskBatchCreateDataSchema,
   TaskBatchCreateRequestSchema,
-  TaskBatchCreateResponseSchema,
-  TaskCancelResponseSchema,
+  TaskCancelDataSchema,
+  TaskCreateDataSchema,
   TaskCreateRequestSchema,
-  TaskCreateResponseSchema,
-  TaskDetailResponseSchema,
+  TaskDetailDataSchema,
+  TaskListDataSchema,
   TaskListQuerySchema,
-  TaskListResponseSchema,
-  TaskStatsResponseSchema,
+  TaskStatsDataSchema,
 } from './tasks/schemas'
 import { createErrorResponse, getErrorStatusCode } from './tasks/utils'
 
@@ -38,7 +38,7 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
     },
     {
       body: TaskCreateRequestSchema,
-      response: t.Union([TaskCreateResponseSchema, ErrorResponseSchema]),
+      response: t.Union([TaskCreateDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Create a new verification task',
         description:
@@ -60,7 +60,7 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
     },
     {
       body: TaskBatchCreateRequestSchema,
-      response: t.Union([TaskBatchCreateResponseSchema, ErrorResponseSchema]),
+      response: t.Union([TaskBatchCreateDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Create multiple verification tasks in batch',
         description:
@@ -84,7 +84,7 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
       params: t.Object({
         taskId: t.String(),
       }),
-      response: t.Union([TaskDetailResponseSchema, ErrorResponseSchema]),
+      response: t.Union([TaskDetailDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Get task details by ID',
         description:
@@ -106,7 +106,7 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
     },
     {
       query: TaskListQuerySchema,
-      response: t.Union([TaskListResponseSchema, ErrorResponseSchema]),
+      response: t.Union([TaskListDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'List verification tasks',
         description:
@@ -127,7 +127,7 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
       }
     },
     {
-      response: t.Union([TaskStatsResponseSchema, ErrorResponseSchema]),
+      response: t.Union([TaskStatsDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Get task statistics summary',
         description:
@@ -151,7 +151,7 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
       params: t.Object({
         taskId: t.String(),
       }),
-      response: t.Union([TaskCancelResponseSchema, ErrorResponseSchema]),
+      response: t.Union([TaskCancelDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Cancel a verification task',
         description:
