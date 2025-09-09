@@ -125,6 +125,7 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
       fields: {
         app_id: appInfo.app_id,
         instance_id: appInfo.instance_id || '',
+        registry_smart_contract: `${(this.metadata as AppMetadata).governance?.blockchainExplorerUrl}/address/${appInfo.app_id}`,
         intel_attestation_report: quoteData.quote,
         nvidia_attestation_report: attestationBundle?.nvidia_payload
           ? JSON.stringify(attestationBundle.nvidia_payload)
