@@ -60,8 +60,6 @@ export const TaskBatchCreateRequestSchema = t.Object({
   tasks: t.Array(TaskCreateRequestSchema),
 })
 
-export const BatchCreateRequestSchema = TaskBatchCreateRequestSchema
-
 export const TaskListQuerySchema = t.Object({
   app_id: t.Optional(t.String()),
   app_name: t.Optional(t.String()),
@@ -85,7 +83,7 @@ export const TaskResponseSchema = t.Object({
   appConfigType: t.String(),
   contractAddress: t.String(),
   modelOrDomain: t.String(),
-  verificationFlags: t.Optional(VerificationFlagsSchema),
+  verificationFlags: t.Optional(t.Union([VerificationFlagsSchema, t.Null()])),
   status: t.String(),
   errorMessage: t.Optional(t.String()),
   s3Filename: t.Optional(t.String()),
@@ -153,14 +151,6 @@ export const BaseErrorSchema = t.Object({
   details: t.Optional(t.String()),
 })
 
-// Response schemas
-export const TaskListResponseSchema = TaskListDataSchema
-export const TaskDetailResponseSchema = TaskDetailDataSchema
-export const TaskCreateResponseSchema = TaskCreateDataSchema
-export const TaskBatchCreateResponseSchema = TaskBatchCreateDataSchema
-export const TaskStatsResponseSchema = TaskStatsDataSchema
-export const TaskCancelResponseSchema = TaskCancelDataSchema
-
 // Error response schema
 export const ErrorResponseSchema = t.Object({
   error: BaseErrorSchema,
@@ -171,16 +161,15 @@ export type VerificationFlags = typeof VerificationFlagsSchema.static
 
 // Request types - using Elysia schema static types
 export type TaskCreateRequest = typeof TaskCreateRequestSchema.static
-export type BatchCreateRequest = typeof BatchCreateRequestSchema.static
+export type BatchCreateRequest = typeof TaskBatchCreateRequestSchema.static
 export type TaskListQuery = typeof TaskListQuerySchema.static
 
 // Response types - using Elysia schema static types
 export type TaskResponse = typeof TaskResponseSchema.static
-export type TaskListResponse = typeof TaskListResponseSchema.static
-export type TaskDetailResponse = typeof TaskDetailResponseSchema.static
-export type TaskCreateResponse = typeof TaskCreateResponseSchema.static
-export type TaskBatchCreateResponse =
-  typeof TaskBatchCreateResponseSchema.static
-export type TaskStatsResponse = typeof TaskStatsResponseSchema.static
-export type TaskCancelResponse = typeof TaskCancelResponseSchema.static
+export type TaskListResponse = typeof TaskListDataSchema.static
+export type TaskDetailResponse = typeof TaskDetailDataSchema.static
+export type TaskCreateResponse = typeof TaskCreateDataSchema.static
+export type TaskBatchCreateResponse = typeof TaskBatchCreateDataSchema.static
+export type TaskStatsResponse = typeof TaskStatsDataSchema.static
+export type TaskCancelResponse = typeof TaskCancelDataSchema.static
 export type ErrorResponse = typeof ErrorResponseSchema.static
