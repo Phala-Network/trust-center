@@ -10,6 +10,28 @@ import type {
 import { BaseDataObjectGenerator } from './baseDataObjectGenerator'
 
 /**
+ * Extracts the guarded domain pattern from a gateway endpoint URL.
+ * Converts https://gateway.example.com -> *.example.com
+ */
+function extractGuardedDomain(endpoint: string): string {
+  try {
+    const url = new URL(endpoint)
+    const hostname = url.hostname
+
+    // Split hostname and replace the first part with wildcard
+    const parts = hostname.split('.')
+    if (parts.length >= 2) {
+      return `*.${parts.slice(1).join('.')}`
+    }
+
+    return `*.${hostname}`
+  } catch {
+    // If URL parsing fails, return the original string with wildcard prefix
+    return `*.${endpoint}`
+  }
+}
+
+/**
  * Data object generator specific to Gateway verifier.
  */
 export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
@@ -79,6 +101,8 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
       fields: {
         app_id: contractAddress,
         registry_smart_contract: `${(this.metadata as GatewayMetadata).governance?.blockchainExplorerUrl}/address/${contractAddress}`,
+        endpoint: gatewayRpcEndpoint,
+        guarded_domain: extractGuardedDomain(gatewayRpcEndpoint),
         intel_attestation_report: quoteData.quote,
         event_log: JSON.stringify(quoteData.eventlog),
         app_cert: activeCertificate,
@@ -91,7 +115,6 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
         registered_apps: registeredApps
           ? JSON.stringify(registeredApps)
           : undefined,
-        endpoint: gatewayRpcEndpoint,
       },
       kind: 'gateway',
       measuredBy: [
