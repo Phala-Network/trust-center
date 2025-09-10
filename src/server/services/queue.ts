@@ -353,6 +353,26 @@ export const createQueueService = (
     return true
   }
 
+  // Add existing task back to queue (for retry functionality)
+  const addExistingTask = async (taskData: TaskData): Promise<string> => {
+    const job = await queue.add('verification', taskData, {
+      jobId: taskData.postgresTaskId,
+    })
+
+    // Update PostgreSQL task with job ID
+    await verificationTaskService.updateVerificationTask(
+      taskData.postgresTaskId,
+      {
+        bullJobId: job.id,
+      },
+    )
+
+    console.log(
+      `[QUEUE] Re-added verification task ${taskData.postgresTaskId} for app ${taskData.appId}/${taskData.appName}`,
+    )
+    return taskData.postgresTaskId
+  }
+
   const getStats = async () => {
     const [waiting, active, completed, failed, delayed] = await Promise.all([
       queue.getWaiting(),
@@ -424,6 +444,7 @@ export const createQueueService = (
 
   return {
     addTask,
+    addExistingTask,
     getJob,
     removeJob,
     retryJob,

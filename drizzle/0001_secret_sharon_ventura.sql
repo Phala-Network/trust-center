@@ -1,0 +1,1 @@
+ALTER TYPE "public"."verification_task_status" ADD VALUE 'cancelled';

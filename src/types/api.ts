@@ -7,9 +7,9 @@
 
 import { z } from 'zod'
 
+import type { VerificationFlags } from '../config'
 import type { DataObject } from './index'
 import type { AppMetadata } from './metadata'
-import type { VerificationFlags } from '../config'
 
 // Re-export VerificationFlags from config for API use
 export type { VerificationFlags }
@@ -82,7 +82,7 @@ const HexStringSchema = z
 const OSSourceSchema = z.object({
   github_repo: z.string(),
   git_commit: z.string(),
-  version: z.string(),
+  version: z.templateLiteral(['v', z.string()]),
 })
 
 /**
@@ -128,15 +128,17 @@ const StructuredMetadataSchema = z.object({
 /**
  * Zod schema for verification flags
  */
-const VerificationFlagsSchema = z.object({
-  hardware: z.boolean(),
-  os: z.boolean(),
-  sourceCode: z.boolean(),
-  teeControlledKey: z.boolean(),
-  certificateKey: z.boolean(),
-  dnsCAA: z.boolean(),
-  ctLog: z.boolean(),
-}).optional()
+const VerificationFlagsSchema = z
+  .object({
+    hardware: z.boolean(),
+    os: z.boolean(),
+    sourceCode: z.boolean(),
+    teeControlledKey: z.boolean(),
+    certificateKey: z.boolean(),
+    dnsCAA: z.boolean(),
+    ctLog: z.boolean(),
+  })
+  .optional()
 
 /**
  * Zod schema for Redpill verification request

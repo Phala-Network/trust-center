@@ -8,6 +8,13 @@
       "when": 1756941608138,
       "tag": "0000_hard_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1757490425731,
+      "tag": "0001_secret_sharon_ventura",
+      "breakpoints": true
     }
   ]
 }

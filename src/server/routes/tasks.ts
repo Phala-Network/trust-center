@@ -4,6 +4,7 @@ import {
   handleBatchCreation,
   handleTaskCancellation,
   handleTaskCreation,
+  handleTaskRetry,
   handleTaskStats,
   handleTaskStatus,
   handleTasksList,
@@ -19,6 +20,7 @@ import {
   TaskDetailDataSchema,
   TaskListDataSchema,
   TaskListQuerySchema,
+  TaskRetryDataSchema,
   TaskStatsDataSchema,
 } from './tasks/schemas'
 import { createErrorResponse, getErrorStatusCode } from './tasks/utils'
@@ -156,6 +158,30 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
         summary: 'Cancel a verification task',
         description:
           'Cancels a running or pending verification task. Only tasks that are not yet completed can be cancelled.',
+        tags: ['Tasks'],
+      },
+    },
+  )
+  // Retry task
+  .post(
+    '/:taskId/retry',
+    async ({ params, set }) => {
+      try {
+        return await handleTaskRetry(params.taskId)
+      } catch (error) {
+        set.status = getErrorStatusCode(error)
+        return createErrorResponse(error, 'Failed to retry task')
+      }
+    },
+    {
+      params: t.Object({
+        taskId: t.String(),
+      }),
+      response: t.Union([TaskRetryDataSchema, ErrorResponseSchema]),
+      detail: {
+        summary: 'Retry a verification task',
+        description:
+          'Retries a failed or cancelled verification task by re-adding it to the queue. Only failed or cancelled tasks can be retried.',
         tags: ['Tasks'],
       },
     },
