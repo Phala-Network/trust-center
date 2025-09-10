@@ -4,6 +4,7 @@ import {
   handleBatchCreation,
   handleTaskCancellation,
   handleTaskCreation,
+  handleTaskDelete,
   handleTaskRetry,
   handleTaskStats,
   handleTaskStatus,
@@ -17,6 +18,7 @@ import {
   TaskCancelDataSchema,
   TaskCreateDataSchema,
   TaskCreateRequestSchema,
+  TaskDeleteDataSchema,
   TaskDetailDataSchema,
   TaskListDataSchema,
   TaskListQuerySchema,
@@ -182,6 +184,30 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
         summary: 'Retry a verification task',
         description:
           'Retries a failed or cancelled verification task by re-adding it to the queue. Only failed or cancelled tasks can be retried.',
+        tags: ['Tasks'],
+      },
+    },
+  )
+  // Delete task
+  .delete(
+    '/:taskId/delete',
+    async ({ params, set }) => {
+      try {
+        return await handleTaskDelete(params.taskId)
+      } catch (error) {
+        set.status = getErrorStatusCode(error)
+        return createErrorResponse(error, 'Failed to delete task')
+      }
+    },
+    {
+      params: t.Object({
+        taskId: t.String(),
+      }),
+      response: t.Union([TaskDeleteDataSchema, ErrorResponseSchema]),
+      detail: {
+        summary: 'Delete a verification task',
+        description:
+          'Permanently deletes a verification task from the system. Tasks in any status (pending, active, completed, failed, cancelled) can be deleted.',
         tags: ['Tasks'],
       },
     },

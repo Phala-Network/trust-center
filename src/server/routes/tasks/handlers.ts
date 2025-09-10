@@ -12,6 +12,7 @@ import type {
   TaskCancelResponse,
   TaskCreateRequest,
   TaskCreateResponse,
+  TaskDeleteResponse,
   TaskDetailResponse,
   TaskListQuery,
   TaskListResponse,
@@ -322,6 +323,39 @@ export const handleTaskRetry = async (
   return {
     taskId,
     message: `Task ${taskId} has been successfully retried with a new job`,
+  }
+}
+
+// Task delete handler
+export const handleTaskDelete = async (
+  taskId: string,
+): Promise<TaskDeleteResponse> => {
+  const services = getServices()
+
+  // First, check if the task exists
+  const task = await services.verificationTask.getVerificationTask(taskId)
+  if (!task) {
+    throw new Error(`Task with ID '${taskId}' not found`)
+  }
+
+  // All task statuses can be deleted - no restrictions
+
+  // If the task has a BullMQ job ID, remove it from the queue first
+  if (task.bullJobId) {
+    const jobRemoved = await services.queue.removeJob(task.bullJobId)
+    if (!jobRemoved) {
+      console.warn(
+        `Failed to remove job ${task.bullJobId} from queue for task ${taskId}`,
+      )
+    }
+  }
+
+  // Delete the task from the database
+  await services.verificationTask.deleteVerificationTask(taskId)
+
+  return {
+    taskId,
+    message: `Task ${taskId} has been successfully deleted`,
   }
 }
 
