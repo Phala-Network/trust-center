@@ -6,6 +6,9 @@ export const env = createEnv({
     // Server configuration
     PORT: z.coerce.number().positive().default(3000),
     HOST: z.string().default('localhost'),
+    NODE_ENV: z
+      .enum(['development', 'production', 'test'])
+      .default('production'),
 
     // Authentication configuration
     BEARER_TOKEN: z.string().optional(),

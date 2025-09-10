@@ -1,14 +1,10 @@
 import { type Job, Queue, Worker } from 'bullmq'
 import IORedis from 'ioredis'
 
-import type {
-  PhalaCloudConfig,
-  RedpillConfig,
-  VerificationFlags,
-} from '../../config'
-import type { AppMetadata, VerificationResponse } from '../../types'
+import type { PhalaCloudConfig, RedpillConfig } from '../../config'
+import type { VerificationResponse } from '../../types'
 import type { VerificationService } from '../../verificationService'
-import type { AppConfigType } from '../db/schema'
+import type { TaskCreateRequest } from '../routes/tasks/schemas'
 import type { S3Service } from './s3'
 import type { VerificationTaskService } from './taskService'
 
@@ -20,15 +16,8 @@ export interface QueueConfig {
   backoffDelay: number
 }
 
-export interface TaskData {
+export interface TaskData extends TaskCreateRequest {
   postgresTaskId: string // PostgreSQL task ID for correlation
-  appId: string
-  appName: string
-  appConfigType: AppConfigType
-  contractAddress: string
-  modelOrDomain: string
-  appMetadata?: AppMetadata
-  verificationFlags?: Partial<VerificationFlags>
 }
 
 export interface TaskResult {
@@ -71,8 +60,8 @@ export const createQueueService = (
         appConfigType,
         contractAddress,
         modelOrDomain,
-        appMetadata,
-        verificationFlags,
+        metadata,
+        flags,
       } = job.data
 
       try {
@@ -88,13 +77,9 @@ export const createQueueService = (
 
         console.log(
           `[QUEUE] Processing verification for ${appConfigType} config:`,
-          JSON.stringify(
-            { contractAddress, modelOrDomain, appMetadata },
-            null,
-            2,
-          ),
+          JSON.stringify({ contractAddress, modelOrDomain, metadata }, null, 2),
         )
-        console.log(`[QUEUE] Verification flags:`, verificationFlags)
+        console.log(`[QUEUE] Verification flags:`, flags)
 
         // Create app config for VerificationService
         // Note: VerificationService will generate complete metadata from systemInfo
@@ -102,16 +87,16 @@ export const createQueueService = (
         let appConfig: RedpillConfig | PhalaCloudConfig
         if (appConfigType === 'redpill') {
           appConfig = {
-            contractAddress: contractAddress as `0x${string}`,
+            contractAddress: contractAddress,
             model: modelOrDomain,
-            metadata: appMetadata,
+            metadata,
           }
         } else {
           // phala_cloud config
           appConfig = {
-            contractAddress: contractAddress as `0x${string}`,
+            contractAddress: contractAddress,
             domain: modelOrDomain,
-            metadata: appMetadata,
+            metadata,
           }
         }
 
@@ -119,7 +104,7 @@ export const createQueueService = (
         // verificationFlags can be partial - VerificationService will merge with defaults
         const verificationResult = await verificationService.verify(
           appConfig,
-          verificationFlags,
+          flags,
         )
         if (!verificationResult.success) {
           throw new Error(
@@ -291,32 +276,15 @@ export const createQueueService = (
   worker.on('progress', handleJobProgress)
 
   // Add task to queue
-  const addTask = async (
-    taskData: Omit<TaskData, 'postgresTaskId'>,
-  ): Promise<string> => {
-    // Generate default values if not provided
-    const appMetadata = taskData.appMetadata || ({} as AppMetadata)
-    const verificationFlags = taskData.verificationFlags
-
+  const addTask = async (taskData: TaskCreateRequest): Promise<string> => {
     // 1. Create task in PostgreSQL first
-    const postgresTaskId = await verificationTaskService.createVerificationTask(
-      {
-        appId: taskData.appId,
-        appName: taskData.appName,
-        appConfigType: taskData.appConfigType,
-        contractAddress: taskData.contractAddress,
-        modelOrDomain: taskData.modelOrDomain,
-        appMetadata,
-        verificationFlags,
-      },
-    )
+    const postgresTaskId =
+      await verificationTaskService.createVerificationTask(taskData)
 
     // 2. Add to queue with PostgreSQL ID and generated defaults
     const fullTaskData: TaskData = {
       ...taskData,
       postgresTaskId,
-      appMetadata,
-      verificationFlags,
     }
     const job = await queue.add('verification', fullTaskData, {
       jobId: postgresTaskId,

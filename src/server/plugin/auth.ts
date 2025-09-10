@@ -25,6 +25,11 @@ const validateToken = (token: string | undefined): boolean => {
 
 export const authMiddleware = (app: Elysia) =>
   app.use(bearer()).onBeforeHandle(({ bearer, set, status }) => {
+    // Skip authentication in development mode
+    if (env.NODE_ENV === 'development') {
+      return
+    }
+
     if (!validateToken(bearer)) {
       set.headers['WWW-Authenticate'] =
         `Bearer realm='sign', error="invalid_request"`

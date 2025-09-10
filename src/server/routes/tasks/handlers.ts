@@ -66,15 +66,7 @@ export const handleTaskCreation = async (
   body: TaskCreateRequest,
 ): Promise<TaskCreateResponse> => {
   const services = getServices()
-  const taskId = await services.queue.addTask({
-    appId: body.appId,
-    appName: body.appName,
-    appConfigType: body.appConfigType,
-    contractAddress: body.contractAddress,
-    modelOrDomain: body.modelOrDomain,
-    appMetadata: body.appConfig?.metadata,
-    verificationFlags: body.flags,
-  })
+  const taskId = await services.queue.addTask(body)
 
   return {
     taskId,
@@ -102,15 +94,7 @@ export const handleBatchCreation = async (
     }
 
     try {
-      const taskId = await services.queue.addTask({
-        appId: task.appId,
-        appName: task.appName,
-        appConfigType: task.appConfigType,
-        contractAddress: task.contractAddress,
-        modelOrDomain: task.modelOrDomain,
-        appMetadata: task.appConfig?.metadata,
-        verificationFlags: task.flags,
-      })
+      const taskId = await services.queue.addTask(task)
       results.push({ index: i, success: true, taskId, error: null })
     } catch (error) {
       results.push({
@@ -312,12 +296,10 @@ export const handleTaskRetry = async (
     appId: task.appId,
     appName: task.appName,
     appConfigType: task.appConfigType,
-    contractAddress: task.contractAddress,
+    contractAddress: task.contractAddress as `0x${string}`,
     modelOrDomain: task.modelOrDomain,
-    appMetadata: task.appMetadata as AppMetadata | undefined,
-    verificationFlags: task.verificationFlags as
-      | Partial<VerificationFlags>
-      | undefined,
+    metadata: task.appMetadata as AppMetadata,
+    flags: task.verificationFlags as Partial<VerificationFlags> | undefined,
   })
 
   return {

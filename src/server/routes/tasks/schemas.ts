@@ -16,7 +16,8 @@ export const MetadataSchema = t.Object({
   osSource: t.Object({
     github_repo: t.String(),
     git_commit: t.String(),
-    version: t.TemplateLiteral(`v${t.String()}`),
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: typebox template literal
+    version: t.TemplateLiteral('v${string}'),
   }),
   appSource: t.Optional(
     t.Object({
@@ -41,18 +42,15 @@ export const MetadataSchema = t.Object({
   ),
 })
 
-export const AppConfigSchema = t.Object({
-  metadata: t.Optional(MetadataSchema),
-})
-
 // Request schemas
 export const TaskCreateRequestSchema = t.Object({
   appId: t.String(),
   appName: t.String(),
   appConfigType: t.Union([t.Literal('redpill'), t.Literal('phala_cloud')]),
-  contractAddress: t.String(),
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: typebox template literal
+  contractAddress: t.TemplateLiteral('0x${string}'),
   modelOrDomain: t.String(),
-  appConfig: t.Optional(AppConfigSchema),
+  metadata: t.Optional(MetadataSchema),
   flags: t.Optional(VerificationFlagsSchema),
 })
 
