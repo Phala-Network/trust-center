@@ -12,7 +12,13 @@ export const TASK_CONSTANTS = {
   DEFAULT_SORT_ORDER: 'desc' as const,
 
   // Status values
-  VALID_STATUSES: ['pending', 'active', 'completed', 'failed'] as const,
+  VALID_STATUSES: [
+    'pending',
+    'active',
+    'completed',
+    'failed',
+    'cancelled',
+  ] as const,
 
   // App config types
   VALID_APP_CONFIG_TYPES: ['redpill', 'phala_cloud'] as const,

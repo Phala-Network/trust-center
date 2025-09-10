@@ -13,6 +13,7 @@ export const verificationTaskStatusEnum = pgEnum('verification_task_status', [
   'active',
   'completed',
   'failed',
+  'cancelled',
 ])
 
 // App config type enum

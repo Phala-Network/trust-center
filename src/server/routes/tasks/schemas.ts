@@ -16,7 +16,7 @@ export const MetadataSchema = t.Object({
   osSource: t.Object({
     github_repo: t.String(),
     git_commit: t.String(),
-    version: t.String(),
+    version: t.TemplateLiteral(`v${t.String()}`),
   }),
   appSource: t.Optional(
     t.Object({
@@ -136,10 +136,16 @@ export const TaskStatsDataSchema = t.Object({
     active: t.Number(),
     completed: t.Number(),
     failed: t.Number(),
+    cancelled: t.Number(),
   }),
 })
 
 export const TaskCancelDataSchema = t.Object({
+  taskId: t.String(),
+  message: t.String(),
+})
+
+export const TaskRetryDataSchema = t.Object({
   taskId: t.String(),
   message: t.String(),
 })
@@ -172,4 +178,5 @@ export type TaskCreateResponse = typeof TaskCreateDataSchema.static
 export type TaskBatchCreateResponse = typeof TaskBatchCreateDataSchema.static
 export type TaskStatsResponse = typeof TaskStatsDataSchema.static
 export type TaskCancelResponse = typeof TaskCancelDataSchema.static
+export type TaskRetryResponse = typeof TaskRetryDataSchema.static
 export type ErrorResponse = typeof ErrorResponseSchema.static

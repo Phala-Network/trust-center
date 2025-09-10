@@ -112,7 +112,9 @@ export const isValidAppConfigType = (value: string): value is AppConfigType => {
 export const isValidVerificationTaskStatus = (
   value: string,
 ): value is VerificationTaskStatus => {
-  return ['pending', 'active', 'completed', 'failed'].includes(value)
+  return ['pending', 'active', 'completed', 'failed', 'cancelled'].includes(
+    value,
+  )
 }
 
 // Utility functions

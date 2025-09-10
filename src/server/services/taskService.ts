@@ -218,7 +218,9 @@ export const createVerificationTaskService = (
     let orderByClause: ReturnType<typeof asc> | ReturnType<typeof desc>
 
     // Validate sort field
-    const validSortBy = TASK_CONSTANTS.SORT_FIELDS.includes(sortBy as any)
+    const validSortBy = TASK_CONSTANTS.SORT_FIELDS.includes(
+      sortBy as (typeof TASK_CONSTANTS.SORT_FIELDS)[number],
+    )
       ? sortBy
       : TASK_CONSTANTS.DEFAULT_SORT_BY
 
@@ -309,6 +311,7 @@ export const createVerificationTaskService = (
       active: statusMap.active || 0,
       completed: statusMap.completed || 0,
       failed: statusMap.failed || 0,
+      cancelled: statusMap.cancelled || 0,
     }
   }
 
