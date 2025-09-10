@@ -9,7 +9,10 @@ import {
   verificationTasksTable,
 } from '../db/schema'
 import { TASK_CONSTANTS } from '../routes/tasks/constants'
-import type { VerificationFlags } from '../routes/tasks/schemas'
+import type {
+  TaskCreateRequest,
+  VerificationFlags,
+} from '../routes/tasks/schemas'
 
 // Types
 export interface TaskFilter {
@@ -72,7 +75,7 @@ export const createVerificationTaskService = (
 
   // Create a new verification task in PostgreSQL
   const createVerificationTask = async (
-    data: CreateVerificationTaskData,
+    data: TaskCreateRequest,
   ): Promise<string> => {
     const result = await db
       .insert(verificationTasksTable)
@@ -82,8 +85,8 @@ export const createVerificationTaskService = (
         appConfigType: data.appConfigType,
         contractAddress: data.contractAddress,
         modelOrDomain: data.modelOrDomain,
-        appMetadata: data.appMetadata,
-        verificationFlags: data.verificationFlags,
+        appMetadata: data.metadata,
+        verificationFlags: data.flags,
         status: 'pending',
         jobName: 'verification',
       })

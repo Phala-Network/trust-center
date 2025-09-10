@@ -35,8 +35,9 @@ export const createApp = () => {
     .group('/health', (app) => app.use(healthRoutes))
     .group('/api/v1', (app) =>
       app
-        .group('/tasks', (app) => app.use(authMiddleware).use(taskRoutes))
-        .group('/queue', (app) => app.use(authMiddleware).use(queueRoutes)),
+        .use(authMiddleware)
+        .group('/tasks', (app) => app.use(taskRoutes))
+        .group('/queue', (app) => app.use(queueRoutes)),
     )
     .onError(({ code, error, set }) => {
       console.error('[ERROR]', code, error)
