@@ -150,6 +150,11 @@ export const TaskRetryDataSchema = t.Object({
   message: t.String(),
 })
 
+export const TaskDeleteDataSchema = t.Object({
+  taskId: t.String(),
+  message: t.String(),
+})
+
 // Base schemas for consistent error
 export const BaseErrorSchema = t.Object({
   code: t.String(),
@@ -179,4 +184,5 @@ export type TaskBatchCreateResponse = typeof TaskBatchCreateDataSchema.static
 export type TaskStatsResponse = typeof TaskStatsDataSchema.static
 export type TaskCancelResponse = typeof TaskCancelDataSchema.static
 export type TaskRetryResponse = typeof TaskRetryDataSchema.static
+export type TaskDeleteResponse = typeof TaskDeleteDataSchema.static
 export type ErrorResponse = typeof ErrorResponseSchema.static
