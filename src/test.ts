@@ -5,7 +5,7 @@
  */
 
 import type { SystemInfo } from './types/application'
-import type { AppSourceInfo } from './types/metadata'
+import type { AppMetadata, AppSourceInfo } from './types/metadata'
 import { completeAppMetadata } from './utils/metadataUtils'
 import { VerificationService } from './verificationService'
 import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
@@ -25,9 +25,11 @@ const TEST_CASES = [
     config: {
       contractAddress: '0x78601222ada762fa7cdcbc167aa66dd7a5f57ece' as const,
       model: 'phala/deepseek-chat-v3-0324',
-      metadata: {} as any, // Will be populated dynamically
+      metadata: {} as AppMetadata, // Will be populated dynamically
       appSource: deepseekAppSource,
-      hasNvidiaSupport: true,
+      hardware: {
+        hasNvidiaSupport: true,
+      },
     },
   },
   // This will fail because of Gateway cert configuration issues
@@ -44,7 +46,7 @@ const TEST_CASES = [
     config: {
       contractAddress: '0xc16c8a4bbc5a8a8a09464eedae0eb6bfd60e77cb' as const,
       domain: 'dstack-base-prod6.phala.network',
-      metadata: {} as any, // Will be populated dynamically
+      metadata: {} as AppMetadata, // Will be populated dynamically
     },
   },
   {
@@ -52,7 +54,7 @@ const TEST_CASES = [
     config: {
       contractAddress: '0xd722c43a6f4f42d53dc7bc97ba04a1cb17ce3a34' as const,
       domain: 'dstack-base-prod7.phala.network',
-      metadata: {} as any, // Will be populated dynamically
+      metadata: {} as AppMetadata, // Will be populated dynamically
     },
   },
 ]

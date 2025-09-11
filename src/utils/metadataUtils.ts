@@ -5,6 +5,7 @@
 import type { SystemInfo } from '../types/application'
 import type {
   AppMetadata,
+  CompleteAppMetadata,
   GatewayMetadata,
   GovernanceInfo,
   HardwareInfo,
@@ -128,7 +129,7 @@ export function createGatewayMetadata(systemInfo: SystemInfo): GatewayMetadata {
 export function completeAppMetadata(
   systemInfo: SystemInfo,
   appMetadata?: AppMetadata,
-): AppMetadata {
+): CompleteAppMetadata {
   return {
     osSource:
       appMetadata?.osSource || versionToSourceInfo(systemInfo.kms_info.version),

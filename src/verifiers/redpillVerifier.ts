@@ -2,8 +2,9 @@ import { AppDataObjectGenerator } from '../dataObjects/appDataObjectGenerator'
 import { AppInfoSchema, EventLogSchema, NvidiaPayloadSchema } from '../schemas'
 import type {
   AppInfo,
-  AppMetadata,
   AttestationBundle,
+  CompleteAppMetadata,
+  EventLog,
   QuoteData,
   SystemInfo,
 } from '../types'
@@ -30,7 +31,7 @@ export class RedpillVerifier extends Verifier {
   constructor(
     contractAddress: `0x${string}`,
     model: string,
-    metadata: AppMetadata,
+    metadata: CompleteAppMetadata,
     chainId: number,
   ) {
     super(metadata, 'app')
@@ -125,7 +126,7 @@ export class RedpillVerifier extends Verifier {
       // Get quote data from the response
       const quoteData = (await response.json()) as {
         quote: `0x${string}`
-        eventlog: any
+        eventlog: EventLog
       }
 
       const systemInfo: SystemInfo = {

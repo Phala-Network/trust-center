@@ -13,12 +13,14 @@ export const VerificationFlagsSchema = t.Object({
 })
 
 export const MetadataSchema = t.Object({
-  osSource: t.Object({
-    github_repo: t.String(),
-    git_commit: t.String(),
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: typebox template literal
-    version: t.TemplateLiteral('v${string}'),
-  }),
+  osSource: t.Optional(
+    t.Object({
+      github_repo: t.String(),
+      git_commit: t.String(),
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: typebox template literal
+      version: t.TemplateLiteral('v${string}'),
+    }),
+  ),
   appSource: t.Optional(
     t.Object({
       github_repo: t.String(),
@@ -27,12 +29,14 @@ export const MetadataSchema = t.Object({
       model_name: t.Optional(t.String()),
     }),
   ),
-  hardware: t.Object({
-    cpuManufacturer: t.String(),
-    cpuModel: t.String(),
-    securityFeature: t.String(),
-    hasNvidiaSupport: t.Optional(t.Boolean()),
-  }),
+  hardware: t.Optional(
+    t.Object({
+      cpuManufacturer: t.String(),
+      cpuModel: t.String(),
+      securityFeature: t.String(),
+      hasNvidiaSupport: t.Optional(t.Boolean()),
+    }),
+  ),
   governance: t.Optional(
     t.Object({
       blockchain: t.String(),

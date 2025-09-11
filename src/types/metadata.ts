@@ -92,9 +92,9 @@ export interface GatewayMetadata {
 }
 
 /**
- * Complete metadata for App verifier (ML applications).
+ * Complete AppMetadata with all fields populated (used internally after auto-completion)
  */
-export interface AppMetadata {
+export interface CompleteAppMetadata {
   /** Operating system source information (required) */
   osSource: OSSourceInfo
   /** Application source information (optional) */
@@ -105,7 +105,12 @@ export interface AppMetadata {
   governance?: GovernanceInfo
 }
 
+export type AppMetadata = Partial<CompleteAppMetadata>
+
 /**
  * Union type for all verifier metadata.
  */
-export type VerifierMetadata = KmsMetadata | GatewayMetadata | AppMetadata
+export type VerifierMetadata =
+  | KmsMetadata
+  | GatewayMetadata
+  | CompleteAppMetadata

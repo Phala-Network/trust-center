@@ -16,6 +16,7 @@ export type * from './domain'
 export type {
   AppMetadata,
   AppSourceInfo,
+  CompleteAppMetadata,
   GatewayMetadata,
   GovernanceInfo,
   HardwareInfo,

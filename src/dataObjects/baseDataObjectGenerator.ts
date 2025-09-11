@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import type {
   AppInfo,
-  AppMetadata,
+  CompleteAppMetadata,
   DataObject,
   GatewayMetadata,
   KmsMetadata,
@@ -32,11 +32,11 @@ interface DStackImageMetadata {
  */
 export abstract class BaseDataObjectGenerator {
   protected verifierType: 'kms' | 'gateway' | 'app'
-  protected metadata: KmsMetadata | GatewayMetadata | AppMetadata
+  protected metadata: KmsMetadata | GatewayMetadata | CompleteAppMetadata
 
   constructor(
     verifierType: 'kms' | 'gateway' | 'app',
-    metadata: KmsMetadata | GatewayMetadata | AppMetadata,
+    metadata: KmsMetadata | GatewayMetadata | CompleteAppMetadata,
   ) {
     this.verifierType = verifierType
     this.metadata = metadata

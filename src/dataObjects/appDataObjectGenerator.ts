@@ -2,6 +2,7 @@ import type {
   AppInfo,
   AppMetadata,
   AttestationBundle,
+  CompleteAppMetadata,
   DataObject,
   QuoteData,
   VerifyQuoteResult,
@@ -12,7 +13,7 @@ import { BaseDataObjectGenerator } from './baseDataObjectGenerator'
  * Data object generator specific to App verifier.
  */
 export class AppDataObjectGenerator extends BaseDataObjectGenerator {
-  constructor(metadata: AppMetadata) {
+  constructor(metadata: CompleteAppMetadata) {
     super('app', metadata)
   }
 
