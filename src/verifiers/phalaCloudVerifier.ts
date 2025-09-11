@@ -7,8 +7,8 @@ import {
 } from '../schemas'
 import {
   type AppInfo,
-  type AppMetadata,
   type AttestationBundle,
+  type CompleteAppMetadata,
   parseJsonFields,
   type QuoteData,
   type SystemInfo,
@@ -29,12 +29,12 @@ export class PhalaCloudVerifier extends Verifier {
   public registrySmartContract: DstackApp
   private rpcEndpoint: string
   private dataObjectGenerator: AppDataObjectGenerator
-  private appMetadata: AppMetadata
+  private appMetadata: CompleteAppMetadata
 
   constructor(
     contractAddress: `0x${string}`,
     domain: string,
-    metadata: AppMetadata,
+    metadata: CompleteAppMetadata,
     chainId: number,
   ) {
     super(metadata, 'app')

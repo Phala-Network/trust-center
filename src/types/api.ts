@@ -11,9 +11,6 @@ import type { VerificationFlags } from '../config'
 import type { DataObject } from './index'
 import type { AppMetadata } from './metadata'
 
-// Re-export VerificationFlags from config for API use
-export type { VerificationFlags }
-
 /**
  * Verification request payload for Redpill verifier
  */
@@ -77,7 +74,7 @@ const HexStringSchema = z
   .regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string')
 
 /**
- * Zod schema for OS source metadata
+ * Zod schema for OS source metadata (API input - all fields optional)
  */
 const OSSourceSchema = z.object({
   github_repo: z.string(),
@@ -86,7 +83,7 @@ const OSSourceSchema = z.object({
 })
 
 /**
- * Zod schema for App source metadata
+ * Zod schema for App source metadata (API input - all fields optional)
  */
 const AppSourceSchema = z.object({
   github_repo: z.string(),
@@ -96,7 +93,7 @@ const AppSourceSchema = z.object({
 })
 
 /**
- * Zod schema for hardware metadata
+ * Zod schema for hardware metadata (API input - all fields optional)
  */
 const HardwareSchema = z.object({
   cpuManufacturer: z.string(),
@@ -106,7 +103,7 @@ const HardwareSchema = z.object({
 })
 
 /**
- * Zod schema for governance metadata
+ * Zod schema for governance metadata (API input - all fields optional)
  */
 const GovernanceSchema = z.object({
   blockchain: z.string(),
@@ -115,14 +112,14 @@ const GovernanceSchema = z.object({
 })
 
 /**
- * Zod schema for structured verifier metadata
- * Matches AppMetadata type structure exactly
+ * Zod schema for structured verifier metadata (API input)
+ * All fields are optional for API input
  */
-const StructuredMetadataSchema = z.object({
-  osSource: OSSourceSchema, // Required in AppMetadata
-  appSource: AppSourceSchema.optional(), // Optional in AppMetadata
-  hardware: HardwareSchema, // Required in AppMetadata
-  governance: GovernanceSchema.optional(), // Optional in AppMetadata
+const StructuredMetadataInputSchema = z.object({
+  osSource: OSSourceSchema.optional(),
+  appSource: AppSourceSchema.optional(),
+  hardware: HardwareSchema.optional(),
+  governance: GovernanceSchema.optional(),
 })
 
 /**
@@ -147,7 +144,7 @@ const RedpillVerificationRequestSchema = z.object({
   app: z.object({
     contractAddress: HexStringSchema,
     model: z.string(),
-    metadata: StructuredMetadataSchema,
+    metadata: StructuredMetadataInputSchema,
   }),
   flags: VerificationFlagsSchema,
 })
@@ -159,7 +156,7 @@ const PhalaCloudVerificationRequestSchema = z.object({
   app: z.object({
     contractAddress: HexStringSchema,
     domain: z.string(),
-    metadata: StructuredMetadataSchema,
+    metadata: StructuredMetadataInputSchema,
   }),
   flags: VerificationFlagsSchema,
 })
