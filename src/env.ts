@@ -37,6 +37,9 @@ export const env = createEnv({
     // Queue server configuration
     QUEUE_PORT: z.string().default('3001'),
     QUEUE_HOST: z.string().default('localhost'),
+
+    BASE_RPC_URL: z.string().optional(),
+    ETHEREUM_RPC_URL: z.string().optional(),
   },
   runtimeEnv: process.env,
 })

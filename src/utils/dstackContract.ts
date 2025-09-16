@@ -1,18 +1,29 @@
 import { createPublicClient, http } from 'viem'
 import type { Chain } from 'viem/chains'
 import { base, mainnet } from 'viem/chains'
+
+import { env } from '../env'
 import { abi as appAbi } from './abi/DstackApp.json'
 import { abi as kmsAbi } from './abi/DstackKms.json'
 
 /**
  * Gets the appropriate chain configuration based on chain ID
  */
-function getChainFromId(chainId: number): Chain {
+function getChainFromId(chainId: number): {
+  chain: Chain
+  rpcUrl?: string
+} {
   switch (chainId) {
     case 1:
-      return mainnet
+      return {
+        chain: mainnet,
+        rpcUrl: env.ETHEREUM_RPC_URL,
+      }
     case 8453:
-      return base
+      return {
+        chain: base,
+        rpcUrl: env.BASE_RPC_URL,
+      }
     default:
       throw new Error(`Unsupported chain ID: ${chainId}`)
   }
@@ -39,9 +50,10 @@ export abstract class DstackContract {
    */
   constructor(contractAddress: `0x${string}`, chainId: number) {
     this.address = contractAddress
+    const { chain, rpcUrl } = getChainFromId(chainId)
     this.client = createPublicClient({
-      chain: getChainFromId(chainId),
-      transport: http(),
+      chain,
+      transport: http(rpcUrl),
     })
   }
 }
