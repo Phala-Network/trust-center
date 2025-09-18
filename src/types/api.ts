@@ -105,11 +105,18 @@ const HardwareSchema = z.object({
 /**
  * Zod schema for governance metadata (API input - all fields optional)
  */
-const GovernanceSchema = z.object({
-  blockchain: z.string(),
-  blockchainExplorerUrl: z.string(),
-  chainId: z.number().optional(),
-})
+const GovernanceSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('OnChain'),
+    blockchain: z.string(),
+    blockchainExplorerUrl: z.string(),
+    chainId: z.number(),
+  }),
+  z.object({
+    type: z.literal('HostedBy'),
+    host: z.string(),
+  }),
+])
 
 /**
  * Zod schema for structured verifier metadata (API input)

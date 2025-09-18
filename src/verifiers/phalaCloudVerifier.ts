@@ -26,7 +26,7 @@ import { verifyComposeHash } from '../verification/sourceCodeVerification'
 import { Verifier } from '../verifier'
 
 export class PhalaCloudVerifier extends Verifier {
-  public registrySmartContract: DstackApp
+  public registrySmartContract?: DstackApp
   private rpcEndpoint: string
   private dataObjectGenerator: AppDataObjectGenerator
   private appMetadata: CompleteAppMetadata
@@ -35,10 +35,15 @@ export class PhalaCloudVerifier extends Verifier {
     contractAddress: `0x${string}`,
     domain: string,
     metadata: CompleteAppMetadata,
-    chainId: number,
   ) {
     super(metadata, 'app')
-    this.registrySmartContract = new DstackApp(contractAddress, chainId)
+    // Only create smart contract if governance is OnChain
+    if (metadata.governance?.type === 'OnChain') {
+      this.registrySmartContract = new DstackApp(
+        contractAddress,
+        metadata.governance.chainId,
+      )
+    }
     this.appMetadata = metadata
 
     const cleanAddress = contractAddress.startsWith('0x')

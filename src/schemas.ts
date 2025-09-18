@@ -21,7 +21,7 @@ export const QuoteSchema = z
 
 export const KmsInfoSchema = z.object({
   contract_address: z.string(),
-  chain_id: z.number(),
+  chain_id: z.number().nullable(),
   version: z.string(),
   url: z.string(),
   gateway_app_id: z.string(),

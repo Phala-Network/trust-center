@@ -65,17 +65,29 @@ export function versionToSourceInfo(
 
 /**
  * Convert chain ID to governance information using viem chain data
+ * Returns hosted by Phala if chain ID is null
  */
-export function chainIdToGovernanceInfo(chainId: number): GovernanceInfo {
+export function chainIdToGovernanceInfo(
+  chainId: number | null,
+): GovernanceInfo {
+  if (chainId === null) {
+    return {
+      type: 'HostedBy',
+      host: 'Phala',
+    }
+  }
+
   switch (chainId) {
     case 8453:
       return {
+        type: 'OnChain',
         blockchain: 'Base',
         blockchainExplorerUrl: 'https://basescan.org',
         chainId,
       }
     case 1:
       return {
+        type: 'OnChain',
         blockchain: 'Ethereum',
         blockchainExplorerUrl: 'https://etherscan.io',
         chainId,
