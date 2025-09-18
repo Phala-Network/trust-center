@@ -52,16 +52,23 @@ export interface HardwareInfo {
 }
 
 /**
- * Governance contract information (all fields required when present).
+ * Governance information - either on-chain governance or hosted by a service provider
  */
-export interface GovernanceInfo {
-  /** Blockchain name (e.g., "Base") */
-  blockchain: string
-  /** Blockchain explorer URL (e.g., "https://basescan.org") */
-  blockchainExplorerUrl: string
-  /** Chain ID for the blockchain */
-  chainId?: number
-}
+export type GovernanceInfo =
+  | {
+      type: 'OnChain'
+      /** Blockchain name (e.g., "Base") */
+      blockchain: string
+      /** Blockchain explorer URL (e.g., "https://basescan.org") */
+      blockchainExplorerUrl: string
+      /** Chain ID for the blockchain */
+      chainId: number
+    }
+  | {
+      type: 'HostedBy'
+      /** Host service provider name */
+      host: string
+    }
 
 /**
  * Complete metadata for KMS verifier.
@@ -74,7 +81,7 @@ export interface KmsMetadata {
   /** Hardware platform information (required) */
   hardware: HardwareInfo
   /** Governance contract information (optional) */
-  governance?: GovernanceInfo
+  governance: GovernanceInfo
 }
 
 /**
@@ -88,7 +95,7 @@ export interface GatewayMetadata {
   /** Hardware platform information (required) */
   hardware: HardwareInfo
   /** Governance contract information (optional) */
-  governance?: GovernanceInfo
+  governance: GovernanceInfo
 }
 
 /**
@@ -102,7 +109,7 @@ export interface CompleteAppMetadata {
   /** Hardware platform information (required) */
   hardware: HardwareInfo
   /** Governance contract information (optional) */
-  governance?: GovernanceInfo
+  governance: GovernanceInfo
 }
 
 export type AppMetadata = Partial<CompleteAppMetadata>

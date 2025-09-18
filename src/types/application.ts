@@ -140,8 +140,8 @@ export interface AppInfo {
 export interface KmsInfo {
   /** Contract address of the KMS */
   contract_address: string
-  /** Chain ID where the contract is deployed */
-  chain_id: number
+  /** Chain ID where the contract is deployed, null for legacy versions without governance contracts */
+  chain_id: number | null
   /** Version of the KMS software */
   version: string
   /** URL endpoint for the KMS service */

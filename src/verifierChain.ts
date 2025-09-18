@@ -28,7 +28,6 @@ export function createVerifiers(
   systemInfo: SystemInfo,
 ): Verifier[] {
   const verifiers: Verifier[] = []
-  const chainId = systemInfo.kms_info.chain_id
 
   // Create metadata from systemInfo using utility functions
   const kmsMetadata = createKmsMetadata(systemInfo)
@@ -46,7 +45,6 @@ export function createVerifiers(
         appConfig.contractAddress,
         appConfig.model,
         appMetadata,
-        chainId,
       ),
     )
   } else {
@@ -58,7 +56,6 @@ export function createVerifiers(
         appConfig.contractAddress,
         appConfig.domain,
         appMetadata,
-        chainId,
       ),
     )
   }
