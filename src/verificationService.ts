@@ -21,6 +21,7 @@ import {
   clearAllDataObjects,
   configureVerifierRelationships,
 } from './utils/dataObjectCollector'
+import { isLegacyVersion } from './utils/metadataUtils'
 import { createVerifiers, executeVerifiers } from './verifierChain'
 import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
 import { RedpillVerifier } from './verifiers/redpillVerifier'
@@ -57,7 +58,7 @@ export class VerificationService {
       const verifiers = createVerifiers(appConfig, systemInfo)
 
       const result = await executeVerifiers(verifiers, mergedFlags)
-      this.configureVerifierRelationships()
+      this.configureVerifierRelationships(systemInfo)
 
       // Convert errors to the expected format
       this.errors = result.errors.map((error) => ({ message: error }))
@@ -100,27 +101,41 @@ export class VerificationService {
   /**
    * Configure relationships between verifiers
    */
-  private configureVerifierRelationships(): void {
+  private configureVerifierRelationships(systemInfo: SystemInfo): void {
+    const isLegacy = isLegacyVersion(systemInfo.kms_info.version)
+
     const relationships: ObjectRelationship[] = [
       // KMS -> Gateway relationships
       {
         sourceObjectId: 'kms-main',
-        sourceField: 'gateway_app_id',
         targetObjectId: 'gateway-main',
-        targetField: 'app_id',
+        ...(isLegacy
+          ? {}
+          : {
+              sourceField: 'gateway_app_id',
+              targetField: 'app_id',
+            }),
       },
       {
         sourceObjectId: 'kms-main',
-        sourceField: 'cert_pubkey',
         targetObjectId: 'gateway-main',
-        targetField: 'app_cert',
+        ...(isLegacy
+          ? {}
+          : {
+              sourceField: 'cert_pubkey',
+              targetField: 'app_cert',
+            }),
       },
       // KMS -> App relationships
       {
         sourceObjectId: 'kms-main',
-        sourceField: 'cert_pubkey',
         targetObjectId: 'app-main',
-        targetField: 'app_cert',
+        ...(isLegacy
+          ? {}
+          : {
+              sourceField: 'cert_pubkey',
+              targetField: 'app_cert',
+            }),
       },
     ]
 

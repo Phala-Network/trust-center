@@ -39,7 +39,7 @@ import { type OwnDomain, Verifier } from '../verifier'
  */
 export class GatewayVerifier extends Verifier implements OwnDomain {
   /** Smart contract interface for retrieving Gateway application data */
-  public registrySmartContract: DstackApp
+  public registrySmartContract?: DstackApp
   /** RPC endpoint URL for the Gateway service */
   public rpcEndpoint: string
   /** Data object generator for Gateway-specific objects */
@@ -52,10 +52,15 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    */
   constructor(metadata: GatewayMetadata, systemInfo: SystemInfo) {
     super(metadata, 'gateway')
-    this.registrySmartContract = new DstackApp(
-      systemInfo.kms_info.gateway_app_id as `0x${string}`,
-      systemInfo.kms_info.chain_id,
-    )
+
+    // Only create smart contract if governance is OnChain
+    if (metadata.governance?.type === 'OnChain') {
+      this.registrySmartContract = new DstackApp(
+        systemInfo.kms_info.gateway_app_id as `0x${string}`,
+        metadata.governance.chainId,
+      )
+    }
+
     this.rpcEndpoint = systemInfo.kms_info.gateway_app_url
     this.dataObjectGenerator = new GatewayDataObjectGenerator(metadata)
     this.systemInfo = systemInfo
@@ -166,7 +171,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       quoteData,
       calculatedHash,
       isRegistered ?? false,
-      this.registrySmartContract.address,
+      this.registrySmartContract?.address ?? '0x',
       this.rpcEndpoint,
       acmeInfo.active_cert,
     )
