@@ -3,9 +3,9 @@ import { safeParseEventLog } from '../schemas'
 import type {
   AppInfo,
   AttestationBundle,
+  KmsInfo,
   KmsMetadata,
   QuoteData,
-  SystemInfo,
 } from '../types'
 import { DstackKms } from '../utils/dstackContract'
 import {
@@ -27,38 +27,46 @@ import { Verifier } from '../verifier'
  */
 export abstract class KmsVerifier extends Verifier {
   /** Smart contract interface for retrieving KMS attestation data */
-  public registrySmartContract: DstackKms
+  public registrySmartContract?: DstackKms
   /** Certificate Authority public key extracted from the smart contract */
   public certificateAuthorityPublicKey: `0x${string}` = '0x'
   /** Data object generator for KMS-specific objects */
   protected dataObjectGenerator: KmsDataObjectGenerator
   /** System information for this KMS instance */
-  protected systemInfo: SystemInfo
+  protected kmsInfo: KmsInfo
 
   /**
    * Creates a new KMS verifier instance.
    */
-  constructor(metadata: KmsMetadata, systemInfo: SystemInfo) {
+  constructor(metadata: KmsMetadata, kmsInfo: KmsInfo) {
     super(metadata, 'kms')
-    this.registrySmartContract = new DstackKms(
-      systemInfo.kms_info.contract_address as `0x${string}`,
-      systemInfo.kms_info.chain_id,
-    )
+    // Only create smart contract if governance is OnChain
+    if (metadata.governance?.type === 'OnChain') {
+      this.registrySmartContract = new DstackKms(
+        kmsInfo.contract_address as `0x${string}`,
+        metadata.governance.chainId,
+      )
+    }
+
     this.dataObjectGenerator = new KmsDataObjectGenerator(metadata)
-    this.systemInfo = systemInfo
+    this.kmsInfo = kmsInfo
   }
 
   /**
    * Retrieves the Gateway application identifier from the smart contract.
    */
   public async getGatewatyAppId(): Promise<string> {
-    return this.registrySmartContract.gatewayAppId()
+    return this.kmsInfo.gateway_app_id
   }
 
   /**
    * Retrieves the TEE quote and event log from the smart contract.
    */
   protected async getQuote(): Promise<QuoteData> {
+    if (!this.registrySmartContract) {
+      throw new Error('Registry smart contract is not defined - on-chain governance required')
+    }
+
     const kmsInfo = await this.registrySmartContract.kmsInfo()
     const eventLogBuffer = Buffer.from(
       kmsInfo.eventlog.replace('0x', ''),
@@ -141,7 +149,7 @@ export abstract class KmsVerifier extends Verifier {
       appInfo,
       quoteData,
       calculatedHash,
-      this.registrySmartContract.address,
+      this.registrySmartContract?.address ?? '0x',
       await this.getGatewatyAppId(),
       this.certificateAuthorityPublicKey,
     )
