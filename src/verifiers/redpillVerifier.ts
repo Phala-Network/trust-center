@@ -154,7 +154,7 @@ export class RedpillVerifier extends Verifier {
           {
             quote: quoteData.quote,
             eventlog: quoteData.eventlog,
-            image_version: 'dstack-0.5.3',
+            image_version: 'dstack-nvidia-0.5.3',
           },
         ],
       }

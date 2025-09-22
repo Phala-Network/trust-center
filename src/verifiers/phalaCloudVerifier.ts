@@ -27,6 +27,7 @@ import { Verifier } from '../verifier'
 
 export class PhalaCloudVerifier extends Verifier {
   public registrySmartContract?: DstackApp
+  public appId: string
   private rpcEndpoint: string
   private dataObjectGenerator: AppDataObjectGenerator
   private appMetadata: CompleteAppMetadata
@@ -46,10 +47,10 @@ export class PhalaCloudVerifier extends Verifier {
     }
     this.appMetadata = metadata
 
-    const cleanAddress = contractAddress.startsWith('0x')
+    this.appId = contractAddress.startsWith('0x')
       ? contractAddress.slice(2)
       : contractAddress
-    this.rpcEndpoint = `https://${cleanAddress}-8090.${domain}`
+    this.rpcEndpoint = `https://${this.appId}-8090.${domain}`
     this.dataObjectGenerator = new AppDataObjectGenerator(metadata)
   }
 
@@ -62,9 +63,7 @@ export class PhalaCloudVerifier extends Verifier {
 
   protected async getQuote(): Promise<QuoteData> {
     try {
-      const systemInfo = await PhalaCloudVerifier.getSystemInfo(
-        this.registrySmartContract.address,
-      )
+      const systemInfo = await PhalaCloudVerifier.getSystemInfo(this.appId)
 
       // Get the first instance's quote data
       if (systemInfo.instances.length === 0) {
@@ -138,13 +137,9 @@ export class PhalaCloudVerifier extends Verifier {
   /**
    * Static method to fetch system info from Phala Cloud API without instantiating the verifier
    */
-  public static async getSystemInfo(
-    contractAddress: string,
-  ): Promise<SystemInfo> {
+  public static async getSystemInfo(appId: string): Promise<SystemInfo> {
     // Remove 0x prefix if present for the API call
-    const cleanAppId = contractAddress.startsWith('0x')
-      ? contractAddress.slice(2)
-      : contractAddress
+    const cleanAppId = appId.startsWith('0x') ? appId.slice(2) : appId
 
     const apiUrl = `https://cloud-api.phala.network/api/v1/apps/${cleanAppId}/attestations`
 
@@ -153,7 +148,7 @@ export class PhalaCloudVerifier extends Verifier {
       if (!response.ok) {
         if (response.status === 500) {
           throw new Error(
-            `App '${contractAddress}' not found or is currently down on Phala Cloud (URL: ${apiUrl})`,
+            `App '${appId}' not found or is currently down on Phala Cloud (URL: ${apiUrl})`,
           )
         }
         throw new Error(
