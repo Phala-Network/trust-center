@@ -180,7 +180,9 @@ export abstract class BaseDataObjectGenerator {
         artifacts: isNvidiaVariant
           ? `https://github.com/nearai/private-ml-sdk/releases/tag/${osVersionString}`
           : `https://github.com/Dstack-TEE/meta-dstack/releases/tag/${osVersionString}`,
-        vm_config: JSON.stringify(appInfo.vm_config),
+        vm_config: appInfo.vm_config
+          ? JSON.stringify(appInfo.vm_config)
+          : 'N/A',
         ...(isNvidiaVariant && { gpu_enabled: true }),
         bios: imageMetadata.bios,
         kernel: imageMetadata.kernel,
