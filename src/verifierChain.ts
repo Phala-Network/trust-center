@@ -12,9 +12,14 @@ import {
   completeAppMetadata,
   createGatewayMetadata,
   createKmsMetadata,
+  isLegacyVersion,
 } from './utils/metadataUtils'
 import type { Verifier } from './verifier'
 import { GatewayVerifier } from './verifiers/gatewayVerifier'
+import {
+  LegacyGatewayStubVerifier,
+  LegacyKmsStubVerifier,
+} from './verifiers/legacyStubVerifiers'
 import { PhalaCloudKmsVerifier } from './verifiers/phalaCloudKmsVerifier'
 import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
 import { RedpillKmsVerifier } from './verifiers/redpillKmsVerifier'
@@ -28,7 +33,6 @@ export function createVerifiers(
   systemInfo: SystemInfo,
 ): Verifier[] {
   const verifiers: Verifier[] = []
-  const chainId = systemInfo.kms_info.chain_id
 
   // Create metadata from systemInfo using utility functions
   const kmsMetadata = createKmsMetadata(systemInfo)
@@ -40,27 +44,39 @@ export function createVerifiers(
   if ('model' in appConfig) {
     // Redpill app chain: RedpillKms -> Gateway -> RedpillApp
     verifiers.push(
-      new RedpillKmsVerifier(kmsMetadata, systemInfo),
+      new RedpillKmsVerifier(kmsMetadata, systemInfo.kms_info),
       new GatewayVerifier(gatewayMetadata, systemInfo),
       new RedpillVerifier(
         appConfig.contractAddress,
         appConfig.model,
         appMetadata,
-        chainId,
       ),
     )
   } else {
-    // Phala Cloud app chain: PhalaKms -> Gateway -> PhalaApp
-    verifiers.push(
-      new PhalaCloudKmsVerifier(kmsMetadata, systemInfo),
-      new GatewayVerifier(gatewayMetadata, systemInfo),
-      new PhalaCloudVerifier(
-        appConfig.contractAddress,
-        appConfig.domain,
-        appMetadata,
-        chainId,
-      ),
-    )
+    if (isLegacyVersion(systemInfo.kms_info.version)) {
+      // Legacy Phala Cloud app: use stub verifiers + PhalaApp verifier
+      verifiers.push(
+        new LegacyKmsStubVerifier(systemInfo),
+        new LegacyGatewayStubVerifier(systemInfo),
+        new PhalaCloudVerifier(
+          appConfig.contractAddress,
+          appConfig.domain,
+          appMetadata,
+          systemInfo,
+        ),
+      )
+    } else {
+      verifiers.push(
+        new PhalaCloudKmsVerifier(kmsMetadata, systemInfo.kms_info),
+        new GatewayVerifier(gatewayMetadata, systemInfo),
+        new PhalaCloudVerifier(
+          appConfig.contractAddress,
+          appConfig.domain,
+          appMetadata,
+          systemInfo,
+        ),
+      )
+    }
   }
 
   return verifiers

@@ -32,10 +32,16 @@ export class RedpillVerifier extends Verifier {
     contractAddress: `0x${string}`,
     model: string,
     metadata: CompleteAppMetadata,
-    chainId: number,
   ) {
+    if (metadata.governance.type !== 'OnChain') {
+      throw new Error('RedpillVerifier requires governance to be onchain')
+    }
+
     super(metadata, 'app')
-    this.registrySmartContract = new DstackApp(contractAddress, chainId)
+    this.registrySmartContract = new DstackApp(
+      contractAddress,
+      metadata.governance.chainId,
+    )
     this.rpcEndpoint = `${BASE_URL}?model=${model}`
     this.dataObjectGenerator = new AppDataObjectGenerator(metadata)
   }
@@ -148,7 +154,7 @@ export class RedpillVerifier extends Verifier {
           {
             quote: quoteData.quote,
             eventlog: quoteData.eventlog,
-            image_version: 'dstack-0.5.3',
+            image_version: 'dstack-nvidia-0.5.3',
           },
         ],
       }

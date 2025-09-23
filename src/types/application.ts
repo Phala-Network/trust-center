@@ -69,6 +69,29 @@ export interface TcbInfo {
 }
 
 /**
+ * Legacy TCB information format with different field names and structure.
+ * Used by older Phala Cloud applications with slightly different measurement data format.
+ */
+export interface LegacyTcbInfo {
+  /** Hash of the root filesystem */
+  rootfs_hash: string
+  /** Measurement Register for Trust Domain (MRTD) */
+  mrtd: string
+  /** Runtime Measurement Register 0 */
+  rtmr0: string
+  /** Runtime Measurement Register 1 */
+  rtmr1: string
+  /** Runtime Measurement Register 2 */
+  rtmr2: string
+  /** Runtime Measurement Register 3 */
+  rtmr3: string
+  /** Complete event log for this TCB */
+  event_log: EventLog
+  /** Application composition configuration as parsed JSON object */
+  app_compose: string
+}
+
+/**
  * Represents the key provider information for cryptographic operations.
  */
 export interface KeyProvider {
@@ -107,6 +130,27 @@ export interface VmConfig {
 }
 
 /**
+ * Legacy application info format used by Phala Cloud for older applications.
+ * This format has tcb_info with a different structure than the standard TcbInfo.
+ */
+export interface LegacyAppInfo {
+  /** Unique application identifier */
+  app_id: string
+  /** Unique instance identifier for this deployment */
+  instance_id: string
+  /** Application certificate for authentication */
+  app_cert: string
+  /** Trusted Computing Base information in legacy format */
+  tcb_info: LegacyTcbInfo
+  /** Human-readable application name */
+  app_name: string
+  /** Whether logs are publicly accessible */
+  public_logs: boolean
+  /** Whether system information is publicly accessible */
+  public_sysinfo: boolean
+}
+
+/**
  * Represents comprehensive application information for TEE attestation.
  */
 export interface AppInfo {
@@ -140,9 +184,9 @@ export interface AppInfo {
 export interface KmsInfo {
   /** Contract address of the KMS */
   contract_address: string
-  /** Chain ID where the contract is deployed */
-  chain_id: number
-  /** Version of the KMS software */
+  /** Chain ID where the contract is deployed, null for legacy versions without governance contracts */
+  chain_id: number | null
+  /** Version of the KMS software, like "v0.5.3 (git:ca4af023e974427e4153)" */
   version: string
   /** URL endpoint for the KMS service */
   url: string
@@ -160,7 +204,7 @@ export interface DstackInstance {
   quote: Quote
   /** Event log containing measurement data */
   eventlog: EventLog
-  /** Version of the DStack OS image */
+  /** Version of the DStack OS image, like "dstack[-nvidia][-dev]-0.5.3" */
   image_version: string
 }
 

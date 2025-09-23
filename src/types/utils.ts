@@ -1,5 +1,12 @@
 import type { z } from 'zod'
-import type { AppInfo } from './application'
+
+import type {
+  AppInfo,
+  KeyProvider,
+  LegacyAppInfo,
+  TcbInfo,
+  VmConfig,
+} from './application'
 import type { AttestationBundle } from './attestation'
 
 /**
@@ -110,4 +117,62 @@ export function parseAttestationBundle(
   }
 
   return parsed
+}
+
+/**
+ * Converts LegacyAppInfo to AppInfo format by extracting missing fields from tcb_info.
+ *
+ * @param legacyAppInfo - The legacy app info format
+ * @returns AppInfo with fields extracted from tcb_info and sensible defaults for missing fields
+ */
+export function convertLegacyAppInfo(legacyAppInfo: LegacyAppInfo): AppInfo {
+  // Create default key provider info
+  const defaultKeyProvider: KeyProvider = {
+    name: 'Legacy Key Provider',
+    id: 'legacy',
+  }
+
+  // Create default VM config (minimal configuration for legacy apps)
+  const defaultVmConfig: VmConfig = {
+    spec_version: 0,
+    os_image_hash: '0x', // Use rootfs_hash from legacy format
+    cpu_count: 0,
+    memory_size: 0,
+    qemu_single_pass_add_pages: false,
+    pic: true,
+    pci_hole64_size: 0,
+    hugepages: false,
+    num_gpus: 0,
+    num_nvswitches: 0,
+    hotplug_off: false,
+  }
+
+  // Convert LegacyTcbInfo to TcbInfo format
+  const convertedTcbInfo: TcbInfo = {
+    mrtd: legacyAppInfo.tcb_info.mrtd,
+    rtmr0: legacyAppInfo.tcb_info.rtmr0,
+    rtmr1: legacyAppInfo.tcb_info.rtmr1,
+    rtmr2: legacyAppInfo.tcb_info.rtmr2,
+    rtmr3: legacyAppInfo.tcb_info.rtmr3,
+    mr_aggregated: '0x', // Not available in legacy format
+    os_image_hash: legacyAppInfo.tcb_info.rootfs_hash, // Use rootfs_hash
+    compose_hash: '0x', // Not available in legacy format
+    device_id: '0x', // Not available in legacy format
+    event_log: legacyAppInfo.tcb_info.event_log,
+    app_compose: legacyAppInfo.tcb_info.app_compose,
+  }
+
+  return {
+    app_id: legacyAppInfo.app_id,
+    instance_id: legacyAppInfo.instance_id,
+    app_cert: legacyAppInfo.app_cert,
+    tcb_info: convertedTcbInfo,
+    app_name: legacyAppInfo.app_name,
+    device_id: '0x', // Not available in legacy format
+    mr_aggregated: '0x', // Not available in legacy format
+    os_image_hash: legacyAppInfo.tcb_info.rootfs_hash,
+    key_provider_info: defaultKeyProvider,
+    compose_hash: '0x', // Not available in legacy format
+    vm_config: defaultVmConfig,
+  }
 }

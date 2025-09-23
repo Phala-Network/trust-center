@@ -141,12 +141,12 @@ const prod7PhalaV053 = {
     '{"spec_version":1,"os_image_hash":"2d24d302cc8686d6a0ece71a6afef55c506bc8591e3bcc1ec3eb5323d77582c4","cpu_count":1,"memory_size":2147483648,"qemu_single_pass_add_pages":true,"pic":true,"pci_hole64_size":0,"hugepages":false,"num_gpus":0,"num_nvswitches":0,"hotplug_off":false}',
 }
 
-function getRawKmsAppInfo(systemInfo: KmsInfo): Record<string, unknown> {
-  const { version, gitCommit: _ } = parseVersionString(systemInfo.version)
-  const chainId = systemInfo.chain_id
+function getRawKmsAppInfo(kmsInfo: KmsInfo): Record<string, unknown> {
+  const { version, gitCommit: _ } = parseVersionString(kmsInfo.version)
+  const chainId = kmsInfo.chain_id
 
   // Extract prod environment from URL (e.g., "https://kms.dstack-base-prod7.phala.network" -> "prod7")
-  const prodMatch = systemInfo.url.match(/dstack-.*?-(.+)\.phala\.network/)
+  const prodMatch = kmsInfo.url.match(/dstack-.*?-(.+)\.phala\.network/)
   const prodEnv = prodMatch ? prodMatch[1] : null
 
   // Return appropriate raw JSON object based on prod environment, chain_id, and version
@@ -222,8 +222,8 @@ function getRawKmsAppInfo(systemInfo: KmsInfo): Record<string, unknown> {
   }
 }
 
-export function getKmsAppInfo(systemInfo: KmsInfo): AppInfo {
-  const rawAppInfo = getRawKmsAppInfo(systemInfo)
+export function getKmsAppInfo(kmsInfo: KmsInfo): AppInfo {
+  const rawAppInfo = getRawKmsAppInfo(kmsInfo)
   return parseJsonFields<AppInfo>(rawAppInfo, {
     tcb_info: TcbInfoSchema,
     key_provider_info: KeyProviderSchema,
