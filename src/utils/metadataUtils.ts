@@ -38,6 +38,20 @@ export function parseVersionString(version: string): {
 }
 
 /**
+ * Check if a version represents a legacy version (0.3.x) that requires data object generation only
+ */
+export function isLegacyVersion(version: string): boolean {
+  try {
+    const { version: versionWithPrefix } = parseVersionString(version)
+    // Remove 'v' prefix and check if it starts with '0.3.'
+    return versionWithPrefix.slice(1).startsWith('0.3.')
+  } catch {
+    // If parsing fails, try simple string matching
+    return version.includes('0.3.')
+  }
+}
+
+/**
  * Generic function to create source information with custom repository path.
  * Can be used as a base for all source info generation functions.
  */
@@ -65,17 +79,29 @@ export function versionToSourceInfo(
 
 /**
  * Convert chain ID to governance information using viem chain data
+ * Returns hosted by Phala if chain ID is null
  */
-export function chainIdToGovernanceInfo(chainId: number): GovernanceInfo {
+export function chainIdToGovernanceInfo(
+  chainId: number | null,
+): GovernanceInfo {
+  if (chainId === null) {
+    return {
+      type: 'HostedBy',
+      host: 'Phala',
+    }
+  }
+
   switch (chainId) {
     case 8453:
       return {
+        type: 'OnChain',
         blockchain: 'Base',
         blockchainExplorerUrl: 'https://basescan.org',
         chainId,
       }
     case 1:
       return {
+        type: 'OnChain',
         blockchain: 'Ethereum',
         blockchainExplorerUrl: 'https://etherscan.io',
         chainId,

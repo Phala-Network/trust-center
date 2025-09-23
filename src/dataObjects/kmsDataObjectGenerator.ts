@@ -71,8 +71,15 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
       description:
         'The KMS Info serves as the root-of-trust for the whole system, managing cryptographic keys and providing authentication for applications.',
       fields: {
-        blockchain: (this.metadata as KmsMetadata).governance?.blockchain,
-        registry_smart_contract: `${(this.metadata as KmsMetadata).governance?.blockchainExplorerUrl}/address/${contractAddress}`,
+        ...(() => {
+          const governance = (this.metadata as KmsMetadata).governance
+          return governance?.type === 'OnChain'
+            ? {
+                blockchain: governance.blockchain,
+                registry_smart_contract: `${governance.blockchainExplorerUrl}/address/${contractAddress}`,
+              }
+            : {}
+        })(),
         wallet_pubkey:
           '0x023b01f10326307ced2eaf59c798508f0b2c36c03788445d874b75507b730f6eba',
         cert_pubkey: certificateAuthorityPublicKey,

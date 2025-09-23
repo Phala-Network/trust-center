@@ -127,7 +127,14 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
       fields: {
         app_id: appInfo.app_id,
         instance_id: appInfo.instance_id || '',
-        registry_smart_contract: `${(this.metadata as AppMetadata).governance?.blockchainExplorerUrl}/address/${appInfo.app_id}`,
+        ...(() => {
+          const governance = (this.metadata as AppMetadata).governance
+          return governance?.type === 'OnChain'
+            ? {
+                registry_smart_contract: `${governance.blockchainExplorerUrl}/address/${appInfo.app_id}`,
+              }
+            : {}
+        })(),
         endpoint: endpoint,
         intel_attestation_report: quoteData.quote,
         nvidia_attestation_report: attestationBundle?.nvidia_payload
@@ -135,10 +142,10 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
           : undefined,
         event_log: JSON.stringify(quoteData.eventlog),
         app_cert: appInfo.app_cert || 'N/A',
-        device_id: appInfo.device_id,
+        device_id: appInfo.device_id || 'N/A',
         compose_hash: calculatedHash,
-        mr_aggregated: appInfo.mr_aggregated,
-        os_image_hash: appInfo.os_image_hash,
+        mr_aggregated: appInfo.mr_aggregated || 'N/A',
+        os_image_hash: appInfo.os_image_hash || 'N/A',
         is_registered: isRegistered,
       },
       kind: 'app',

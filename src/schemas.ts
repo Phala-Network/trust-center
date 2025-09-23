@@ -21,7 +21,7 @@ export const QuoteSchema = z
 
 export const KmsInfoSchema = z.object({
   contract_address: z.string(),
-  chain_id: z.number(),
+  chain_id: z.number().nullable(),
   version: z.string(),
   url: z.string(),
   gateway_app_id: z.string(),
@@ -87,6 +87,17 @@ export const TcbInfoSchema = z.object({
   app_compose: z.string(),
 })
 
+export const LegacyTcbInfoSchema = z.object({
+  rootfs_hash: z.string(),
+  mrtd: z.string(),
+  rtmr0: z.string(),
+  rtmr1: z.string(),
+  rtmr2: z.string(),
+  rtmr3: z.string(),
+  event_log: EventLogSchema,
+  app_compose: z.string(),
+})
+
 export const KeyProviderSchema = z.object({
   name: z.string(),
   id: z.string(),
@@ -104,6 +115,16 @@ export const AppInfoSchema = z.object({
   key_provider_info: KeyProviderSchema,
   compose_hash: z.string(),
   vm_config: VmConfigSchema,
+})
+
+export const LegacyAppInfoSchema = z.object({
+  app_id: z.string(),
+  instance_id: z.string(),
+  app_cert: z.string(),
+  tcb_info: LegacyTcbInfoSchema,
+  app_name: z.string(),
+  public_logs: z.boolean(),
+  public_sysinfo: z.boolean(),
 })
 
 export const TDReport10Schema = z.object({
@@ -213,16 +234,6 @@ export function safeParseEventLog(jsonString: string) {
   return EventLogSchema.parse(parsed)
 }
 
-export function safeParseVmConfig(jsonString: string) {
-  const parsed = JSON.parse(jsonString)
-  return VmConfigSchema.parse(parsed)
-}
-
-export function safeParseTcbInfo(jsonString: string) {
-  const parsed = JSON.parse(jsonString)
-  return TcbInfoSchema.parse(parsed)
-}
-
 export function safeParseQuoteResult(jsonString: string) {
   const parsed = JSON.parse(jsonString)
   return VerifyQuoteResultSchema.parse(parsed)
@@ -241,21 +252,6 @@ export function safeParseOsMeasurement(jsonString: string) {
 export function safeParseQuoteExt(jsonString: string) {
   const parsed = JSON.parse(jsonString)
   return ExtendedQuoteDataSchema.parse(parsed)
-}
-
-export function safeParseNvidiaPayload(jsonString: string) {
-  const parsed = JSON.parse(jsonString)
-  return NvidiaPayloadSchema.parse(parsed)
-}
-
-export function safeParseAttestation(jsonString: string) {
-  const parsed = JSON.parse(jsonString)
-  return AttestationSchema.parse(parsed)
-}
-
-export function safeParseBundle(jsonString: string) {
-  const parsed = JSON.parse(jsonString)
-  return AttestationBundleSchema.parse(parsed)
 }
 
 // Generic safe parse function with schema parameter
