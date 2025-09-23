@@ -84,6 +84,15 @@ RUN git clone https://github.com/Dstack-TEE/dstack.git && \
 WORKDIR /build/dstack
 RUN cargo build --release -p dstack-mr-cli
 
+# dstack-mr (Go) builder stage
+FROM golang:1.23-alpine AS go-mr-builder
+
+# Install git for go install
+RUN apk add --no-cache git
+
+# Install dstack-mr using go install
+RUN go install github.com/kvinwang/dstack-mr@latest
+
 # DStack images download stage - separate for better caching
 FROM alpine:3.19 AS dstack-downloader
 
@@ -137,11 +146,14 @@ COPY --from=rust-builder /app/external/dcap-qvl/cli/target/release/dcap-qvl ./bi
 # Copy dstack-mr-cli binary
 COPY --from=mr-cli-builder /build/dstack/target/release/dstack-mr /usr/local/bin/dstack-mr-cli
 
+# Copy dstack-mr (Go) binary to DSTACK_MR_PATH
+COPY --from=go-mr-builder /go/bin/dstack-mr /usr/local/bin/dstack-mr
+
 # Copy QEMU binary for dstack-acpi-tables
 COPY --from=qemu-builder /build/qemu-tdx/build/qemu-system-x86_64 /usr/local/bin/dstack-acpi-tables
 
 # Create bin directory and ensure binaries are executable
-RUN mkdir -p bin && chmod +x bin/dcap-qvl /usr/local/bin/dstack-mr-cli /usr/local/bin/dstack-acpi-tables
+RUN mkdir -p bin && chmod +x bin/dcap-qvl /usr/local/bin/dstack-mr-cli /usr/local/bin/dstack-mr /usr/local/bin/dstack-acpi-tables
 
 # Create QEMU share directory and copy BIOS files
 RUN mkdir -p /usr/local/share/qemu
