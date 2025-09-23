@@ -1,6 +1,7 @@
 import { AppDataObjectGenerator } from '../dataObjects/appDataObjectGenerator'
 import {
   KeyProviderSchema,
+  LegacyTcbInfoSchema,
   SystemInfoSchema,
   TcbInfoSchema,
   VmConfigSchema,
@@ -9,11 +10,14 @@ import {
   type AppInfo,
   type AttestationBundle,
   type CompleteAppMetadata,
+  convertLegacyAppInfo,
+  type LegacyAppInfo,
   parseJsonFields,
   type QuoteData,
   type SystemInfo,
 } from '../types'
 import { DstackApp } from '../utils/dstackContract'
+import { isLegacyVersion } from '../utils/metadataUtils'
 import {
   isUpToDate,
   verifyTeeQuote,
@@ -21,6 +25,7 @@ import {
 import {
   getImageFolder,
   verifyOSIntegrity,
+  verifyOSIntegrityLegacy,
 } from '../verification/osVerification'
 import { verifyComposeHash } from '../verification/sourceCodeVerification'
 import { Verifier } from '../verifier'
@@ -31,11 +36,13 @@ export class PhalaCloudVerifier extends Verifier {
   private rpcEndpoint: string
   private dataObjectGenerator: AppDataObjectGenerator
   private appMetadata: CompleteAppMetadata
+  private systemInfo: SystemInfo
 
   constructor(
     contractAddress: `0x${string}`,
     domain: string,
     metadata: CompleteAppMetadata,
+    systemInfo: SystemInfo,
   ) {
     super(metadata, 'app')
     // Only create smart contract if governance is OnChain
@@ -46,6 +53,7 @@ export class PhalaCloudVerifier extends Verifier {
       )
     }
     this.appMetadata = metadata
+    this.systemInfo = systemInfo
 
     this.appId = contractAddress.startsWith('0x')
       ? contractAddress.slice(2)
@@ -58,7 +66,7 @@ export class PhalaCloudVerifier extends Verifier {
    * Determines if an application has NVIDIA GPU support based on VM configuration
    */
   private hasNvidiaSupport(appInfo: AppInfo): boolean {
-    return appInfo.vm_config.num_gpus > 0
+    return appInfo.vm_config ? appInfo.vm_config.num_gpus > 0 : false
   }
 
   protected async getQuote(): Promise<QuoteData> {
@@ -95,42 +103,88 @@ export class PhalaCloudVerifier extends Verifier {
   }
 
   protected async getAppInfo(): Promise<AppInfo> {
-    const infoUrl = `${this.rpcEndpoint}/prpc/Info`
-    try {
-      const response = await fetch(infoUrl)
-      if (!response.ok) {
-        throw new Error(
-          `Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
-        )
+    if (!isLegacyVersion(this.systemInfo.kms_info.version)) {
+      const infoUrl = `${this.rpcEndpoint}/prpc/Info`
+      try {
+        const response = await fetch(infoUrl)
+        if (!response.ok) {
+          throw new Error(
+            `Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
+          )
+        }
+        const responseData = await response.json()
+        const appInfo = parseJsonFields(
+          responseData as Record<string, unknown>,
+          {
+            tcb_info: TcbInfoSchema,
+            key_provider_info: KeyProviderSchema,
+            vm_config: VmConfigSchema,
+          },
+        ) as AppInfo
+
+        // Update metadata with NVIDIA support detection
+        const nvidiaSupported = this.hasNvidiaSupport(appInfo)
+        this.appMetadata = {
+          ...this.appMetadata,
+          hardware: {
+            ...this.appMetadata.hardware,
+            hasNvidiaSupport: nvidiaSupported,
+          },
+        }
+        this.metadata = this.appMetadata
+
+        // Update data object generator with fresh metadata
+        this.dataObjectGenerator = new AppDataObjectGenerator(this.appMetadata)
+
+        return appInfo
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : `Unknown error fetching app info from ${infoUrl}`
+        throw new Error(`Failed to fetch Phala Cloud app info: ${errorMessage}`)
       }
-      const responseData = await response.json()
-      const appInfo = parseJsonFields(responseData as Record<string, unknown>, {
-        tcb_info: TcbInfoSchema,
-        key_provider_info: KeyProviderSchema,
-        vm_config: VmConfigSchema,
-      }) as AppInfo
+    } else {
+      const infoUrl = `${this.rpcEndpoint}/prpc/Worker.Info`
+      try {
+        const response = await fetch(infoUrl)
+        if (!response.ok) {
+          throw new Error(
+            `Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
+          )
+        }
+        const responseData = await response.json()
 
-      // Update metadata with NVIDIA support detection
-      const nvidiaSupported = this.hasNvidiaSupport(appInfo)
-      this.appMetadata = {
-        ...this.appMetadata,
-        hardware: {
-          ...this.appMetadata.hardware,
-          hasNvidiaSupport: nvidiaSupported,
-        },
+        const legacyAppInfo = parseJsonFields(
+          responseData as Record<string, unknown>,
+          {
+            tcb_info: LegacyTcbInfoSchema,
+          },
+        ) as LegacyAppInfo
+
+        // Convert legacy format to standard AppInfo format
+        const appInfo = convertLegacyAppInfo(legacyAppInfo)
+
+        this.appMetadata = {
+          ...this.appMetadata,
+          hardware: {
+            ...this.appMetadata.hardware,
+            hasNvidiaSupport: false,
+          },
+        }
+        this.metadata = this.appMetadata
+
+        // Update data object generator with fresh metadata
+        this.dataObjectGenerator = new AppDataObjectGenerator(this.appMetadata)
+
+        return appInfo
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : `Unknown error fetching app info from ${infoUrl}`
+        throw new Error(`Failed to fetch Phala Cloud app info: ${errorMessage}`)
       }
-      this.metadata = this.appMetadata
-
-      // Update data object generator with fresh metadata
-      this.dataObjectGenerator = new AppDataObjectGenerator(this.appMetadata)
-
-      return appInfo
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : `Unknown error fetching app info from ${infoUrl}`
-      throw new Error(`Failed to fetch Phala Cloud app info: ${errorMessage}`)
     }
   }
 
@@ -212,7 +266,9 @@ export class PhalaCloudVerifier extends Verifier {
     const appInfo = await this.getAppInfo()
     const imageFolderName = getImageFolder('app')
 
-    const isValid = await verifyOSIntegrity(appInfo, imageFolderName)
+    const isValid = isLegacyVersion(this.systemInfo.kms_info.version)
+      ? await verifyOSIntegrityLegacy(appInfo, imageFolderName)
+      : await verifyOSIntegrity(appInfo, imageFolderName)
 
     // Generate DataObjects for App OS verification
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(

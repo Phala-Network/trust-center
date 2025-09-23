@@ -11,6 +11,8 @@ const execAsync = promisify(exec)
 /** Path to the local dstack-mr-cli binary */
 const DSTACK_MR_CLI_PATH = '/usr/local/bin/dstack-mr-cli'
 
+const DSTACK_MR_PATH = '/usr/local/bin/dstack-mr'
+
 /**
  * Configuration options for DStack image measurement operations.
  */
@@ -95,5 +97,54 @@ export async function measureDstackImages(
     const error = execError as { stderr?: string; message: string }
     const errorMessage = error.stderr || error.message
     throw new Error(`Failed to run DStack measurement tool: ${errorMessage}`)
+  }
+}
+
+/**
+ * Measures DStack OS images using the Go-based dstack-mr CLI tool for legacy versions.
+ *
+ * This function uses the standalone Go-based dstack-mr tool which is specifically
+ * designed for legacy dstack image verification.
+ *
+ * @param measurementOptions - Configuration for the measurement operation
+ * @returns Promise resolving to measurement results containing MRTD and RTMR values
+ * @throws Error if the measurement process fails or tool is not installed
+ */
+export async function measureDstackImagesLegacy(
+  measurementOptions: DstackMrOptions,
+): Promise<{
+  mrtd: string
+  rtmr0: string
+  rtmr1: string
+  rtmr2: string
+}> {
+  const absoluteImagePath = path.resolve(measurementOptions.image_folder)
+  const metadataPath = path.join(absoluteImagePath, 'metadata.json')
+
+  const dstackMrCommand = `${DSTACK_MR_PATH} -metadata "${metadataPath}" -json`
+
+  try {
+    const { stdout } = await execAsync(dstackMrCommand)
+    return safeParseOsMeasurement(stdout)
+  } catch (legacyError: unknown) {
+    const execError = legacyError as {
+      stderr?: string
+      message: string
+      code?: string
+    }
+
+    if (
+      execError.message?.includes('command not found') ||
+      execError.code === 'ENOENT'
+    ) {
+      throw new Error(
+        'dstack-mr CLI tool not found. Please install it using: go install github.com/kvinwang/dstack-mr@latest',
+      )
+    }
+
+    const errorMessage = execError.stderr || execError.message
+    throw new Error(
+      `Failed to run legacy DStack measurement tool: ${errorMessage}`,
+    )
   }
 }

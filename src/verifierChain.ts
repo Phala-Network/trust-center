@@ -62,6 +62,7 @@ export function createVerifiers(
           appConfig.contractAddress,
           appConfig.domain,
           appMetadata,
+          systemInfo,
         ),
       )
     } else {
@@ -72,6 +73,7 @@ export function createVerifiers(
           appConfig.contractAddress,
           appConfig.domain,
           appMetadata,
+          systemInfo,
         ),
       )
     }
