@@ -1,5 +1,6 @@
 import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
+import z from 'zod'
 
 import { authMiddleware } from './plugin/auth'
 import { healthRoutes } from './routes/health'
@@ -31,7 +32,13 @@ const mapErrorResponse = (code: string | number, error: unknown) => {
 // Pure app factory
 export const createApp = () => {
   const app = new Elysia()
-    .use(openapi())
+    .use(
+      openapi({
+        mapJsonSchema: {
+          zod: z.toJSONSchema,
+        },
+      }),
+    )
     .group('/health', (app) => app.use(healthRoutes))
     .group('/api/v1', (app) =>
       app
