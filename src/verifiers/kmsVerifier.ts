@@ -64,7 +64,9 @@ export abstract class KmsVerifier extends Verifier {
    */
   protected async getQuote(): Promise<QuoteData> {
     if (!this.registrySmartContract) {
-      throw new Error('Registry smart contract is not defined - on-chain governance required')
+      throw new Error(
+        'Registry smart contract is not defined - on-chain governance required',
+      )
     }
 
     const kmsInfo = await this.registrySmartContract.kmsInfo()

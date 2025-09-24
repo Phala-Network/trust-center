@@ -1,4 +1,5 @@
 import { createHash, X509Certificate } from 'node:crypto'
+
 import { safeParseQuoteExt } from '../schemas'
 import type { AcmeInfo, CTLogEntry, CTResult } from '../types'
 import { verifyQuote } from '../utils/dcap-qvl'

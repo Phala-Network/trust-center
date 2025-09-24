@@ -40,8 +40,38 @@ export const TaskListQuerySchema = z.object({
   contract_address: z.string().optional(),
   keyword: z.string().optional(),
   status: z.string().optional(),
-  per_page: z.number().optional(),
-  page: z.number().optional(),
+  per_page: z.coerce.number().optional(),
+  page: z.coerce.number().optional(),
+  sort_by: z.string().optional(),
+  sort_order: z.union([z.literal('asc'), z.literal('desc')]).optional(),
+  created_after: z.string().optional(),
+  created_before: z.string().optional(),
+})
+
+export const AppsListQuerySchema = z.object({
+  app_config_type: z.string().optional(),
+  keyword: z.string().optional(),
+  include_stats: z.coerce.boolean().optional().default(false),
+  per_page: z.coerce.number().optional(),
+  page: z.coerce.number().optional(),
+  sort_by: z
+    .union([
+      z.literal('appName'),
+      z.literal('taskCount'),
+      z.literal('lastCreated'),
+    ])
+    .optional()
+    .default('appName'),
+  sort_order: z
+    .union([z.literal('asc'), z.literal('desc')])
+    .optional()
+    .default('asc'),
+})
+
+export const AppTasksQuerySchema = z.object({
+  status: z.string().optional(),
+  per_page: z.coerce.number().optional(),
+  page: z.coerce.number().optional(),
   sort_by: z.string().optional(),
   sort_order: z.union([z.literal('asc'), z.literal('desc')]).optional(),
   created_after: z.string().optional(),
@@ -128,6 +158,46 @@ export const TaskDeleteDataSchema = z.object({
   message: z.string(),
 })
 
+export const AppResponseSchema = z.object({
+  appId: z.string(),
+  appName: z.string(),
+  appConfigType: z.string(),
+  contractAddress: z.string(),
+  modelOrDomain: z.string(),
+  taskCount: z.number().optional(),
+  lastCreated: z.string().optional(),
+  firstCreated: z.string().optional(),
+})
+
+export const AppsListDataSchema = z.object({
+  apps: z.array(TaskResponseSchema),
+  pagination: z.object({
+    currentPage: z.number(),
+    perPage: z.number(),
+    total: z.number(),
+    totalPages: z.number(),
+    hasNext: z.boolean(),
+    hasPrev: z.boolean(),
+  }),
+})
+
+export const AppDetailDataSchema = z.object({
+  app: TaskResponseSchema,
+})
+
+export const AppTasksDataSchema = z.object({
+  appId: z.string(),
+  tasks: z.array(TaskResponseSchema),
+  pagination: z.object({
+    currentPage: z.number(),
+    perPage: z.number(),
+    total: z.number(),
+    totalPages: z.number(),
+    hasNext: z.boolean(),
+    hasPrev: z.boolean(),
+  }),
+})
+
 // Base schemas for consistent error
 export const BaseErrorSchema = z.object({
   code: z.string(),
@@ -147,6 +217,8 @@ export type VerificationFlags = z.infer<typeof VerificationFlagsSchema>
 export type TaskCreateRequest = z.infer<typeof TaskCreateRequestSchema>
 export type BatchCreateRequest = z.infer<typeof TaskBatchCreateRequestSchema>
 export type TaskListQuery = z.infer<typeof TaskListQuerySchema>
+export type AppsListQuery = z.infer<typeof AppsListQuerySchema>
+export type AppTasksQuery = z.infer<typeof AppTasksQuerySchema>
 
 // Response types - using Zod schema inference
 export type TaskResponse = z.infer<typeof TaskResponseSchema>
@@ -158,4 +230,8 @@ export type TaskStatsResponse = z.infer<typeof TaskStatsDataSchema>
 export type TaskCancelResponse = z.infer<typeof TaskCancelDataSchema>
 export type TaskRetryResponse = z.infer<typeof TaskRetryDataSchema>
 export type TaskDeleteResponse = z.infer<typeof TaskDeleteDataSchema>
+export type AppResponse = z.infer<typeof AppResponseSchema>
+export type AppsListResponse = z.infer<typeof AppsListDataSchema>
+export type AppDetailResponse = z.infer<typeof AppDetailDataSchema>
+export type AppTasksResponse = z.infer<typeof AppTasksDataSchema>
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+
 import type { AppInfo, EventLog, QuoteData } from '../types'
 import type { DstackApp } from '../utils/dstackContract'
 
