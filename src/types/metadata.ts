@@ -5,119 +5,137 @@
  * with properly typed structures for different verification contexts.
  */
 
+import { z } from 'zod'
+
 /**
  * Version string that starts with 'v' prefix.
  * Examples: "v0.5.3", "v0.5.3 (git:c06e524bd460fd9c9add)"
  */
-export type VersionString = `v${string}`
+export const VersionStringSchema = z
+  .string()
+  .regex(/^v/, 'Version string must start with "v"')
 
 /**
  * Operating system source code information.
  */
-export interface OSSourceInfo {
+export const OSSourceInfoSchema = z.object({
   /** GitHub repository URL for the OS source code */
-  github_repo: string
+  github_repo: z.string(),
   /** Git commit hash of the OS build */
-  git_commit: string
+  git_commit: z.string(),
   /** Version string of the OS that starts with 'v' prefix */
-  version: VersionString
-}
+  version: VersionStringSchema,
+})
 
 /**
  * Application source code information (all fields required when present).
  */
-export interface AppSourceInfo {
+export const AppSourceInfoSchema = z.object({
   /** GitHub repository URL for the application source code */
-  github_repo: string
+  github_repo: z.string(),
   /** Git commit hash of the application build */
-  git_commit: string
+  git_commit: z.string(),
   /** Version string of the application */
-  version: string
+  version: z.string(),
   /** Optional model name for ML applications */
-  model_name?: string
-}
+  model_name: z.string().optional(),
+})
 
 /**
  * Hardware platform information.
  */
-export interface HardwareInfo {
+export const HardwareInfoSchema = z.object({
   /** CPU manufacturer (e.g., "Intel Corporation") */
-  cpuManufacturer: string
+  cpuManufacturer: z.string(),
   /** CPU model name (e.g., "Intel(R) Xeon(R) CPU") */
-  cpuModel: string
+  cpuModel: z.string(),
   /** Security feature description (e.g., "Intel Trust Domain Extensions (TDX)") */
-  securityFeature: string
+  securityFeature: z.string(),
   /** Whether NVIDIA GPU support is enabled */
-  hasNvidiaSupport?: boolean
-}
+  hasNvidiaSupport: z.boolean().optional(),
+})
 
 /**
  * Governance information - either on-chain governance or hosted by a service provider
  */
-export type GovernanceInfo =
-  | {
-      type: 'OnChain'
-      /** Blockchain name (e.g., "Base") */
-      blockchain: string
-      /** Blockchain explorer URL (e.g., "https://basescan.org") */
-      blockchainExplorerUrl: string
-      /** Chain ID for the blockchain */
-      chainId: number
-    }
-  | {
-      type: 'HostedBy'
-      /** Host service provider name */
-      host: string
-    }
+export const GovernanceInfoSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('OnChain'),
+    /** Blockchain name (e.g., "Base") */
+    blockchain: z.string(),
+    /** Blockchain explorer URL (e.g., "https://basescan.org") */
+    blockchainExplorerUrl: z.string(),
+    /** Chain ID for the blockchain */
+    chainId: z.number(),
+  }),
+  z.object({
+    type: z.literal('HostedBy'),
+    /** Host service provider name */
+    host: z.string(),
+  }),
+])
 
 /**
  * Complete metadata for KMS verifier.
  */
-export interface KmsMetadata {
+export const KmsMetadataSchema = z.object({
   /** Operating system source information (required) */
-  osSource: OSSourceInfo
+  osSource: OSSourceInfoSchema,
   /** Application source information (required) */
-  appSource: AppSourceInfo
+  appSource: AppSourceInfoSchema,
   /** Hardware platform information (required) */
-  hardware: HardwareInfo
+  hardware: HardwareInfoSchema,
   /** Governance contract information (optional) */
-  governance: GovernanceInfo
-}
+  governance: GovernanceInfoSchema,
+})
 
 /**
  * Complete metadata for Gateway verifier.
  */
-export interface GatewayMetadata {
+export const GatewayMetadataSchema = z.object({
   /** Operating system source information (required) */
-  osSource: OSSourceInfo
+  osSource: OSSourceInfoSchema,
   /** Application source information (required) */
-  appSource: AppSourceInfo
+  appSource: AppSourceInfoSchema,
   /** Hardware platform information (required) */
-  hardware: HardwareInfo
+  hardware: HardwareInfoSchema,
   /** Governance contract information (optional) */
-  governance: GovernanceInfo
-}
+  governance: GovernanceInfoSchema,
+})
 
 /**
  * Complete AppMetadata with all fields populated (used internally after auto-completion)
  */
-export interface CompleteAppMetadata {
+export const CompleteAppMetadataSchema = z.object({
   /** Operating system source information (required) */
-  osSource: OSSourceInfo
+  osSource: OSSourceInfoSchema,
   /** Application source information (optional) */
-  appSource?: AppSourceInfo
+  appSource: AppSourceInfoSchema.optional(),
   /** Hardware platform information (required) */
-  hardware: HardwareInfo
+  hardware: HardwareInfoSchema,
   /** Governance contract information (optional) */
-  governance: GovernanceInfo
-}
+  governance: GovernanceInfoSchema.optional(),
+})
 
-export type AppMetadata = Partial<CompleteAppMetadata>
+export const AppMetadataSchema = CompleteAppMetadataSchema.partial()
 
 /**
  * Union type for all verifier metadata.
  */
-export type VerifierMetadata =
-  | KmsMetadata
-  | GatewayMetadata
-  | CompleteAppMetadata
+export const VerifierMetadataSchema = z.union([
+  KmsMetadataSchema,
+  GatewayMetadataSchema,
+  CompleteAppMetadataSchema,
+])
+
+// Export TypeScript types from Zod schemas
+export type VersionString = z.infer<typeof VersionStringSchema>
+export type OSSourceInfo = z.infer<typeof OSSourceInfoSchema>
+export type AppSourceInfo = z.infer<typeof AppSourceInfoSchema>
+export type HardwareInfo = z.infer<typeof HardwareInfoSchema>
+export type GovernanceInfo = z.infer<typeof GovernanceInfoSchema>
+export type KmsMetadata = z.infer<typeof KmsMetadataSchema>
+export type GatewayMetadata = z.infer<typeof GatewayMetadataSchema>
+export type CompleteAppMetadata = z.infer<typeof CompleteAppMetadataSchema>
+export type AppMetadata = z.infer<typeof AppMetadataSchema>
+export type VerifierMetadata = z.infer<typeof VerifierMetadataSchema>

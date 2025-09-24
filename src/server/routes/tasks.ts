@@ -1,4 +1,5 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 
 import {
   handleBatchCreation,
@@ -42,7 +43,7 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
     },
     {
       body: TaskCreateRequestSchema,
-      response: t.Union([TaskCreateDataSchema, ErrorResponseSchema]),
+      response: z.union([TaskCreateDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Create a new verification task',
         description:
@@ -64,7 +65,7 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
     },
     {
       body: TaskBatchCreateRequestSchema,
-      response: t.Union([TaskBatchCreateDataSchema, ErrorResponseSchema]),
+      response: z.union([TaskBatchCreateDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Create multiple verification tasks in batch',
         description:
@@ -85,10 +86,10 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
       }
     },
     {
-      params: t.Object({
-        taskId: t.String(),
+      params: z.object({
+        taskId: z.string(),
       }),
-      response: t.Union([TaskDetailDataSchema, ErrorResponseSchema]),
+      response: z.union([TaskDetailDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Get task details by ID',
         description:
@@ -110,7 +111,7 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
     },
     {
       query: TaskListQuerySchema,
-      response: t.Union([TaskListDataSchema, ErrorResponseSchema]),
+      response: z.union([TaskListDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'List verification tasks',
         description:
@@ -131,7 +132,7 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
       }
     },
     {
-      response: t.Union([TaskStatsDataSchema, ErrorResponseSchema]),
+      response: z.union([TaskStatsDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Get task statistics summary',
         description:
@@ -152,10 +153,10 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
       }
     },
     {
-      params: t.Object({
-        taskId: t.String(),
+      params: z.object({
+        taskId: z.string(),
       }),
-      response: t.Union([TaskCancelDataSchema, ErrorResponseSchema]),
+      response: z.union([TaskCancelDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Cancel a verification task',
         description:
@@ -176,10 +177,10 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
       }
     },
     {
-      params: t.Object({
-        taskId: t.String(),
+      params: z.object({
+        taskId: z.string(),
       }),
-      response: t.Union([TaskRetryDataSchema, ErrorResponseSchema]),
+      response: z.union([TaskRetryDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Retry a verification task',
         description:
@@ -200,10 +201,10 @@ export const taskRoutes = new Elysia({ tags: ['Tasks'] })
       }
     },
     {
-      params: t.Object({
-        taskId: t.String(),
+      params: z.object({
+        taskId: z.string(),
       }),
-      response: t.Union([TaskDeleteDataSchema, ErrorResponseSchema]),
+      response: z.union([TaskDeleteDataSchema, ErrorResponseSchema]),
       detail: {
         summary: 'Delete a verification task',
         description:

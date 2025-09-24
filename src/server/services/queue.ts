@@ -1,5 +1,6 @@
 import { type Job, Queue, Worker } from 'bullmq'
 import IORedis from 'ioredis'
+import { isAddress } from 'viem'
 
 import type { PhalaCloudConfig, RedpillConfig } from '../../config'
 import type { VerificationResponse } from '../../types'
@@ -68,6 +69,9 @@ export const createQueueService = (
         console.log(
           `[QUEUE] Processing verification task ${postgresTaskId} for app ${appId}/${appName}`,
         )
+        if (!isAddress(contractAddress)) {
+          throw new Error('Invalid contract address')
+        }
 
         // Update task status to active
         await verificationTaskService.updateVerificationTask(postgresTaskId, {
@@ -301,7 +305,7 @@ export const createQueueService = (
     return postgresTaskId
   }
 
-  const getJob = async (jobId: string): Promise<Job | null> => {
+  const getJob = async (jobId: string): Promise<Job | null | undefined> => {
     return await queue.getJob(jobId)
   }
 
