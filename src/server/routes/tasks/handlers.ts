@@ -1,4 +1,47 @@
 import type { AppMetadata } from '../../../types'
+
+// Helper function to ensure version strings have 'v' prefix
+function ensureVersionPrefix(version: string): `v${string}` {
+  return version.startsWith('v')
+    ? (version as `v${string}`)
+    : (`v${version}` as `v${string}`)
+}
+
+// Helper function to transform metadata from database format to Zod format
+function transformMetadataFromDb(metadata: unknown): AppMetadata {
+  if (!metadata) return {}
+
+  const transformed = { ...metadata } as Record<string, unknown>
+
+  // Ensure osSource version has 'v' prefix
+  if (
+    transformed.osSource &&
+    typeof transformed.osSource === 'object' &&
+    'version' in transformed.osSource
+  ) {
+    const osSource = transformed.osSource as Record<string, unknown>
+    transformed.osSource = {
+      ...osSource,
+      version: ensureVersionPrefix(osSource.version as string),
+    }
+  }
+
+  // Ensure appSource version has 'v' prefix
+  if (
+    transformed.appSource &&
+    typeof transformed.appSource === 'object' &&
+    'version' in transformed.appSource
+  ) {
+    const appSource = transformed.appSource as Record<string, unknown>
+    transformed.appSource = {
+      ...appSource,
+      version: ensureVersionPrefix(appSource.version as string),
+    }
+  }
+
+  return transformed as AppMetadata
+}
+
 import type {
   AppConfigType,
   VerificationTask,
@@ -298,7 +341,7 @@ export const handleTaskRetry = async (
     appConfigType: task.appConfigType,
     contractAddress: task.contractAddress as `0x${string}`,
     modelOrDomain: task.modelOrDomain,
-    metadata: task.appMetadata as AppMetadata,
+    metadata: transformMetadataFromDb(task.appMetadata) as any,
     flags: task.verificationFlags as Partial<VerificationFlags> | undefined,
   })
 

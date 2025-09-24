@@ -5,74 +5,106 @@
  * and granular control over verification steps that may take long time.
  */
 
+import { z } from 'zod'
+
 import { env } from './env'
-import type { AppMetadata, GatewayMetadata, KmsMetadata } from './types'
+import {
+  AppMetadataSchema,
+  GatewayMetadataSchema,
+  KmsMetadataSchema,
+} from './types/metadata'
+
+/**
+ * Ethereum address schema
+ */
+const EthereumAddressSchema = z
+  .string()
+  .regex(/^0x[a-fA-F0-9]{40}$/, 'Must be a valid Ethereum address')
+  .transform((addr) => addr as `0x${string}`)
 
 /**
  * Configuration for KMS verifier
  */
-export interface KmsConfig {
+export const KmsConfigSchema = z.object({
   /** KMS smart contract address */
-  contractAddress: `0x${string}`
+  contractAddress: EthereumAddressSchema,
   /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
-  metadata?: KmsMetadata
-}
+  metadata: KmsMetadataSchema.optional(),
+})
 
 /**
  * Configuration for Gateway verifier
  */
-export interface GatewayConfig {
+export const GatewayConfigSchema = z.object({
   /** Gateway smart contract address */
-  contractAddress: `0x${string}`
+  contractAddress: EthereumAddressSchema,
   /** Gateway RPC endpoint URL */
-  rpcEndpoint: string
+  rpcEndpoint: z.string().url(),
   /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
-  metadata?: GatewayMetadata
-}
+  metadata: GatewayMetadataSchema.optional(),
+})
 
 /**
  * Configuration for Redpill verifier
  */
-export interface RedpillConfig {
+export const RedpillConfigSchema = z.object({
   /** Redpill smart contract address */
-  contractAddress: `0x${string}`
+  contractAddress: EthereumAddressSchema,
   /** Model identifier */
-  model: string
+  model: z.string().min(1),
   /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
-  metadata?: AppMetadata
-}
+  metadata: AppMetadataSchema.optional(),
+})
 
 /**
  * Configuration for PhalaCloud verifier
  */
-export interface PhalaCloudConfig {
+export const PhalaCloudConfigSchema = z.object({
   /** PhalaCloud smart contract address */
-  contractAddress: `0x${string}`
+  contractAddress: EthereumAddressSchema,
   /** Domain identifier */
-  domain: string
+  domain: z.string().min(1),
   /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
-  metadata?: AppMetadata
-}
+  metadata: AppMetadataSchema.optional(),
+})
 
 /**
  * Granular flags for controlling verification steps that may take long time
  */
-export interface VerificationFlags {
+export const VerificationFlagsSchema = z.object({
   /** Enable hardware verification (TEE quote validation) */
-  hardware: boolean
+  hardware: z.boolean(),
   /** Enable operating system verification (measurement validation) */
-  os: boolean
+  os: z.boolean(),
   /** Enable source code verification (compose hash validation) */
-  sourceCode: boolean
+  sourceCode: z.boolean(),
   /** Enable TEE controlled key verification */
-  teeControlledKey: boolean
+  teeControlledKey: z.boolean(),
   /** Enable certificate key verification */
-  certificateKey: boolean
+  certificateKey: z.boolean(),
   /** Enable DNS CAA verification (can be slow due to DNS queries) */
-  dnsCAA: boolean
+  dnsCAA: z.boolean(),
   /** Enable Certificate Transparency log verification (can be very slow due to crt.sh queries) */
-  ctLog: boolean
-}
+  ctLog: z.boolean(),
+})
+
+/**
+ * Server configuration
+ */
+export const ServerConfigSchema = z.object({
+  /** Server port */
+  port: z.number().int().positive(),
+  /** Server host */
+  host: z.string().min(1),
+})
+
+// Export TypeScript types from Zod schemas
+export type KmsConfig = z.infer<typeof KmsConfigSchema>
+export type GatewayConfig = z.infer<typeof GatewayConfigSchema>
+export type RedpillConfig = z.infer<typeof RedpillConfigSchema>
+export type PhalaCloudConfig = z.infer<typeof PhalaCloudConfigSchema>
+export type VerificationFlags = z.infer<typeof VerificationFlagsSchema>
+export type ServerConfig = z.infer<typeof ServerConfigSchema>
 
 /**
  * Default verification flags - all enabled
@@ -85,16 +117,6 @@ export const DEFAULT_VERIFICATION_FLAGS: VerificationFlags = {
   certificateKey: true,
   dnsCAA: true,
   ctLog: false, // Skip CT log queries
-}
-
-/**
- * Server configuration
- */
-export interface ServerConfig {
-  /** Server port */
-  port: number
-  /** Server host */
-  host: string
 }
 
 /**

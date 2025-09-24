@@ -1,4 +1,5 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 
 import { getServices } from '../services'
 
@@ -91,19 +92,19 @@ export const queueRoutes = new Elysia({ tags: ['Queue'] })
       }
     },
     {
-      response: t.Object({
-        success: t.Boolean(),
-        queue: t.Optional(
-          t.Object({
-            waiting: t.Number(),
-            active: t.Number(),
-            completed: t.Number(),
-            failed: t.Number(),
-            delayed: t.Optional(t.Number()),
-            paused: t.Optional(t.Boolean()),
-          }),
-        ),
-        error: t.Optional(t.String()),
+      response: z.object({
+        success: z.boolean(),
+        queue: z
+          .object({
+            waiting: z.number(),
+            active: z.number(),
+            completed: z.number(),
+            failed: z.number(),
+            delayed: z.number().optional(),
+            paused: z.boolean().optional(),
+          })
+          .optional(),
+        error: z.string().optional(),
       }),
       detail: {
         summary: 'Get queue status',
@@ -124,26 +125,26 @@ export const queueRoutes = new Elysia({ tags: ['Queue'] })
       }
     },
     {
-      params: t.Object({
-        jobId: t.String(),
+      params: z.object({
+        jobId: z.string(),
       }),
-      response: t.Object({
-        success: t.Boolean(),
-        job: t.Optional(
-          t.Object({
-            id: t.Optional(t.String()),
-            name: t.Optional(t.String()),
-            data: t.Any(),
-            progress: t.Optional(t.Any()),
-            processedOn: t.Optional(t.Number()),
-            finishedOn: t.Optional(t.Number()),
-            failedReason: t.Optional(t.String()),
-            returnvalue: t.Optional(t.Any()),
-            opts: t.Any(),
-            attemptsMade: t.Optional(t.Number()),
-          }),
-        ),
-        error: t.Optional(t.String()),
+      response: z.object({
+        success: z.boolean(),
+        job: z
+          .object({
+            id: z.string().optional(),
+            name: z.string().optional(),
+            data: z.any(),
+            progress: z.any().optional(),
+            processedOn: z.number().optional(),
+            finishedOn: z.number().optional(),
+            failedReason: z.string().optional(),
+            returnvalue: z.any().optional(),
+            opts: z.any(),
+            attemptsMade: z.number().optional(),
+          })
+          .optional(),
+        error: z.string().optional(),
       }),
       detail: {
         summary: 'Get job details',
@@ -164,13 +165,13 @@ export const queueRoutes = new Elysia({ tags: ['Queue'] })
       }
     },
     {
-      params: t.Object({
-        jobId: t.String(),
+      params: z.object({
+        jobId: z.string(),
       }),
-      response: t.Object({
-        success: t.Boolean(),
-        message: t.Optional(t.String()),
-        error: t.Optional(t.String()),
+      response: z.object({
+        success: z.boolean(),
+        message: z.string().optional(),
+        error: z.string().optional(),
       }),
       detail: {
         summary: 'Retry failed job',
@@ -191,13 +192,13 @@ export const queueRoutes = new Elysia({ tags: ['Queue'] })
       }
     },
     {
-      params: t.Object({
-        jobId: t.String(),
+      params: z.object({
+        jobId: z.string(),
       }),
-      response: t.Object({
-        success: t.Boolean(),
-        message: t.Optional(t.String()),
-        error: t.Optional(t.String()),
+      response: z.object({
+        success: z.boolean(),
+        message: z.string().optional(),
+        error: z.string().optional(),
       }),
       detail: {
         summary: 'Remove job',
@@ -218,10 +219,10 @@ export const queueRoutes = new Elysia({ tags: ['Queue'] })
       }
     },
     {
-      response: t.Object({
-        success: t.Boolean(),
-        message: t.Optional(t.String()),
-        error: t.Optional(t.String()),
+      response: z.object({
+        success: z.boolean(),
+        message: z.string().optional(),
+        error: z.string().optional(),
       }),
       detail: {
         summary: 'Pause queue',
@@ -242,10 +243,10 @@ export const queueRoutes = new Elysia({ tags: ['Queue'] })
       }
     },
     {
-      response: t.Object({
-        success: t.Boolean(),
-        message: t.Optional(t.String()),
-        error: t.Optional(t.String()),
+      response: z.object({
+        success: z.boolean(),
+        message: z.string().optional(),
+        error: z.string().optional(),
       }),
       detail: {
         summary: 'Resume queue',
@@ -266,22 +267,22 @@ export const queueRoutes = new Elysia({ tags: ['Queue'] })
       }
     },
     {
-      query: t.Object({
-        grace: t.Optional(t.Number({ minimum: 0 })),
-        status: t.Optional(
-          t.Union([
-            t.Literal('completed'),
-            t.Literal('failed'),
-            t.Literal('delayed'),
-          ]),
-        ),
-        limit: t.Optional(t.Number({ minimum: 1, maximum: 1000 })),
+      query: z.object({
+        grace: z.number().min(0).optional(),
+        status: z
+          .union([
+            z.literal('completed'),
+            z.literal('failed'),
+            z.literal('delayed'),
+          ])
+          .optional(),
+        limit: z.number().min(1).max(1000).optional(),
       }),
-      response: t.Object({
-        success: t.Boolean(),
-        message: t.Optional(t.String()),
-        cleanedCount: t.Optional(t.Number()),
-        error: t.Optional(t.String()),
+      response: z.object({
+        success: z.boolean(),
+        message: z.string().optional(),
+        cleanedCount: z.number().optional(),
+        error: z.string().optional(),
       }),
       detail: {
         summary: 'Clean queue',

@@ -33,7 +33,7 @@ export class RedpillVerifier extends Verifier {
     model: string,
     metadata: CompleteAppMetadata,
   ) {
-    if (metadata.governance.type !== 'OnChain') {
+    if (!metadata.governance || metadata.governance.type !== 'OnChain') {
       throw new Error('RedpillVerifier requires governance to be onchain')
     }
 
