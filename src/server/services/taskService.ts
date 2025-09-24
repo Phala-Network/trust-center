@@ -1,4 +1,15 @@
-import { and, asc, count, desc, eq, like, or, type SQL, sql } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  count,
+  countDistinct,
+  desc,
+  eq,
+  like,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm'
 
 import type { AppMetadata } from '../../types'
 import { createDbConnection, type DbConnection } from '../db'
@@ -62,6 +73,23 @@ export interface UpdateVerificationTaskData {
   s3Filename?: string
   s3Key?: string
   s3Bucket?: string
+}
+
+export interface AppFilter {
+  appConfigType?: AppConfigType
+  keyword?: string
+  page?: number
+  limit?: number
+  sortBy?: 'appName'
+  sortOrder?: 'asc' | 'desc'
+}
+
+export interface UniqueApp {
+  appId: string
+  appName: string
+  appConfigType: AppConfigType
+  contractAddress: string
+  modelOrDomain: string
 }
 
 // Verification task service factory function
@@ -240,7 +268,6 @@ export const createVerificationTaskService = (
             ? asc(verificationTasksTable.finishedAt)
             : desc(verificationTasksTable.finishedAt)
         break
-      case 'createdAt':
       default:
         orderByClause =
           sortOrder === 'asc'
@@ -378,6 +405,238 @@ export const createVerificationTaskService = (
     }
   }
 
+  // Get latest successful task for a specific app ID
+  const getLatestTaskByAppId = async (
+    appId: string,
+  ): Promise<VerificationTask | null> => {
+    const result = await db
+      .select()
+      .from(verificationTasksTable)
+      .where(
+        and(
+          eq(verificationTasksTable.appId, appId),
+          eq(verificationTasksTable.status, 'completed'),
+        ),
+      )
+      .orderBy(desc(verificationTasksTable.createdAt))
+      .limit(1)
+
+    return result[0] || null
+  }
+
+  // Get latest successful task for each unique app
+  const getLatestTasksForUniqueApps = async (
+    filter: AppFilter = {},
+  ): Promise<PaginatedResult<VerificationTask>> => {
+    const {
+      appConfigType,
+      keyword,
+      sortOrder = 'asc',
+      page = TASK_CONSTANTS.DEFAULT_PAGE,
+      limit = TASK_CONSTANTS.DEFAULT_LIMIT,
+    } = filter
+
+    // Build where conditions for subquery - only include completed tasks
+    const conditions = [eq(verificationTasksTable.status, 'completed')]
+
+    if (appConfigType) {
+      conditions.push(eq(verificationTasksTable.appConfigType, appConfigType))
+    }
+
+    if (keyword) {
+      const keywordPattern = `%${keyword}%`
+      const searchConditions = [
+        like(verificationTasksTable.appName, keywordPattern),
+        like(verificationTasksTable.appId, keywordPattern),
+        like(verificationTasksTable.contractAddress, keywordPattern),
+        like(verificationTasksTable.modelOrDomain, keywordPattern),
+      ].filter(Boolean)
+
+      if (searchConditions.length > 0) {
+        const orCondition = or(...searchConditions)
+        if (orCondition) {
+          conditions.push(orCondition)
+        }
+      }
+    }
+
+    const whereClause = and(...conditions)
+
+    // Get distinct app IDs that have completed tasks
+    const distinctAppIds = await db
+      .selectDistinct({ appId: verificationTasksTable.appId })
+      .from(verificationTasksTable)
+      .where(whereClause)
+
+    const total = distinctAppIds.length
+
+    // Get latest successful task for each app ID with pagination
+    const validatedPage = Math.max(1, page)
+    const validatedLimit = Math.min(
+      Math.max(1, limit),
+      TASK_CONSTANTS.MAX_LIMIT,
+    )
+    const offset = (validatedPage - 1) * validatedLimit
+
+    const paginatedAppIds = distinctAppIds
+      .slice(offset, offset + validatedLimit)
+      .map((row) => row.appId)
+
+    if (paginatedAppIds.length === 0) {
+      return {
+        data: [],
+        total,
+        hasNext: false,
+        page: validatedPage,
+        limit: validatedLimit,
+      }
+    }
+
+    // Get latest successful task for each app ID in the paginated set
+    const latestTasks: VerificationTask[] = []
+
+    for (const appId of paginatedAppIds) {
+      const latestTask = await db
+        .select()
+        .from(verificationTasksTable)
+        .where(
+          and(
+            eq(verificationTasksTable.appId, appId),
+            eq(verificationTasksTable.status, 'completed'),
+          ),
+        )
+        .orderBy(desc(verificationTasksTable.createdAt))
+        .limit(1)
+
+      if (latestTask[0]) {
+        latestTasks.push(latestTask[0])
+      }
+    }
+
+    // Sort the results based on sortBy parameter
+    latestTasks.sort((a, b) => {
+      const aValue = a.appName
+      const bValue = b.appName
+      if (sortOrder === 'desc') {
+        return bValue.localeCompare(aValue)
+      }
+      return aValue.localeCompare(bValue)
+    })
+
+    return {
+      data: latestTasks,
+      total,
+      hasNext: offset + validatedLimit < total,
+      page: validatedPage,
+      limit: validatedLimit,
+    }
+  }
+
+  // List unique apps with optional statistics and filtering
+  const listUniqueApps = async (
+    filter: AppFilter = {},
+  ): Promise<PaginatedResult<UniqueApp>> => {
+    const {
+      appConfigType,
+      keyword,
+      sortBy = 'appName',
+      sortOrder = 'asc',
+      page = TASK_CONSTANTS.DEFAULT_PAGE,
+      limit = TASK_CONSTANTS.DEFAULT_LIMIT,
+    } = filter
+
+    // Build where conditions
+    const conditions = []
+    if (appConfigType) {
+      conditions.push(eq(verificationTasksTable.appConfigType, appConfigType))
+    }
+
+    // Keyword search condition
+    if (keyword) {
+      const keywordPattern = `%${keyword}%`
+      const searchConditions = [
+        like(verificationTasksTable.appName, keywordPattern),
+        like(verificationTasksTable.appId, keywordPattern),
+        like(verificationTasksTable.contractAddress, keywordPattern),
+        like(verificationTasksTable.modelOrDomain, keywordPattern),
+      ]
+      conditions.push(or(...searchConditions))
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined
+
+    // Select only appId and basic fields
+    const selectFields = {
+      appId: verificationTasksTable.appId,
+      appName: verificationTasksTable.appName,
+      appConfigType: verificationTasksTable.appConfigType,
+      contractAddress: verificationTasksTable.contractAddress,
+      modelOrDomain: verificationTasksTable.modelOrDomain,
+    }
+
+    // Get total count of distinct app IDs
+    const totalResult = await db
+      .select({ count: countDistinct(verificationTasksTable.appId) })
+      .from(verificationTasksTable)
+      .where(whereClause)
+
+    const total = Number(totalResult[0]?.count || 0)
+
+    // Build order by clause
+    let orderByClause: ReturnType<typeof asc> | ReturnType<typeof desc>
+
+    switch (sortBy) {
+      case 'appName':
+        orderByClause =
+          sortOrder === 'asc'
+            ? asc(verificationTasksTable.appName)
+            : desc(verificationTasksTable.appName)
+        break
+      default:
+        orderByClause =
+          sortOrder === 'asc'
+            ? asc(verificationTasksTable.appName)
+            : desc(verificationTasksTable.appName)
+        break
+    }
+
+    // Validate pagination parameters
+    const validatedPage = Math.max(1, page)
+    const validatedLimit = Math.min(
+      Math.max(1, limit),
+      TASK_CONSTANTS.MAX_LIMIT,
+    )
+
+    // Get paginated data - using DISTINCT to get unique app IDs
+    const offset = (validatedPage - 1) * validatedLimit
+    const query = db
+      .selectDistinct(selectFields)
+      .from(verificationTasksTable)
+      .where(whereClause)
+      .orderBy(orderByClause)
+      .limit(validatedLimit)
+      .offset(offset)
+
+    const data = await query
+
+    // Transform data to match UniqueApp interface
+    const apps: UniqueApp[] = data.map((row) => ({
+      appId: row.appId,
+      appName: row.appName,
+      appConfigType: row.appConfigType,
+      contractAddress: row.contractAddress,
+      modelOrDomain: row.modelOrDomain,
+    }))
+
+    return {
+      data: apps,
+      total,
+      hasNext: offset + validatedLimit < total,
+      page: validatedPage,
+      limit: validatedLimit,
+    }
+  }
+
   return {
     createVerificationTask,
     getVerificationTask,
@@ -389,6 +648,9 @@ export const createVerificationTaskService = (
     getVerificationTaskStats,
     getVerificationTasksForCleanup,
     cleanupOldVerificationTasks,
+    getLatestTaskByAppId,
+    getLatestTasksForUniqueApps,
+    listUniqueApps,
     healthCheck,
     isHealthy,
   }

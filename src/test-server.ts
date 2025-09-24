@@ -123,7 +123,7 @@ export class DStackVerifierServer {
 
     try {
       body = await request.json()
-    } catch (error) {
+    } catch (_error) {
       return this.createErrorResponse(
         'Invalid JSON',
         400,

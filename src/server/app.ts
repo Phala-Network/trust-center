@@ -3,6 +3,7 @@ import { Elysia } from 'elysia'
 import z from 'zod'
 
 import { authMiddleware } from './plugin/auth'
+import { appsRoutes } from './routes/apps'
 import { healthRoutes } from './routes/health'
 import { queueRoutes } from './routes/queue'
 import { taskRoutes } from './routes/tasks'
@@ -43,6 +44,7 @@ export const createApp = () => {
     .group('/api/v1', (app) =>
       app
         .use(authMiddleware)
+        .group('/apps', (app) => app.use(appsRoutes))
         .group('/tasks', (app) => app.use(taskRoutes))
         .group('/queue', (app) => app.use(queueRoutes)),
     )
