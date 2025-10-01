@@ -1,50 +1,19 @@
 {
-  "name": "play-ts",
-  "module": "index.ts",
-  "type": "module",
+  "name": "trust-center-monorepo",
+  "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "start": "bun run src/index.ts",
-    "dev": "bun --watch run src/index.ts",
-    "build:dcap-qvl": "cd external/dcap-qvl/cli && cargo build --release && mkdir -p ../../../bin && cp target/release/dcap-qvl ../../../bin/",
-    "download:dstack-0.5.3": "cd external/dstack-images && wget https://github.com/Dstack-TEE/meta-dstack/releases/download/v0.5.3/dstack-0.5.3.tar.gz && tar -xzf dstack-0.5.3.tar.gz && rm dstack-0.5.3.tar.gz",
-    "download:dstack-nvidia-0.5.3": "cd external/dstack-images && wget https://github.com/nearai/private-ml-sdk/releases/download/v0.5.3/dstack-nvidia-0.5.3.tar.gz && tar -xzf dstack-nvidia-0.5.3.tar.gz && rm dstack-nvidia-0.5.3.tar.gz",
-    "download:dstack-nvidia-dev-0.5.3": "cd external/dstack-images && wget https://github.com/nearai/private-ml-sdk/releases/download/v0.5.3/dstack-nvidia-dev-0.5.3.tar.gz && tar -xzf dstack-nvidia-dev-0.5.3.tar.gz && rm dstack-nvidia-dev-0.5.3.tar.gz",
-    "server": "bun run src/server/index.ts",
-    "server:dev": "bun --watch src/server/index.ts",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage",
-    "format": "bunx biome format --write .",
-    "lint": "bunx biome lint .",
-    "check": "bunx biome check --write .",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "turbo typecheck"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.2",
-    "@types/bun": "^1.2.22",
-    "@types/pg": "^8.15.5",
-    "drizzle-kit": "^0.31.4",
-    "vitest": "^3.2.4"
+    "@biomejs/biome": "2.2.4",
+    "@types/bun": "^1.2.23",
+    "turbo": "^2.5.8",
+    "typescript": "^5.9.3"
   },
-  "peerDependencies": {
-    "typescript": "^5.8.3"
-  },
-  "dependencies": {
-    "@elysiajs/bearer": "^1.4.1",
-    "@elysiajs/openapi": "^1.4.10",
-    "@t3-oss/env-core": "^0.13.8",
-    "bullmq": "^5.58.7",
-    "drizzle-orm": "^0.44.5",
-    "elysia": "^1.4.7",
-    "ioredis": "^5.8.0",
-    "pg": "^8.16.3",
-    "viem": "^2.37.8",
-    "zod": "^4.1.11"
-  }
+  "packageManager": "bun@1.2.23"
 }
