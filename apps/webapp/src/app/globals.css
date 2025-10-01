@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './theme/colors.css';
+@import './theme/typography.css';
+
+@custom-variant dark (&:is(.dark *));
+/* @plugin '@tailwindcss/typography'; */
+
+@utility container {
+  margin-inline: auto;
+  @apply px-4 sm:px-6;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background overflow-x-hidden;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+
+  ::selection {
+    @apply bg-primary/40;
+  }
+}

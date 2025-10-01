@@ -1,3 +1,3 @@
-[submodule "external/dcap-qvl"]
-	path = external/dcap-qvl
+[submodule "packages/verifier/external/dcap-qvl"]
+	path = packages/verifier/external/dcap-qvl
 	url = https://github.com/Phala-Network/dcap-qvl.git
