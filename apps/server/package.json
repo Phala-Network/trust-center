@@ -7,10 +7,8 @@
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun --watch run src/index.ts",
-    "server": "bun run src/server/index.ts",
-    "server:dev": "bun --watch src/server/index.ts",
     "typecheck": "bunx tsc --noEmit",
-    "clean": "rm -rf node_modules dist .turbo"
+    "clean": "rm -rf node_modules .turbo"
   },
   "devDependencies": {
     "@types/pg": "^8.15.5"
@@ -22,10 +20,10 @@
     "@elysiajs/openapi": "^1.4.11",
     "@t3-oss/env-core": "^0.13.8",
     "bullmq": "^5.59.0",
-    "drizzle-orm": "^0.44.5",
+    "drizzle-orm": "^0.44.6",
     "elysia": "^1.4.9",
     "ioredis": "^5.8.0",
-    "viem": "^2.37.9",
+    "viem": "^2.37.11",
     "zod": "^4.1.11"
   }
 }
