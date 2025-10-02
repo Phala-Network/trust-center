@@ -1,6 +1,9 @@
 'use server'
 
-import {createDbConnection} from '@phala/trust-center-db'
+import {
+  createDbConnection,
+  type TaskCreateRequest,
+} from '@phala/trust-center-db'
 import {verificationTasksTable} from '@phala/trust-center-db/schema'
 import {eq} from 'drizzle-orm'
 import {randomUUID} from 'node:crypto'
@@ -10,15 +13,7 @@ import {env} from '@/env'
 // Create database connection
 const db = createDbConnection(env.DATABASE_URL)
 
-interface CreateTaskInput {
-  appId: string
-  appName: string
-  appConfigType: 'redpill' | 'phala_cloud'
-  contractAddress: string
-  modelOrDomain: string
-  metadata?: any
-  flags?: any
-}
+type CreateTaskInput = TaskCreateRequest
 
 interface CreateTaskResult {
   index: number
@@ -40,6 +35,7 @@ export async function createTask(input: CreateTaskInput) {
       appConfigType: input.appConfigType,
       contractAddress: input.contractAddress,
       modelOrDomain: input.modelOrDomain,
+      appMetadata: input.metadata || null,
       verificationFlags: input.flags || null,
       status: 'pending',
       createdAt: new Date(),
