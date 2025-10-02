@@ -165,26 +165,9 @@ export async function GET(request: NextRequest) {
         ),
       )
 
-    // Batch add tasks to the target API
-    const batchResponse = await fetch(
-      new URL('/api/v1/tasks/batch', env.VERIFIER_BASE_URL),
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.VERIFIER_BEARER_TOKEN}`,
-        },
-        body: JSON.stringify({tasks}),
-      },
-    )
-
-    if (!batchResponse.ok) {
-      throw new Error(
-        `Batch API error: ${batchResponse.status} ${batchResponse.statusText}`,
-      )
-    }
-
-    const batchResult = await batchResponse.json()
+    // Create tasks directly in database and queue
+    const {createTasksDirectly} = await import('@/lib/task-service')
+    const batchResult = await createTasksDirectly(tasks)
 
     return Response.json({
       success: true,

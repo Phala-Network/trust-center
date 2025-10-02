@@ -1,7 +1,7 @@
 import {notFound} from 'next/navigation'
 
 import AppLayout from '@/components/AppLayout'
-import {getTask} from '@/lib/task-api'
+import {getTask} from '@/lib/db'
 
 interface TaskPageProps {
   params: Promise<{
@@ -26,7 +26,7 @@ export const generateMetadata = async ({params}: TaskPageProps) => {
 export default async function TaskPage({params, searchParams}: TaskPageProps) {
   const {['app-id']: appId, ['task-id']: taskId} = await params
 
-  // Get task data from API
+  // Get task data from database
   const task = await getTask(appId, taskId)
 
   if (!task) {
