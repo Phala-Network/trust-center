@@ -8,9 +8,6 @@
   "scripts": {
     "dev": "bun --watch run src/test-server.ts",
     "build:dcap-qvl": "cd external/dcap-qvl/cli && cargo build --release && mkdir -p ../../../bin && cp target/release/dcap-qvl ../../../bin/",
-    "download:dstack-0.5.3": "cd external/dstack-images && wget https://github.com/Dstack-TEE/meta-dstack/releases/download/v0.5.3/dstack-0.5.3.tar.gz && tar -xzf dstack-0.5.3.tar.gz && rm dstack-0.5.3.tar.gz",
-    "download:dstack-nvidia-0.5.3": "cd external/dstack-images && wget https://github.com/nearai/private-ml-sdk/releases/download/v0.5.3/dstack-nvidia-0.5.3.tar.gz && tar -xzf dstack-nvidia-0.5.3.tar.gz && rm dstack-nvidia-0.5.3.tar.gz",
-    "download:dstack-nvidia-dev-0.5.3": "cd external/dstack-images && wget https://github.com/nearai/private-ml-sdk/releases/download/v0.5.3/dstack-nvidia-dev-0.5.3.tar.gz && tar -xzf dstack-nvidia-dev-0.5.3.tar.gz && rm dstack-nvidia-dev-0.5.3.tar.gz",
     "format": "bunx biome format --write .",
     "lint": "bunx biome lint .",
     "check": "bunx biome check --write .",

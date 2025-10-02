@@ -23,7 +23,6 @@ import {
   verifyTeeQuote,
 } from '../verification/hardwareVerification'
 import {
-  getImageFolder,
   verifyOSIntegrity,
   verifyOSIntegrityLegacy,
 } from '../verification/osVerification'
@@ -280,7 +279,16 @@ export class PhalaCloudVerifier extends Verifier {
 
   public async verifyOperatingSystem(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
-    const imageFolderName = getImageFolder('app')
+
+    // Get image version from first instance
+    const imageFolderName = this.systemInfo.instances[0]?.image_version
+    if (!imageFolderName) {
+      throw new Error('No image_version found in SystemInfo.instances[0]')
+    }
+
+    // Ensure image is downloaded
+    const { ensureDstackImage } = await import('../utils/imageDownloader')
+    await ensureDstackImage(imageFolderName)
 
     const isValid = isLegacyVersion(this.systemInfo.kms_info.version)
       ? await verifyOSIntegrityLegacy(appInfo, imageFolderName)

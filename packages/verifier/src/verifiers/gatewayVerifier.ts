@@ -27,10 +27,7 @@ import {
   isUpToDate,
   verifyTeeQuote,
 } from '../verification/hardwareVerification'
-import {
-  getImageFolder,
-  verifyOSIntegrity,
-} from '../verification/osVerification'
+import { verifyOSIntegrity } from '../verification/osVerification'
 import { verifyComposeHash } from '../verification/sourceCodeVerification'
 import { type OwnDomain, Verifier } from '../verifier'
 
@@ -138,7 +135,16 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    */
   public async verifyOperatingSystem(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
-    const imageFolderName = getImageFolder('gateway')
+
+    // Extract version from KMS info and construct image folder name
+    const { extractVersionNumber, ensureDstackImage } = await import(
+      '../utils/imageDownloader'
+    )
+    const version = extractVersionNumber(this.systemInfo.kms_info.version)
+    const imageFolderName = `dstack-${version}`
+
+    // Ensure image is downloaded
+    await ensureDstackImage(imageFolderName)
 
     const isValid = await verifyOSIntegrity(appInfo, imageFolderName)
 
