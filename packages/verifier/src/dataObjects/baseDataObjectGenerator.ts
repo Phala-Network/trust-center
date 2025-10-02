@@ -83,22 +83,13 @@ export abstract class BaseDataObjectGenerator {
     try {
       const metadataContent = readFileSync(metadataPath, 'utf8')
       return JSON.parse(metadataContent) as DStackImageMetadata
-    } catch {
-      // Fallback to hardcoded values if metadata file is not found
-      console.warn(
-        `Warning: Could not read metadata from ${metadataPath}, using fallback values`,
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
+      throw new Error(
+        `Failed to read DStack image metadata from ${metadataPath}: ${errorMessage}. ` +
+          `Please ensure version ${version} is downloaded or available.`,
       )
-      return {
-        bios: 'ovmf.fd',
-        kernel: 'bzImage',
-        cmdline: '',
-        initrd: 'initramfs.cpio.gz',
-        rootfs: 'rootfs.img.verity',
-        version: cleanVersion,
-        git_revision: '',
-        shared_ro: true,
-        is_dev: false,
-      }
     }
   }
 

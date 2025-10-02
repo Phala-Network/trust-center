@@ -22,12 +22,12 @@ function getDStackImagesBasePath(): string {
  * Measures DStack OS images and compares with expected TCB values.
  *
  * @param appInfo - Application information containing VM config
- * @param imageFolderName - Name of the image folder to use
+ * @param imageFolderName - Name of the image folder to use (required)
  * @returns Promise resolving to true if all measurement registers match
  */
 export async function verifyOSIntegrity(
   appInfo: AppInfo,
-  imageFolderName: string = 'dstack-0.5.3',
+  imageFolderName: string,
 ): Promise<boolean> {
   const measurementResult = await measureDstackImages({
     image_folder: path.join(getDStackImagesBasePath(), imageFolderName),
@@ -42,12 +42,12 @@ export async function verifyOSIntegrity(
  * Measures DStack OS images for legacy versions using the Go-based dstack-mr tool.
  *
  * @param appInfo - Application information containing VM config
- * @param imageFolderName - Name of the image folder to use for legacy versions
+ * @param imageFolderName - Name of the image folder to use for legacy versions (required)
  * @returns Promise resolving to true if all measurement registers match
  */
 export async function verifyOSIntegrityLegacy(
   appInfo: AppInfo,
-  imageFolderName: string = 'dstack-0.5.3',
+  imageFolderName: string,
 ): Promise<boolean> {
   const measurementResult = await measureDstackImagesLegacy({
     image_folder: path.join(getDStackImagesBasePath(), imageFolderName),
@@ -80,19 +80,4 @@ function compareMeasurementRegisters(
     measurementResult.rtmr1 === expectedTcb.rtmr1 &&
     measurementResult.rtmr2 === expectedTcb.rtmr2
   )
-}
-
-/**
- * Gets the appropriate image folder based on verifier type.
- *
- * @param verifierType - Type of verifier (kms, gateway, app)
- * @returns Image folder name
- */
-export function getImageFolder(verifierType: string): string {
-  switch (verifierType) {
-    case 'app':
-      return 'dstack-nvidia-dev-0.5.3'
-    default:
-      return 'dstack-0.5.3'
-  }
 }

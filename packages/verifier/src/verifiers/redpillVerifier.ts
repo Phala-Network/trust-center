@@ -14,10 +14,7 @@ import {
   isUpToDate,
   verifyTeeQuote,
 } from '../verification/hardwareVerification'
-import {
-  getImageFolder,
-  verifyOSIntegrity,
-} from '../verification/osVerification'
+import { verifyOSIntegrity } from '../verification/osVerification'
 import { verifyComposeHash } from '../verification/sourceCodeVerification'
 import { Verifier } from '../verifier'
 
@@ -189,7 +186,13 @@ export class RedpillVerifier extends Verifier {
 
   public async verifyOperatingSystem(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
-    const imageFolderName = getImageFolder('app')
+
+    // Use hardcoded version for Redpill (as the version is consistent)
+    const imageFolderName = 'dstack-nvidia-dev-0.5.3'
+
+    // Ensure image is downloaded
+    const { ensureDstackImage } = await import('../utils/imageDownloader')
+    await ensureDstackImage(imageFolderName)
 
     const isValid = await verifyOSIntegrity(appInfo, imageFolderName)
 
