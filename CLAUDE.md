@@ -32,30 +32,23 @@ trust-center-monorepo/
 │   │   ├── src/
 │   │   │   ├── env.ts            # Environment validation
 │   │   │   ├── index.ts          # Server entry point
-│   │   │   └── server/           # Server implementation
-│   │   │       ├── app.ts        # Elysia application factory
-│   │   │       ├── index.ts      # Server lifecycle
-│   │   │       ├── plugin/       # Authentication plugins
-│   │   │       ├── routes/       # API endpoints
-│   │   │       │   ├── health.ts
-│   │   │       │   ├── apps/     # App management endpoints
-│   │   │       │   ├── tasks/    # Task management endpoints
-│   │   │       │   └── queue.ts  # Queue management
-│   │   │       └── services/     # Business logic services
-│   │   │           ├── index.ts
-│   │   │           ├── queue.ts
-│   │   │           ├── s3.ts
-│   │   │           └── taskService.ts
+│   │   │   ├── types/            # Type definitions
+│   │   │   └── services/         # Business logic services
+│   │   │       ├── index.ts
+│   │   │       ├── queue.ts      # BullMQ queue service
+│   │   │       ├── dbMonitor.ts  # Database polling for new tasks
+│   │   │       ├── s3.ts         # S3 storage service
+│   │   │       └── taskService.ts # Database operations
 │   │   └── package.json
 │   └── webapp/                    # Next.js web application
 │       ├── src/
 │       │   ├── app/              # Next.js app router
 │       │   ├── components/       # React components
-│       │   └── lib/              # Utilities
+│       │   └── lib/              # Utilities (direct DB access)
 │       └── package.json
 ├── packages/                      # Shared packages
 │   ├── db/                       # Database package
-│   │   ├── schema.ts             # Database schema
+│   │   ├── schema.ts             # Database schema with Zod types
 │   │   ├── index.ts              # DB connection utilities
 │   │   ├── drizzle.config.ts     # Drizzle configuration
 │   │   ├── drizzle/              # Migration files
@@ -72,9 +65,13 @@ trust-center-monorepo/
 │       │   ├── utils/            # Utility functions
 │       │   └── constants/        # Constants
 │       └── package.json          # @phala/dstack-verifier
-├── package.json                  # Root package.json
-├── turbo.json                    # Turbo configuration
-└── tsconfig.json                 # Root TypeScript config
+├── Dockerfile                     # Production Docker image
+├── compose.yml                    # Production Docker Compose
+├── compose.dev.yml                # Development Docker Compose
+├── Makefile                       # Build and deployment commands
+├── package.json                   # Root package.json
+├── turbo.json                     # Turbo configuration
+└── tsconfig.json                  # Root TypeScript config
 ```
 
 ## Package Architecture
@@ -86,12 +83,17 @@ Database package providing PostgreSQL integration with Drizzle ORM.
 **Exports:**
 - `createDbConnection()`: Database connection factory
 - `verificationTasksTable`: Drizzle table definition
-- Types: `VerificationTask`, `VerificationTaskStatus`, `AppConfigType`
+- Zod Schemas: `TaskCreateRequestSchema`, `TaskSchema`, `VerificationFlagsSchema`
+- Types: `Task`, `TaskCreateRequest`, `VerificationFlags`, `VerificationTaskStatus`, `AppConfigType`
 
 **Schema:**
 - `verification_tasks`: Task tracking with status, timestamps, and results
 - Indexed fields for efficient querying (app_id, status, timestamps)
 - JSONB fields for flexible metadata storage
+- Zod schemas for runtime validation and type inference
+
+**Scripts:**
+- `db:migrate`: Apply database migrations using Drizzle Kit
 
 **Location:** `packages/db/`
 
@@ -117,26 +119,20 @@ Core verification engine for TEE attestation validation.
 
 ### server (Backend API)
 
-Elysia-based REST API server with queue-based verification processing.
+Background worker service with queue-based verification processing.
 
 **Key Features:**
-- OpenAPI documentation with Swagger UI
-- Bearer token authentication
 - PostgreSQL persistence for verification tasks
 - Redis-based BullMQ queue for background processing
 - S3-compatible storage for verification results
-- Comprehensive task management endpoints
+- Database polling via dbMonitor service
+- No HTTP API endpoints (removed, webapp uses direct DB access)
 
-**API Endpoints:**
-- `POST /api/v1/tasks` - Create verification task
-- `GET /api/v1/tasks/:id` - Get task status
-- `GET /api/v1/tasks` - List tasks with filtering
-- `POST /api/v1/tasks/:id/cancel` - Cancel task
-- `POST /api/v1/tasks/:id/retry` - Retry failed task
-- `DELETE /api/v1/tasks/:id` - Delete task
-- `GET /api/v1/apps` - List unique apps
-- `GET /api/v1/apps/:id` - Get app details
-- `GET /api/v1/health` - Health check
+**Services:**
+- `queue.ts`: BullMQ queue and worker management
+- `dbMonitor.ts`: Polls database for pending tasks and adds to queue
+- `taskService.ts`: Database operations for tasks
+- `s3.ts`: S3 storage for verification results
 
 **Location:** `apps/server/`
 
@@ -148,7 +144,14 @@ Next.js web application for user interaction with the verification platform.
 - Modern React with App Router
 - shadcn/ui component library
 - Tailwind CSS styling
-- Type-safe API integration
+- Direct database access via Drizzle (no API layer)
+- Server Actions for task creation
+
+**Architecture:**
+- Uses `@phala/trust-center-db` directly for data access
+- Server creates tasks by inserting into database
+- dbMonitor in server app picks up tasks and queues them
+- No HTTP API calls between webapp and server
 
 **Location:** `apps/webapp/`
 
@@ -213,17 +216,20 @@ S3_BUCKET: string
 ### Database Management
 
 ```bash
+# In packages/db directory
+cd packages/db
+
 # Generate migration files
-bun run db:generate
+drizzle-kit generate
 
 # Apply migrations
-bun run db:migrate
+bun run migrate
 
 # Push schema changes
-bun run db:push
+drizzle-kit push
 
 # Open database studio
-bun run db:studio
+drizzle-kit studio
 ```
 
 ## Development Workflow
@@ -231,82 +237,50 @@ bun run db:studio
 ### Build Scripts
 
 ```bash
-# Development
-bun run dev              # Start all apps in dev mode
-bun run server:dev       # Server only
-bun run webapp:dev       # Webapp only
+# Development (using Docker Compose)
+make dev                 # Start development environment
+make logs                # View container logs
+make shell               # Open shell in container
+make down                # Stop containers
+make clean               # Remove containers and volumes
 
-# Production
-bun run build            # Build all packages and apps
-bun run server:start     # Start production server
-bun run webapp:start     # Start production webapp
+# Production (using Docker Compose)
+make prod                # Start production environment
+make status              # Show container status
+make health              # Check service health
+
+# Manual development (without Docker)
+cd apps/server && bun run dev     # Start server worker
+cd apps/webapp && bun run dev     # Start webapp
 
 # Quality
 bun run typecheck        # Type check all packages
-bun run lint             # Lint all packages
-bun run format           # Format all packages
-bun run test             # Run all tests
-
-# Database
-bun run db:generate      # Generate migrations
-bun run db:push          # Push schema changes
 ```
 
 ### Package Structure Guidelines
 
-- **Shared types** go in `@phala/trust-center-db` or `@phala/dstack-verifier`
-- **Database schema** is centralized in `@phala/trust-center-db`
+- **Shared types** go in `@phala/trust-center-db` (use Zod schemas for validation)
+- **Database schema** is centralized in `@phala/trust-center-db/schema.ts`
 - **Verification logic** stays in `@phala/dstack-verifier`
-- **API routes and services** are in `apps/server/src/server/`
+- **Queue and worker services** are in `apps/server/src/services/`
 - **UI components** are in `apps/webapp/src/components/`
+- **Server Actions** for database operations are in `apps/webapp/src/lib/`
 
-## API Documentation
+## Architecture Notes
 
-### Task Creation
+### Task Flow
 
-```typescript
-POST /api/v1/tasks
-Content-Type: application/json
+1. **Task Creation**: Webapp creates task by inserting into `verification_tasks` table with `status='pending'`
+2. **Task Detection**: Server's `dbMonitor` polls for tasks where `status='pending' AND bullJobId IS NULL`
+3. **Queue Addition**: dbMonitor adds task to BullMQ queue and updates `bullJobId`
+4. **Task Processing**: BullMQ worker picks up task, runs verification, updates status and results
+5. **Result Storage**: Verification results stored in S3, metadata in database
 
-{
-  "appId": "0x78601222ada762fa7cdcbc167aa66dd7a5f57ece",
-  "appName": "phala/deepseek-chat",
-  "appConfigType": "redpill",
-  "contractAddress": "0x78601222ada762fa7cdcbc167aa66dd7a5f57ece",
-  "modelOrDomain": "phala/deepseek-chat",
-  "metadata": {
-    "osSource": {
-      "github_repo": "https://github.com/Phala-Network/dstack",
-      "git_commit": "abc123",
-      "version": "v0.5.3"
-    }
-  },
-  "flags": {
-    "hardware": true,
-    "os": true,
-    "sourceCode": true
-  }
-}
-```
+### Database Access Pattern
 
-### Task Status
-
-```typescript
-GET /api/v1/tasks/:id
-
-Response:
-{
-  "task": {
-    "id": "uuid",
-    "status": "completed",
-    "appId": "...",
-    "s3Filename": "...",
-    "dataObjects": ["..."],
-    "createdAt": "2024-01-01T00:00:00Z",
-    "finishedAt": "2024-01-01T00:05:00Z"
-  }
-}
-```
+- **Webapp**: Direct Drizzle queries for reading/writing tasks
+- **Server**: Uses `taskService.ts` for task updates, `dbMonitor.ts` for queue management
+- **No REST API**: All communication via shared database
 
 ## Security Considerations
 
@@ -352,18 +326,18 @@ Response:
 ### Docker Compose
 
 ```bash
-# Production
-docker compose up -d
+# Production (from root)
+docker compose up -d        # or: make prod
 
-# Development
-docker compose -f compose.dev.yml up
+# Development (from root)
+docker compose -f compose.dev.yml up    # or: make dev
 ```
 
 ### Service Architecture
 
-- **API Server**: Elysia application on port 3000
-- **Queue Workers**: BullMQ workers for background tasks
-- **PostgreSQL**: Database on port 5432
+- **Server Worker**: Background worker processing verification queue
+- **Webapp**: Next.js application on port 3000 (dev only)
+- **PostgreSQL**: Database on port 5432 (dev only, prod uses Supabase)
 - **Redis**: Queue backend on port 6379
 - **Object Storage**: S3-compatible storage
 
@@ -372,28 +346,31 @@ docker compose -f compose.dev.yml up
 ### Server Development
 
 ```bash
-# Start server in development mode
+# Start server worker in development mode
 cd apps/server
 bun run dev
 
-# Type check
-bun run typecheck
-
-# Run specific endpoint
-curl http://localhost:3000/health
+# Or use Docker Compose
+make dev
+make logs
 ```
 
 ### Database Operations
 
 ```bash
-# Add migration
-bun run db:generate
+cd packages/db
 
-# Apply changes
-bun run db:push
+# Generate migration files
+drizzle-kit generate
+
+# Apply migrations
+bun run migrate
+
+# Push schema changes
+drizzle-kit push
 
 # Inspect database
-bun run db:studio
+drizzle-kit studio
 ```
 
 ### Verification Service
@@ -417,7 +394,10 @@ const result = await service.verify({
 ### Recent Changes
 
 - Monorepo restructure with packages and apps separation
-- Database extracted to `@phala/trust-center-db` package
-- Verifier minimized exports to essential types only
-- Drizzle configuration moved to db package
-- Server code remains in `apps/server/src/server/`
+- Database extracted to `@phala/trust-center-db` package with Zod schemas
+- Removed all HTTP API endpoints - webapp uses direct database access
+- Server is now a background worker with queue processing only
+- Webapp uses Next.js Server Actions with direct Drizzle queries
+- Docker files moved to root (Dockerfile, compose.yml, compose.dev.yml, Makefile)
+- Database migrations managed in `packages/db/` with `db:migrate` script
+- Task flow: webapp → database → dbMonitor → queue → worker → results
