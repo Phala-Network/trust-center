@@ -1,11 +1,12 @@
 import {cookies} from 'next/headers'
 
+import type {Task} from '@phala/trust-center-db'
+
 import {AttestationDataProvider} from '@/components/AttestationDataProvider'
 import Footer from '@/components/Footer'
 import Header from '@/components/Header'
 import {HydrateProvider} from '@/components/HydrateProvider'
 import Panels from '@/components/Panels'
-import type {Task} from '@/lib/db'
 import {PANEL_LAYOUT_STORAGE_KEY} from '@/stores/app'
 
 interface AppLayoutProps {

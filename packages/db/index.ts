@@ -10,3 +10,14 @@ export function createDbConnection(databaseUrl: string) {
 }
 
 export type DbConnection = ReturnType<typeof createDbConnection>
+
+// Re-export schemas and types from schema.ts
+export {
+  AppConfigTypeSchema,
+  TaskCreateRequestSchema,
+  TaskSchema,
+  VerificationFlagsSchema,
+  VerificationTaskStatusSchema,
+} from './schema'
+
+export type {Task, TaskCreateRequest, VerificationFlags} from './schema'

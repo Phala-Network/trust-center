@@ -1,6 +1,6 @@
 'use server'
 
-import {createDbConnection} from '@phala/trust-center-db'
+import {createDbConnection, type Task} from '@phala/trust-center-db'
 import {verificationTasksTable} from '@phala/trust-center-db/schema'
 import {and, desc, eq, sql} from 'drizzle-orm'
 
@@ -8,24 +8,6 @@ import {env} from '@/env'
 
 // Create database connection
 const db = createDbConnection(env.DATABASE_URL)
-
-export interface Task {
-  id: string
-  appId: string
-  appName: string
-  appConfigType: 'redpill' | 'phala_cloud'
-  contractAddress: string
-  modelOrDomain: string
-  verificationFlags: any | null
-  status: string
-  errorMessage?: string
-  s3Filename?: string
-  s3Key?: string
-  s3Bucket?: string
-  createdAt: string
-  startedAt?: string
-  finishedAt?: string
-}
 
 export interface App extends Task {}
 
