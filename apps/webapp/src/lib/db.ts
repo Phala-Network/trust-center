@@ -1,13 +1,17 @@
 'use server'
 
-import {createDbConnection, type Task} from '@phala/trust-center-db'
+import {
+  createDbConnection,
+  type Task,
+  type VerificationFlags,
+} from '@phala/trust-center-db'
 import {verificationTasksTable} from '@phala/trust-center-db/schema'
 import {and, desc, eq, sql} from 'drizzle-orm'
 
 import {env} from '@/env'
 
 // Create database connection
-const db = createDbConnection(env.DATABASE_URL)
+const db = createDbConnection(env.DATABASE_POSTGRES_URL)
 
 export interface App extends Task {}
 
@@ -59,7 +63,8 @@ export async function getApps(params?: {
       | 'phala_cloud',
     contractAddress: r.verification_tasks.contractAddress,
     modelOrDomain: r.verification_tasks.modelOrDomain,
-    verificationFlags: r.verification_tasks.verificationFlags,
+    verificationFlags: r.verification_tasks
+      .verificationFlags as VerificationFlags | null,
     status: r.verification_tasks.status,
     errorMessage: r.verification_tasks.errorMessage || undefined,
     s3Filename: r.verification_tasks.s3Filename || undefined,
@@ -92,7 +97,7 @@ export async function getApp(appId: string): Promise<App | null> {
     appConfigType: task.appConfigType,
     contractAddress: task.contractAddress,
     modelOrDomain: task.modelOrDomain,
-    verificationFlags: task.verificationFlags,
+    verificationFlags: task.verificationFlags as VerificationFlags | null,
     status: task.status,
     errorMessage: task.errorMessage || undefined,
     s3Filename: task.s3Filename || undefined,
@@ -130,7 +135,7 @@ export async function getAppTasks(
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
     modelOrDomain: task.modelOrDomain,
-    verificationFlags: task.verificationFlags,
+    verificationFlags: task.verificationFlags as VerificationFlags | null,
     status: task.status,
     errorMessage: task.errorMessage || undefined,
     s3Filename: task.s3Filename || undefined,
@@ -162,7 +167,7 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
     modelOrDomain: task.modelOrDomain,
-    verificationFlags: task.verificationFlags,
+    verificationFlags: task.verificationFlags as VerificationFlags | null,
     status: task.status,
     errorMessage: task.errorMessage || undefined,
     s3Filename: task.s3Filename || undefined,
@@ -202,7 +207,7 @@ export async function getTask(
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
     modelOrDomain: task.modelOrDomain,
-    verificationFlags: task.verificationFlags,
+    verificationFlags: task.verificationFlags as VerificationFlags | null,
     status: task.status,
     errorMessage: task.errorMessage || undefined,
     s3Filename: task.s3Filename || undefined,

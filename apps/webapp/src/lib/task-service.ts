@@ -11,7 +11,7 @@ import {randomUUID} from 'node:crypto'
 import {env} from '@/env'
 
 // Create database connection
-const db = createDbConnection(env.DATABASE_URL)
+const db = createDbConnection(env.DATABASE_POSTGRES_URL)
 
 type CreateTaskInput = TaskCreateRequest
 
