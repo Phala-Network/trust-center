@@ -16,7 +16,7 @@ interface AppData {
 interface TaskData {
   appId: string
   appName: string
-  appConfigType: string
+  appConfigType: 'phala_cloud' | 'redpill'
   contractAddress: string
   modelOrDomain: string
 }
