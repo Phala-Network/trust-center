@@ -223,14 +223,30 @@ export class PhalaCloudVerifier extends Verifier {
         )
       }
 
+      // Filter out invalid instances (empty objects when instance is turned off)
+      const validInstances = parseResult.data.instances.filter(
+        (instance) =>
+          instance.quote !== undefined &&
+          instance.eventlog !== undefined &&
+          instance.image_version !== undefined,
+      )
+
+      // Check if instances list is empty (instance is turned off)
+      if (validInstances.length === 0) {
+        throw new Error(
+          `App '${appId}' has no running instances on Phala Cloud`,
+        )
+      }
+
       // Transform quotes to ensure they have 0x prefix
       const transformedData: SystemInfo = {
         ...parseResult.data,
-        instances: parseResult.data.instances.map((instance) => ({
-          ...instance,
-          quote: instance.quote.startsWith('0x')
-            ? (instance.quote as `0x${string}`)
-            : (`0x${instance.quote}` as `0x${string}`),
+        instances: validInstances.map((instance) => ({
+          quote: instance.quote!.startsWith('0x')
+            ? (instance.quote! as `0x${string}`)
+            : (`0x${instance.quote!}` as `0x${string}`),
+          eventlog: instance.eventlog!,
+          image_version: instance.image_version!,
         })),
       }
 
