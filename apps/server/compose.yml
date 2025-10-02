@@ -1,38 +1,13 @@
 # DStack Verifier - Production Docker Compose
 services:
-  # PostgreSQL database for verification data storage
-  postgres:
-    image: postgres:17-alpine
-    container_name: dstack-verifier-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-dstack_verifier}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dstack_verifier}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  # Redis for queue management and caching
+  # Redis Queue
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: dstack-verifier-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password} --appendonly yes
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: [ "CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-redis_password}", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
+    command: redis-server --appendonly yes
 
   # DStack Verifier Server
   server:
@@ -40,21 +15,17 @@ services:
     container_name: dstack-verifier-server
     restart: unless-stopped
     pull_policy: always
+    depends_on:
+      - redis
     environment:
       # Authentication configuration
       BEARER_TOKEN: ${BEARER_TOKEN}
 
-      # Database configuration
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dstack_verifier}
-      POSTGRES_DB: ${POSTGRES_DB:-dstack_verifier}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      # Database configuration (using Supabase in production)
+      DATABASE_URL: ${DATABASE_URL}
 
-      # Redis configuration
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_password}
-      REDIS_PORT: ${REDIS_PORT:-6379}
+      # Redis configuration (using local Redis)
+      REDIS_URL: redis://redis:6379
 
       # Application configuration
       NODE_ENV: ${NODE_ENV:-production}
@@ -79,12 +50,6 @@ services:
       BASE_RPC_URL: ${BASE_RPC_URL}
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
 volumes:
-  postgres_data:
   redis_data:

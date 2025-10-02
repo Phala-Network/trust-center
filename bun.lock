@@ -23,7 +23,6 @@
         "drizzle-orm": "^0.44.5",
         "elysia": "^1.4.9",
         "ioredis": "^5.8.0",
-        "pg": "^8.16.3",
         "viem": "^2.37.9",
         "zod": "^4.1.11",
       },
@@ -107,6 +106,7 @@
       "version": "1.0.0",
       "dependencies": {
         "drizzle-orm": "^0.44.5",
+        "pg": "^8.16.3",
       },
       "devDependencies": {
         "drizzle-kit": "^0.31.5",

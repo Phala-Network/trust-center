@@ -1,16 +1,16 @@
-import { type Job, Queue, Worker } from 'bullmq'
-import IORedis from 'ioredis'
-import { isAddress } from 'viem'
-
 import type {
   PhalaCloudConfig,
   RedpillConfig,
   VerificationResponse,
   VerificationService,
 } from '@phala/dstack-verifier'
-import type { TaskCreateRequest } from '../routes/tasks/schemas'
-import type { S3Service } from './s3'
-import type { VerificationTaskService } from './taskService'
+import {type Job, Queue, Worker} from 'bullmq'
+import IORedis from 'ioredis'
+import {isAddress} from 'viem'
+
+import type {TaskCreateRequest} from '../types/schemas'
+import type {S3Service} from './s3'
+import type {VerificationTaskService} from './taskService'
 
 export interface QueueConfig {
   redisUrl: string
@@ -84,7 +84,7 @@ export const createQueueService = (
 
         console.log(
           `[QUEUE] Processing verification for ${appConfigType} config:`,
-          JSON.stringify({ contractAddress, modelOrDomain, metadata }, null, 2),
+          JSON.stringify({contractAddress, modelOrDomain, metadata}, null, 2),
         )
         console.log(`[QUEUE] Verification flags:`, flags)
 
@@ -156,7 +156,7 @@ export const createQueueService = (
 
   // Handle job completion
   const handleJobCompleted = async (job: Job<TaskData>, result: TaskResult) => {
-    const { postgresTaskId } = result
+    const {postgresTaskId} = result
 
     try {
       console.log(`[QUEUE] Job ${job.id} completed for task ${postgresTaskId}`)
@@ -178,10 +178,8 @@ export const createQueueService = (
           result.verificationResult.dataObjects?.map((obj) => obj.id) || []
 
         // Extract dstack version from verification result (from first data object if available)
-        const dstackVersion =
-          result.verificationResult.dataObjects?.[0]?.fields?.os_version as
-            | string
-            | undefined
+        const dstackVersion = result.verificationResult.dataObjects?.[0]?.fields
+          ?.os_version as string | undefined
 
         uploadResult = {
           s3Filename: upload.s3Filename,
@@ -264,7 +262,7 @@ export const createQueueService = (
       return
     }
 
-    const { postgresTaskId } = job.data
+    const {postgresTaskId} = job.data
 
     try {
       console.error(
@@ -289,7 +287,7 @@ export const createQueueService = (
 
   // Handle job progress
   const handleJobProgress = async (job: Job<TaskData>, progress: unknown) => {
-    const { postgresTaskId } = job.data
+    const {postgresTaskId} = job.data
     const progressValue = typeof progress === 'number' ? progress : 0
     console.log(
       `[QUEUE] Job ${job.id} progress for task ${postgresTaskId}: ${progressValue}%`,
@@ -301,59 +299,13 @@ export const createQueueService = (
   worker.on('failed', handleJobFailed)
   worker.on('progress', handleJobProgress)
 
-  // Add task to queue
-  const addTask = async (taskData: TaskCreateRequest): Promise<string> => {
-    // 1. Create task in PostgreSQL first
-    const postgresTaskId =
-      await verificationTaskService.createVerificationTask(taskData)
-
-    // 2. Add to queue with PostgreSQL ID and generated defaults
-    const fullTaskData: TaskData = {
-      ...taskData,
-      postgresTaskId,
-    }
-    const job = await queue.add('verification', fullTaskData, {
-      jobId: postgresTaskId,
-    })
-
-    // 3. Update PostgreSQL task with job ID
-    await verificationTaskService.updateVerificationTask(postgresTaskId, {
-      bullJobId: job.id,
-    })
-
-    console.log(
-      `[QUEUE] Added verification task ${postgresTaskId} for app ${taskData.appId}/${taskData.appName}`,
-    )
-    return postgresTaskId
-  }
-
-  const getJob = async (jobId: string): Promise<Job | null | undefined> => {
-    return await queue.getJob(jobId)
-  }
-
-  const removeJob = async (jobId: string): Promise<boolean> => {
-    const job = await queue.getJob(jobId)
-    if (!job) return false
-
-    await job.remove()
-    return true
-  }
-
-  const retryJob = async (jobId: string): Promise<boolean> => {
-    const job = await queue.getJob(jobId)
-    if (!job) return false
-
-    await job.retry()
-    return true
-  }
-
-  // Add existing task back to queue (for retry functionality)
+  // Add existing task back to queue (used by dbMonitor)
   const addExistingTask = async (taskData: TaskData): Promise<string> => {
     const job = await queue.add('verification', taskData, {
       jobId: taskData.postgresTaskId,
     })
 
-    // Update PostgreSQL task with job ID
+    // Update PostgreSQL task with job ID only (keep status as pending)
     await verificationTaskService.updateVerificationTask(
       taskData.postgresTaskId,
       {
@@ -362,7 +314,7 @@ export const createQueueService = (
     )
 
     console.log(
-      `[QUEUE] Re-added verification task ${taskData.postgresTaskId} for app ${taskData.appId}/${taskData.appName}`,
+      `[QUEUE] Added verification task ${taskData.postgresTaskId} for app ${taskData.appId}/${taskData.appName}`,
     )
     return taskData.postgresTaskId
   }
@@ -386,23 +338,6 @@ export const createQueueService = (
     }
   }
 
-  const pause = async (): Promise<void> => {
-    await queue.pause()
-  }
-
-  const resume = async (): Promise<void> => {
-    await queue.resume()
-  }
-
-  const clean = async (opts: {
-    grace: number
-    status: 'completed' | 'failed' | 'delayed'
-    limit: number
-  }): Promise<number> => {
-    const jobs = await queue.clean(opts.grace, opts.limit, opts.status)
-    return jobs.length
-  }
-
   const healthCheck = async () => {
     try {
       await redis.ping()
@@ -421,15 +356,6 @@ export const createQueueService = (
     }
   }
 
-  const isHealthy = async (): Promise<boolean> => {
-    try {
-      await redis.ping()
-      return true
-    } catch {
-      return false
-    }
-  }
-
   const close = async () => {
     await worker.close()
     await queue.close()
@@ -437,17 +363,9 @@ export const createQueueService = (
   }
 
   return {
-    addTask,
     addExistingTask,
-    getJob,
-    removeJob,
-    retryJob,
     getStats,
-    pause,
-    resume,
-    clean,
     healthCheck,
-    isHealthy,
     close,
   }
 }

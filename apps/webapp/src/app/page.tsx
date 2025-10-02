@@ -2,7 +2,7 @@ import {Activity, CheckCircle} from 'lucide-react'
 import Link from 'next/link'
 
 import {AppLogo} from '@/components/app-logo'
-import {getApps} from '@/lib/task-api'
+import {getApps} from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,8 +73,7 @@ function AppList({apps}: {apps: any[]}) {
 }
 
 export default async function HomePage() {
-  // Fetch data at the top level using new App API
-  const apps = await getApps({includeStats: true, sortBy: 'appName'})
+  const apps = await getApps({sortBy: 'appName'})
   const totalApps = apps.length
 
   return (
