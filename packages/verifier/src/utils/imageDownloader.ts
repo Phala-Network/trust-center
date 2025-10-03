@@ -73,17 +73,21 @@ async function downloadAndExtract(
   imagesDir: string,
 ): Promise<void> {
   const tarballPath = join(imagesDir, `${imageFolderName}.tar.gz`)
+  const targetDir = join(imagesDir, imageFolderName)
 
   console.log(
     `Downloading dstack image ${imageFolderName} from ${downloadUrl}...`,
   )
 
   try {
+    // Create target directory
+    mkdirSync(targetDir, { recursive: true })
+
     // Download tarball
     await execAsync(`wget -O "${tarballPath}" "${downloadUrl}"`)
 
-    // Extract tarball
-    await execAsync(`tar -xzf "${tarballPath}" -C "${imagesDir}"`)
+    // Extract tarball into the target directory
+    await execAsync(`tar -xzf "${tarballPath}" -C "${targetDir}"`)
 
     // Clean up tarball
     await execAsync(`rm "${tarballPath}"`)
@@ -93,6 +97,7 @@ async function downloadAndExtract(
     // Clean up on error
     try {
       await execAsync(`rm -f "${tarballPath}"`)
+      await execAsync(`rm -rf "${targetDir}"`)
     } catch {
       // Ignore cleanup errors
     }
