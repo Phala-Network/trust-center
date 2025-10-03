@@ -95,6 +95,13 @@ RUN chmod +x /usr/local/bin/dcap-qvl /usr/local/bin/dstack-mr-cli /usr/local/bin
 # Final stage
 FROM runtime AS final
 
+# Copy verification tool binaries from runtime stage
+COPY --from=runtime /usr/local/bin/dcap-qvl /usr/local/bin/
+COPY --from=runtime /usr/local/bin/dstack-mr-cli /usr/local/bin/
+COPY --from=runtime /usr/local/bin/dstack-mr /usr/local/bin/
+COPY --from=runtime /usr/local/bin/dstack-acpi-tables /usr/local/bin/
+COPY --from=runtime /usr/local/share/qemu /usr/local/share/qemu
+
 # Copy node_modules (root + workspace-specific)
 # Bun workspaces may create node_modules in both root and individual packages
 COPY --from=deps /app/node_modules ./node_modules
