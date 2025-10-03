@@ -6,6 +6,7 @@ import {
   text,
   timestamp,
 } from 'drizzle-orm/pg-core'
+import {z} from 'zod'
 
 // Status enum for verification tasks
 export const verificationTaskStatusEnum = pgEnum('verification_task_status', [
@@ -21,6 +22,52 @@ export const appConfigTypeEnum = pgEnum('app_config_type', [
   'redpill',
   'phala_cloud',
 ])
+
+// Zod schemas for validation
+export const AppConfigTypeSchema = z.enum(['redpill', 'phala_cloud'])
+
+export const VerificationTaskStatusSchema = z.enum([
+  'pending',
+  'active',
+  'completed',
+  'failed',
+  'cancelled',
+])
+
+export const VerificationFlagsSchema = z.object({
+  hardware: z.boolean().optional(),
+  os: z.boolean().optional(),
+  sourceCode: z.boolean().optional(),
+  domainOwnership: z.boolean().optional(),
+})
+
+export const TaskCreateRequestSchema = z.object({
+  appId: z.string(),
+  appName: z.string(),
+  appConfigType: AppConfigTypeSchema,
+  contractAddress: z.string(),
+  modelOrDomain: z.string(),
+  metadata: z.any().optional(),
+  flags: VerificationFlagsSchema.optional(),
+})
+
+export const TaskSchema = z.object({
+  id: z.string(),
+  appId: z.string(),
+  appName: z.string(),
+  appConfigType: AppConfigTypeSchema,
+  contractAddress: z.string(),
+  modelOrDomain: z.string(),
+  verificationFlags: VerificationFlagsSchema.nullable(),
+  status: z.string(),
+  errorMessage: z.string().optional(),
+  s3Filename: z.string().optional(),
+  s3Key: z.string().optional(),
+  s3Bucket: z.string().optional(),
+  createdAt: z.string(),
+  startedAt: z.string().optional(),
+  finishedAt: z.string().optional(),
+})
 
 // Verification tasks table - stores VerificationService execution data
 export const verificationTasksTable = pgTable(
@@ -82,6 +129,12 @@ export const verificationTasksTable = pgTable(
   ],
 )
 
+// Infer types from Zod schemas
+export type VerificationFlags = z.infer<typeof VerificationFlagsSchema>
+export type TaskCreateRequest = z.infer<typeof TaskCreateRequestSchema>
+export type Task = z.infer<typeof TaskSchema>
+
+// Drizzle inferred types
 export type VerificationTask = typeof verificationTasksTable.$inferSelect
 export type VerificationTaskStatus =
   (typeof verificationTaskStatusEnum.enumValues)[number]

@@ -1,5 +1,5 @@
-import { createEnv } from '@t3-oss/env-core'
-import { z } from 'zod'
+import {createEnv} from '@t3-oss/env-core'
+import {z} from 'zod'
 
 export const env = createEnv({
   server: {
@@ -34,9 +34,8 @@ export const env = createEnv({
     QUEUE_MAX_ATTEMPTS: z.string().default('3'),
     QUEUE_BACKOFF_DELAY: z.string().default('2000'),
 
-    // Queue server configuration
-    QUEUE_PORT: z.string().default('3001'),
-    QUEUE_HOST: z.string().default('localhost'),
+    // DB Monitor configuration
+    DB_MONITOR_POLL_INTERVAL: z.coerce.number().positive().default(5000),
 
     BASE_RPC_URL: z.string().optional(),
     ETHEREUM_RPC_URL: z.string().optional(),

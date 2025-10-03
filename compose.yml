@@ -1,0 +1,55 @@
+# DStack Verifier - Production Docker Compose
+services:
+  # Redis Queue
+  redis:
+    image: redis:8-alpine
+    container_name: dstack-verifier-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # DStack Verifier Server
+  server:
+    image: kdon1204/dstack-verifier:latest
+    container_name: dstack-verifier-server
+    restart: unless-stopped
+    pull_policy: always
+    depends_on:
+      - redis
+    environment:
+      # Authentication configuration
+      BEARER_TOKEN: ${BEARER_TOKEN}
+
+      # Database configuration (using Supabase in production)
+      DATABASE_URL: ${DATABASE_URL}
+
+      # Redis configuration (using local Redis)
+      REDIS_URL: redis://redis:6379
+
+      # Application configuration
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3000}
+
+      # Queue configuration
+      QUEUE_NAME: ${QUEUE_NAME:-verification-queue}
+      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-10}
+      QUEUE_MAX_ATTEMPTS: ${QUEUE_MAX_ATTEMPTS:-3}
+      QUEUE_BACKOFF_DELAY: ${QUEUE_BACKOFF_DELAY:-2000}
+
+      # Production logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # External services (AWS S3 or S3-compatible storage)
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+
+      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL}
+      BASE_RPC_URL: ${BASE_RPC_URL}
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+
+volumes:
+  redis_data:

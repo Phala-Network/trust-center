@@ -1,7 +1,7 @@
 import {notFound} from 'next/navigation'
 
 import AppLayout from '@/components/AppLayout'
-import {getApp} from '@/lib/task-api'
+import {getApp} from '@/lib/db'
 
 interface AppPageProps {
   params: Promise<{
@@ -25,7 +25,7 @@ export const generateMetadata = async ({params}: AppPageProps) => {
 export default async function AppPage({params, searchParams}: AppPageProps) {
   const {['app-id']: appId} = await params
 
-  // Get the app directly using App API (which contains the latest task data)
+  // Get the app directly from database (which contains the latest task data)
   const app = await getApp(appId)
 
   if (!app) {

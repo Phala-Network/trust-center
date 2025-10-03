@@ -1,12 +1,14 @@
-import { drizzle } from 'drizzle-orm/node-postgres'
+import {drizzle} from 'drizzle-orm/postgres-js'
 
 let db: ReturnType<typeof drizzle> | undefined
 
 export function createDbConnection(databaseUrl: string) {
   if (!db) {
-    db = drizzle(databaseUrl, { casing: 'snake_case' })
+    db = drizzle(databaseUrl, {casing: 'snake_case'})
   }
   return db
 }
 
 export type DbConnection = ReturnType<typeof createDbConnection>
+
+export * from './schema'
