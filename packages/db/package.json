@@ -11,6 +11,7 @@
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "push": "drizzle-kit push",
+    "pull": "drizzle-kit pull",
     "studio": "drizzle-kit studio"
   },
   "dependencies": {
