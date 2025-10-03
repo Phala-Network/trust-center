@@ -1,4 +1,5 @@
 import { exec } from 'node:child_process'
+import { access } from 'node:fs/promises'
 import { rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import * as path from 'node:path'
@@ -10,8 +11,39 @@ import type { QuoteResult, VerifyQuoteResult } from '../types'
 /** Promisified version of child_process.exec for async/await usage */
 const execAsync = promisify(exec)
 
-/** Path to the DCAP-QVL CLI binary */
-const DCAP_QVL_CLI_PATH = path.join(__dirname, '../../bin/dcap-qvl')
+/**
+ * Find the DCAP-QVL CLI binary path
+ * Checks in order:
+ * 1. /usr/local/bin/dcap-qvl (Docker container)
+ * 2. ../../bin/dcap-qvl (local development)
+ * 3. dcap-qvl (system PATH)
+ */
+async function findDcapQvlPath(): Promise<string> {
+  const paths = [
+    '/usr/local/bin/dcap-qvl',
+    path.join(__dirname, '../../bin/dcap-qvl'),
+  ]
+
+  for (const p of paths) {
+    try {
+      await access(p)
+      return p
+    } catch {
+      // Continue to next path
+    }
+  }
+
+  return 'dcap-qvl' // Fallback to PATH
+}
+
+let cachedDcapQvlPath: string | null = null
+
+async function getDcapQvlPath(): Promise<string> {
+  if (!cachedDcapQvlPath) {
+    cachedDcapQvlPath = await findDcapQvlPath()
+  }
+  return cachedDcapQvlPath
+}
 
 /**
  * Decodes a TEE quote file using the DCAP-QVL CLI tool.
@@ -27,7 +59,8 @@ export async function decodeQuoteFile(
   quoteFilePath: string,
   options?: { hex?: boolean; fmspc?: boolean },
 ): Promise<QuoteResult> {
-  let cliCommand = `${DCAP_QVL_CLI_PATH} decode`
+  const dcapQvlPath = await getDcapQvlPath()
+  let cliCommand = `${dcapQvlPath} decode`
   if (options?.hex) {
     cliCommand += ' --hex'
   }
@@ -59,7 +92,8 @@ export async function verifyQuoteFile(
   quoteFilePath: string,
   options?: { hex?: boolean },
 ): Promise<VerifyQuoteResult> {
-  let cliCommand = `${DCAP_QVL_CLI_PATH} verify`
+  const dcapQvlPath = await getDcapQvlPath()
+  let cliCommand = `${dcapQvlPath} verify`
   if (options?.hex) {
     cliCommand += ' --hex'
   }
