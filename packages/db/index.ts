@@ -1,4 +1,4 @@
-import {drizzle} from 'drizzle-orm/node-postgres'
+import {drizzle} from 'drizzle-orm/postgres-js'
 
 let db: ReturnType<typeof drizzle> | undefined
 
@@ -11,12 +11,4 @@ export function createDbConnection(databaseUrl: string) {
 
 export type DbConnection = ReturnType<typeof createDbConnection>
 
-export type {Task, TaskCreateRequest, VerificationFlags} from './schema'
-// Re-export schemas and types from schema.ts
-export {
-  AppConfigTypeSchema,
-  TaskCreateRequestSchema,
-  TaskSchema,
-  VerificationFlagsSchema,
-  VerificationTaskStatusSchema,
-} from './schema'
+export * from './schema'
