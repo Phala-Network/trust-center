@@ -18,9 +18,6 @@ services:
     depends_on:
       - redis
     environment:
-      # Authentication configuration
-      BEARER_TOKEN: ${BEARER_TOKEN}
-
       # Database configuration (using Supabase in production)
       DATABASE_URL: ${DATABASE_URL}
 
