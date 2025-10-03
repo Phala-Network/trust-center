@@ -1,15 +1,18 @@
 # DStack Verifier - Docker Build Context Exclusions
 
-# Dependencies
-node_modules/
+# Dependencies (will be installed fresh in container)
+**/node_modules/
+**/.turbo/
 
-# Environment files
+# Environment files (sensitive)
 .env*
+**/.env*
 
 # Git and version control
 .git/
 .gitignore
 .gitattributes
+.gitmodules
 
 # IDE and editor files
 .vscode/
@@ -18,6 +21,7 @@ node_modules/
 *.swo
 *~
 .sublime-*
+.claude/
 
 # macOS system files
 .DS_Store
@@ -27,41 +31,50 @@ node_modules/
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
+pnpm-debug.log*
+bun-debug.log*
 logs/
 
-# Coverage and testing
+# Testing
 coverage/
 .nyc_output/
 .coverage
 junit.xml
 *.lcov
+**/*.test.ts
+**/*.spec.ts
+**/__tests__/
+**/test/
 
 # Build outputs (we run from source)
-dist/
-build/
-out/
-.cache/
-.temp/
-.tmp/
+**/dist/
+**/build/
+**/out/
+**/.cache/
+**/.temp/
+**/.tmp/
+**/.next/
 
 # Docker files (not needed in container)
 .dockerignore
-dockerfile
+Dockerfile
+Dockerfile.*
 compose*.yml
-Makefile
+**/compose*.yml
 
-# Documentation (not needed for runtime)
+# Build tools (not needed at runtime)
+Makefile
+**/Makefile
+
+# Documentation
 docs/
 *.md
+!README.md
+CLAUDE.md
 
-# External downloaded content (exclude most, but allow specific subdirectories)
-external/
-!external/dcap-qvl/
-
-# Rust build artifacts
+# Rust build artifacts (will be built in separate stage)
 Cargo.lock
-target/
+**/target/
 
 # Development tools and configs
 vitest.config.ts
@@ -75,7 +88,6 @@ biome.json
 *.pid.lock
 .npm
 .bun
-.cache/
 .vscode-test
 
 # Security and secrets
@@ -90,13 +102,5 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Application specific excludes
-test-docker.sh
-*.test.ts
-*.spec.ts
-__tests__/
-test/
-
-bin/
-.claude/
-.gitmodules
+# Webapp (not needed for server)
+apps/webapp/

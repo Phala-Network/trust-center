@@ -21,7 +21,7 @@ services:
 
   # Redis for development queue management
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: dstack-verifier-redis-dev
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD:-dev_password} --appendonly no
@@ -37,8 +37,8 @@ services:
   # DStack Verifier Server - Development
   server:
     build:
-      context: ../..
-      dockerfile: apps/server/Dockerfile
+      context: .
+      dockerfile: Dockerfile
       platforms:
         - linux/amd64
       args:
@@ -46,7 +46,7 @@ services:
     container_name: dstack-verifier-server-dev
     restart: unless-stopped
     # Development command with migrations and hot reload
-    command: [ "sh", "-c", "cd /app && bun run db:migrate && cd /app/apps/server && bun run server:dev" ]
+    command: [ "sh", "-c", "cd /app/packages/db && bun run migrate && cd /app/apps/server && bun run dev" ]
     environment:
       # Authentication configuration
       BEARER_TOKEN: ${BEARER_TOKEN:-dev_token}

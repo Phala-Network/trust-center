@@ -1,6 +1,6 @@
 import {redirect} from 'next/navigation'
 
-import {getTaskById} from '@/lib/task-api'
+import {getTaskById} from '@/lib/db'
 
 interface TaskRedirectPageProps {
   params: Promise<{

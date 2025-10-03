@@ -2,15 +2,21 @@
   "name": "@phala/trust-center-db",
   "version": "1.0.0",
   "type": "module",
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
   "exports": {
     ".": "./index.ts",
     "./schema": "./schema.ts"
   },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "push": "drizzle-kit push",
+    "studio": "drizzle-kit studio"
+  },
   "dependencies": {
-    "drizzle-orm": "^0.44.5"
+    "drizzle-orm": "^0.44.6",
+    "postgres": "^3.4.7",
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.5"

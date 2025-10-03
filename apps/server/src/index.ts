@@ -1,12 +1,15 @@
 import { env } from './env'
 import { createApp } from './app'
-import { closeServices, createServices } from './services'
+import { closeServices, createServices, getServices } from './services'
 
 export async function startServer() {
   console.log('[SERVER] Starting DStack Verifier Server...')
 
   try {
-    createServices()
+    const services = createServices()
+
+    // Start database monitor to watch for new pending tasks
+    services.dbMonitor.start()
 
     const app = createApp()
 
@@ -26,6 +29,9 @@ export async function startServer() {
       )
 
       try {
+        // Stop database monitor
+        services.dbMonitor.stop()
+
         await closeServices()
         console.log('[SERVER] All services closed successfully')
         process.exit(0)

@@ -7,17 +7,34 @@ A monorepo containing the DStack TEE verification infrastructure and trust cente
 ```
 trust-center-monorepo/
 ├── apps/
-│   ├── server/            # DStack Verifier HTTP API Server
+│   ├── server/            # Background Worker (BullMQ Queue Processing)
 │   └── webapp/            # Trust Center Web Application (Next.js)
-└── packages/
-    └── verifier/          # Core TEE Verification Library (@phala/dstack-verifier)
+├── packages/
+│   ├── db/                # Database Package (@phala/trust-center-db)
+│   └── verifier/          # Core TEE Verification Library (@phala/dstack-verifier)
+├── Dockerfile             # Production Docker image
+├── compose.yml            # Production Docker Compose
+├── compose.dev.yml        # Development Docker Compose
+└── Makefile               # Build and deployment commands
 ```
 
 ## Packages
 
+### Database (`packages/db`)
+
+The `@phala/trust-center-db` package provides PostgreSQL integration with Drizzle ORM, shared types, and Zod schemas.
+
+**Key Features:**
+- Drizzle ORM for type-safe database access
+- Zod schemas for runtime validation
+- Centralized type definitions
+- Database migration management
+
+**Tech Stack:** TypeScript, Drizzle ORM, PostgreSQL, Zod
+
 ### Verifier (`packages/verifier`)
 
-The `@phala/dstack-verifier` package is a comprehensive TypeScript library for verifying Trusted Execution Environment (TEE) attestations. It provides robust verification capabilities for Key Management Service (KMS), Gateway, and ML application components.
+The `@phala/dstack-verifier` package is a comprehensive TypeScript library for verifying Trusted Execution Environment (TEE) attestations.
 
 **Key Features:**
 - Hardware attestation verification (Intel TDX/SGX, NVIDIA GPU)
@@ -33,30 +50,28 @@ The `@phala/dstack-verifier` package is a comprehensive TypeScript library for v
 
 ### Server (`apps/server`)
 
-Production-ready HTTP API server built on the `@phala/dstack-verifier` package, providing RESTful endpoints for TEE verification with database persistence and background job processing.
+Background worker service that processes verification tasks from a Redis queue. No HTTP endpoints.
 
 **Key Features:**
-- RESTful API with OpenAPI documentation
-- PostgreSQL database with Drizzle ORM
-- Redis-backed job queue with BullMQ
-- S3-compatible object storage
-- Bearer token authentication
+- BullMQ queue worker for background processing
+- Database polling via dbMonitor service
+- S3-compatible object storage for results
+- PostgreSQL persistence for task state
 - Docker deployment ready
 
-**Tech Stack:** Bun, TypeScript, Elysia, PostgreSQL, Redis, BullMQ
-
-See [apps/server/README.md](apps/server/README.md) for detailed documentation.
+**Tech Stack:** Bun, TypeScript, PostgreSQL, Redis, BullMQ
 
 ### Web App (`apps/webapp`)
 
-A modern Next.js trust center dashboard for visualizing TEE verification data, trust relationships, and system status. Provides interactive visualizations using React Flow and comprehensive UI components.
+A modern Next.js trust center dashboard with direct database access (no API layer).
 
 **Key Features:**
 - Interactive data object visualization
 - Trust relationship diagrams
 - Real-time verification status
+- Direct Drizzle database queries
+- Server Actions for task creation
 - Comprehensive UI component library (shadcn/ui)
-- Dark mode support
 
 **Tech Stack:** Next.js 15, React 19, TypeScript, Tailwind CSS, React Flow, shadcn/ui
 
@@ -78,70 +93,71 @@ A modern Next.js trust center dashboard for visualizing TEE verification data, t
 bun install
 ```
 
-### Development
+### Development with Docker Compose
 
-#### Run all apps in development mode:
 ```bash
-bun dev
+# Start development environment (Postgres, Redis, Server, Webapp)
+make dev
+
+# View logs
+make logs
+
+# Open shell in container
+make shell
+
+# Stop containers
+make down
+
+# Clean up containers and volumes
+make clean
 ```
 
-#### Run specific app:
-```bash
-# Server API
-bun run server:server:dev
+### Manual Development (without Docker)
 
-# Web app dashboard
-bun run webapp:dev
+```bash
+# Start server worker
+cd apps/server && bun run dev
+
+# Start webapp
+cd apps/webapp && bun run dev
 ```
 
-### Building
+### Production Deployment
 
-#### Build all apps:
 ```bash
-bun run build
+# Start production environment
+make prod
+
+# Check service health
+make health
+
+# View status
+make status
 ```
 
-#### Build specific app:
+### Database Commands
+
 ```bash
-bun run webapp:build
+cd packages/db
+
+# Generate migration files
+drizzle-kit generate
+
+# Apply migrations
+bun run migrate
+
+# Push schema changes
+drizzle-kit push
+
+# Open database studio
+drizzle-kit studio
 ```
 
 ### Other Commands
 
 ```bash
-# Format all code
-bun run format
-
-# Lint all code
-bun run lint
-
 # Type check all code
 bun run typecheck
-
-# Run tests
-bun run test
-
-# Clean all build artifacts and dependencies
-bun run clean
-```
-
-## Database Commands
-
-```bash
-# Database operations (shared across all apps)
-bun run db:generate   # Generate migrations
-bun run db:migrate    # Run migrations
-bun run db:push       # Push schema changes
-bun run db:studio     # Open database studio
-```
-
-## Server-Specific Commands
-
-```bash
-# Start server
-bun run server:start         # Simple HTTP server
-bun run server:server        # Advanced Elysia server
-bun run server:server:dev    # Development mode with hot reload
 ```
 
 ## Environment Variables

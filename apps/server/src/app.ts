@@ -2,11 +2,7 @@ import { openapi } from '@elysiajs/openapi'
 import { Elysia } from 'elysia'
 import z from 'zod'
 
-import { authMiddleware } from './plugin/auth'
-import { appsRoutes } from './routes/apps'
 import { healthRoutes } from './routes/health'
-import { queueRoutes } from './routes/queue'
-import { taskRoutes } from './routes/tasks'
 
 // Pure error mapping function
 const mapErrorResponse = (code: string | number, error: unknown) => {
@@ -41,13 +37,6 @@ export const createApp = () => {
       }),
     )
     .group('/health', (app) => app.use(healthRoutes))
-    .group('/api/v1', (app) =>
-      app
-        .use(authMiddleware)
-        .group('/apps', (app) => app.use(appsRoutes))
-        .group('/tasks', (app) => app.use(taskRoutes))
-        .group('/queue', (app) => app.use(queueRoutes)),
-    )
     .onError(({ code, error, set }) => {
       console.error('[ERROR]', code, error)
       const response = mapErrorResponse(code, error)
