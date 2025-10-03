@@ -302,7 +302,6 @@ cd external/dcap-qvl && cargo test
 
 - `PORT`: Server port (default: 3000)
 - `HOST`: Server host (default: localhost)
-- `BEARER_TOKEN`: Bearer token for API authentication (optional, for production)
 
 ### Verifier Configuration
 
@@ -348,7 +347,7 @@ Control which verification steps to execute:
 The advanced Elysia server includes Bearer token authentication for protected endpoints:
 
 - **Simple Server**: All endpoints are public (no authentication)
-- **Advanced Server**: 
+- **Advanced Server**:
   - **Public endpoints**: `/health/*` (no authentication required)
   - **Protected endpoints**: `/api/v1/tasks/*` and `/api/v1/queue/*` (require Bearer token)
 
@@ -406,8 +405,8 @@ Execute verification operations with configurable parameters and verification fl
     "sourceCode": true,
     "teeControlledKey": false,
     "certificateKey": false,
-    "dnsCAA": false,     // Default: false (can be slow)
-    "ctLog": false       // Default: false (very slow)
+    "dnsCAA": false, // Default: false (can be slow)
+    "ctLog": false // Default: false (very slow)
   }
 }
 ```
@@ -438,8 +437,8 @@ Execute verification operations with configurable parameters and verification fl
     "sourceCode": true,
     "teeControlledKey": true,
     "certificateKey": true,
-    "dnsCAA": false,     // Default: false (can be slow)
-    "ctLog": false       // Default: false (very slow)
+    "dnsCAA": false, // Default: false (can be slow)
+    "ctLog": false // Default: false (very slow)
   }
 }
 ```

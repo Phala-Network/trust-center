@@ -10,9 +10,6 @@ export const env = createEnv({
       .enum(['development', 'production', 'test'])
       .default('production'),
 
-    // Authentication configuration
-    BEARER_TOKEN: z.string().optional(),
-
     // S3 configuration
     S3_ENDPOINT: z.string(),
     S3_ACCESS_KEY_ID: z.string(),
