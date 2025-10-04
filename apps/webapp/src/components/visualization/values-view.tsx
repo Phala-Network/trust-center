@@ -2,7 +2,7 @@ import {HelpCircle} from 'lucide-react'
 import React from 'react'
 import {parse as parseYaml} from 'yaml'
 
-import {useAttestationData} from '@/components/AttestationDataContext'
+import {useAttestationData} from '@/components/attestation-data-context'
 import {
   Dialog,
   DialogContent,

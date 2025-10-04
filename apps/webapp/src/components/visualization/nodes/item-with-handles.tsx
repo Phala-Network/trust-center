@@ -1,6 +1,6 @@
 import type React from 'react'
 
-import {HandleGroup} from './HandleGroup'
+import {HandleGroup} from './handle-group'
 import type {ObjectNodeData} from './types'
 
 interface ItemWithHandlesProps {

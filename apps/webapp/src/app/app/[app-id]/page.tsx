@@ -1,6 +1,6 @@
 import {notFound} from 'next/navigation'
 
-import AppLayout from '@/components/AppLayout'
+import AppLayout from '@/components/app-layout'
 import {getApp} from '@/lib/db'
 
 interface AppPageProps {
