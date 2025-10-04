@@ -14,14 +14,18 @@ const execAsync = promisify(exec)
 /**
  * Find the DCAP-QVL CLI binary path
  * Checks in order:
- * 1. /usr/local/bin/dcap-qvl (Docker container)
- * 2. ../../bin/dcap-qvl (local development)
- * 3. dcap-qvl (system PATH)
+ * 1. /usr/local/bin/dcap-qvl (Docker - installed by Dockerfile)
+ * 2. ../../bin/dcap-qvl (Dev - built via npm script)
+ * 3. dcap-qvl (system PATH fallback)
  */
 async function findDcapQvlPath(): Promise<string> {
+  if (!import.meta.dirname) {
+    throw new Error('import.meta.dirname is not available')
+  }
+
   const paths = [
     '/usr/local/bin/dcap-qvl',
-    path.join(__dirname, '../../bin/dcap-qvl'),
+    path.join(import.meta.dirname, '../../bin/dcap-qvl'),
   ]
 
   for (const p of paths) {

@@ -34,6 +34,7 @@ export async function getApps(params?: {
         ),
       })
       .from(verificationTasksTable)
+      .where(eq(verificationTasksTable.status, 'completed'))
       .groupBy(verificationTasksTable.appId),
   )
 
