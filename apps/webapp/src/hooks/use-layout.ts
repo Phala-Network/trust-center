@@ -1,7 +1,7 @@
 import {useAtom} from 'jotai'
 import {useCallback, useEffect, useMemo, useState} from 'react'
 
-import {useAttestationData} from '@/components/AttestationDataContext'
+import {useAttestationData} from '@/components/attestation-data-context'
 import {
   getPanelConfigForWidth,
   type LayoutMode,

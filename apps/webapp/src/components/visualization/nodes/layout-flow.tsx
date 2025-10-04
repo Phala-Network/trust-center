@@ -12,8 +12,8 @@ import type React from 'react'
 import {useCallback, useEffect, useState} from 'react'
 import '@xyflow/react/dist/style.css'
 
-import {useAttestationData} from '@/components/AttestationDataContext'
-import {ObjectNode} from './ObjectNode'
+import {useAttestationData} from '@/components/attestation-data-context'
+import {ObjectNode} from './object-node'
 import {
   calculatePosition,
   generateEdgeId,

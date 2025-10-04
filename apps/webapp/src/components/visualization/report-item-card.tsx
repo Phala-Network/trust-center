@@ -1,7 +1,7 @@
 import {Lock} from 'lucide-react'
 import type React from 'react'
 
-import {useAttestationData} from '@/components/AttestationDataContext'
+import {useAttestationData} from '@/components/attestation-data-context'
 import type {DataObjectId} from '@/data/schema'
 import {cn} from '@/lib/utils'
 

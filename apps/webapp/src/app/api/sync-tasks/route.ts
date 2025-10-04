@@ -19,6 +19,7 @@ interface TaskData {
   appConfigType: 'phala_cloud' | 'redpill'
   contractAddress: string
   modelOrDomain: string
+  dstackVersion: string
 }
 
 // Helper function to parse version from base_image
@@ -76,6 +77,7 @@ function isVersion053(baseImage: string): boolean {
   }
 }
 
+
 // Helper function to process app data and create task
 function processAppData(app: AppData): TaskData {
   const {
@@ -119,6 +121,7 @@ function processAppData(app: AppData): TaskData {
     appConfigType: 'phala_cloud',
     contractAddress: contractAddress || defaultContractAddress,
     modelOrDomain,
+    dstackVersion: base_image,
   }
 }
 

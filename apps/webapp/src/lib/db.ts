@@ -13,17 +13,36 @@ import {env} from '@/env'
 // Create database connection
 const db = createDbConnection(env.DATABASE_POSTGRES_URL)
 
-export interface App extends Task {}
+export interface App extends Task {
+  dstackVersion?: string
+  dataObjectsCount?: number
+}
 
 // Get all unique apps (latest task per app)
 export async function getApps(params?: {
   keyword?: string
   appConfigType?: string
+  dstackVersions?: string[]
   sortBy?: 'appName' | 'taskCount' | 'lastCreated'
   sortOrder?: 'asc' | 'desc'
   page?: number
   perPage?: number
 }): Promise<App[]> {
+  // Build where conditions
+  const whereConditions = [eq(verificationTasksTable.status, 'completed')]
+
+  if (params?.keyword) {
+    whereConditions.push(
+      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`
+    )
+  }
+
+  if (params?.dstackVersions && params.dstackVersions.length > 0) {
+    whereConditions.push(
+      sql`${verificationTasksTable.dstackVersion} IN (${sql.join(params.dstackVersions.map(v => sql`${v}`), sql`, `)})`
+    )
+  }
+
   // Get latest task for each unique appId
   const latestTasks = db.$with('latest_tasks').as(
     db
@@ -34,7 +53,7 @@ export async function getApps(params?: {
         ),
       })
       .from(verificationTasksTable)
-      .where(eq(verificationTasksTable.status, 'completed'))
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
       .groupBy(verificationTasksTable.appId),
   )
 
@@ -74,7 +93,59 @@ export async function getApps(params?: {
     createdAt: r.verification_tasks.createdAt.toISOString(),
     startedAt: r.verification_tasks.startedAt?.toISOString(),
     finishedAt: r.verification_tasks.finishedAt?.toISOString(),
+    dstackVersion: r.verification_tasks.dstackVersion || undefined,
+    dataObjectsCount: Array.isArray(r.verification_tasks.dataObjects)
+      ? r.verification_tasks.dataObjects.length
+      : 0,
   }))
+}
+
+// Get all unique dstack versions from latest completed tasks (apps) with app counts
+export async function getDstackVersions(params?: {
+  keyword?: string
+}): Promise<Array<{version: string; count: number}>> {
+  // Build where conditions for completed tasks
+  const whereConditions = [eq(verificationTasksTable.status, 'completed')]
+
+  if (params?.keyword) {
+    whereConditions.push(
+      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`
+    )
+  }
+
+  // Get latest task for each unique appId
+  const latestTasks = db.$with('latest_tasks').as(
+    db
+      .select({
+        appId: verificationTasksTable.appId,
+        dstackVersion: verificationTasksTable.dstackVersion,
+        maxCreatedAt: sql<string>`max(${verificationTasksTable.createdAt})`.as(
+          'maxCreatedAt',
+        ),
+      })
+      .from(verificationTasksTable)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .groupBy(verificationTasksTable.appId, verificationTasksTable.dstackVersion),
+  )
+
+  // Count apps per dstack version
+  const results = await db
+    .with(latestTasks)
+    .select({
+      version: latestTasks.dstackVersion,
+      count: sql<number>`count(distinct ${latestTasks.appId})`.as('count'),
+    })
+    .from(latestTasks)
+    .where(sql`${latestTasks.dstackVersion} IS NOT NULL`)
+    .groupBy(latestTasks.dstackVersion)
+    .orderBy(latestTasks.dstackVersion)
+
+  return results
+    .map((r) => ({
+      version: r.version as string,
+      count: r.count,
+    }))
+    .filter((v): v is {version: string; count: number} => v.version !== null)
 }
 
 // Get a single app by ID (latest task for this app)
