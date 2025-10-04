@@ -47,6 +47,7 @@ export const TaskCreateRequestSchema = z.object({
   appConfigType: AppConfigTypeSchema,
   contractAddress: z.string(),
   modelOrDomain: z.string(),
+  dstackVersion: z.string().optional(),
   metadata: z.any().optional(),
   flags: VerificationFlagsSchema.optional(),
 })

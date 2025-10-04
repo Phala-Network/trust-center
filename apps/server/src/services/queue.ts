@@ -166,7 +166,6 @@ export const createQueueService = (
         s3Key?: string
         s3Bucket?: string
         dataObjects?: string[]
-        dstackVersion?: string
       } = {}
 
       // Store result in R2 if successful
@@ -177,23 +176,18 @@ export const createQueueService = (
         const dataObjectIds =
           result.verificationResult.dataObjects?.map((obj) => obj.id) || []
 
-        // Extract dstack version from verification result (from first data object if available)
-        const dstackVersion = result.verificationResult.dataObjects?.[0]?.fields
-          ?.os_version as string | undefined
-
         uploadResult = {
           s3Filename: upload.s3Filename,
           s3Key: upload.s3Key,
           s3Bucket: upload.s3Bucket,
           dataObjects: dataObjectIds,
-          dstackVersion,
         }
 
         console.log(
           `[QUEUE] Uploaded verification result to S3: ${upload.s3Filename}`,
         )
         console.log(
-          `[QUEUE] Extracted ${dataObjectIds.length} data object IDs and dstack version: ${dstackVersion}`,
+          `[QUEUE] Extracted ${dataObjectIds.length} data object IDs`,
         )
       }
 
@@ -206,7 +200,6 @@ export const createQueueService = (
         s3Key?: string
         s3Bucket?: string
         dataObjects?: string[]
-        dstackVersion?: string
         errorMessage?: string
       } = {
         status: taskStatus,

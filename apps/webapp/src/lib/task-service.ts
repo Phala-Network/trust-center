@@ -35,6 +35,7 @@ export async function createTask(input: CreateTaskInput) {
       appConfigType: input.appConfigType,
       contractAddress: input.contractAddress,
       modelOrDomain: input.modelOrDomain,
+      dstackVersion: input.dstackVersion || null,
       appMetadata: input.metadata || null,
       verificationFlags: input.flags || null,
       status: 'pending',

@@ -1,8 +1,11 @@
-import {Activity, CheckCircle} from 'lucide-react'
+import {Activity, CheckCircle, Database} from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 
+import {AppFilters} from '@/components/app-filters'
 import {AppLogo} from '@/components/app-logo'
-import {getApps} from '@/lib/db'
+import {Badge} from '@/components/ui/badge'
+import {getApps, getDstackVersions} from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,27 +13,99 @@ function AppCard({app}: {app: any}) {
   return (
     <Link
       href={`/app/${app.appId}`}
-      className="bg-background flex gap-4 rounded-lg border border-border p-4 hover:shadow-md transition-all duration-200 sm:gap-6 sm:p-5"
+      className="group block bg-card rounded-xl border border-border hover:border-border/80 hover:shadow-lg transition-all duration-300 overflow-hidden"
     >
-      {/* App Logo */}
-      <AppLogo appName={app.appName} size="lg" className="sm:w-16 sm:h-16" />
-
-      {/* App Content */}
-      <div className="flex flex-col justify-between flex-1 min-w-0">
-        <div>
-          <h3 className="text-base font-medium sm:text-lg truncate">
-            {app.appName}
-          </h3>
-          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-            {app.appConfigType} • {app.modelOrDomain}
-          </p>
-          <p className="text-muted-foreground mt-1 text-xs truncate">
-            Contract: {app.contractAddress}
-          </p>
+      {/* Header with gradient background */}
+      <div className="bg-gradient-to-br from-muted/40 to-muted/20 p-5 border-b border-border/50">
+        <div className="flex items-start gap-4">
+          <AppLogo
+            appName={app.appName}
+            size="lg"
+            className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
+          />
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold tracking-tight truncate">
+              {app.appName}
+            </h3>
+            <p className="text-xs text-muted-foreground/80 truncate mt-0.5 font-mono">
+              {app.appId}
+            </p>
+          </div>
+          {app.dataObjectsCount > 0 && (
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1.5 text-xs flex-shrink-0 shadow-sm"
+            >
+              <Database className="h-3 w-3" />
+              <span className="font-semibold">{app.dataObjectsCount}</span>
+            </Badge>
+          )}
         </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground sm:text-sm mt-3">
-          <Activity className="size-3 sm:size-4 flex-shrink-0" />
-          <span>Created: {new Date(app.createdAt).toLocaleDateString()}</span>
+      </div>
+
+      {/* Attributes Section */}
+      <div className="p-5 space-y-3">
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
+            Type
+          </span>
+          <span className="flex-1 font-medium text-foreground">
+            {app.appConfigType}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
+            Domain
+          </span>
+          <span className="flex-1 truncate text-foreground">
+            {app.modelOrDomain}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
+            Contract
+          </span>
+          <span className="flex-1 truncate font-mono text-xs">
+            {app.contractAddress}
+          </span>
+        </div>
+
+        {app.dstackVersion && (
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
+              Version
+            </span>
+            <div className="flex items-center gap-2 flex-1">
+              <Image
+                className="opacity-70"
+                src="/dstack.svg"
+                alt="DStack"
+                width={60}
+                height={14}
+              />
+              <span className="font-medium text-foreground">
+                {app.dstackVersion.replace('dstack-', '')}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 text-sm pt-3 mt-3 border-t border-border/50">
+          <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
+            Created
+          </span>
+          <div className="flex items-center gap-2 flex-1">
+            <Activity className="h-3.5 w-3.5 text-muted-foreground/50" />
+            <span className="text-muted-foreground">
+              {new Date(app.createdAt).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
+          </div>
         </div>
       </div>
     </Link>
@@ -56,8 +131,8 @@ function AppList({apps}: {apps: any[]}) {
       <div className="flex flex-col items-center justify-center text-center py-16">
         <h3 className="text-xl font-medium">No Applications Found</h3>
         <p className="text-muted-foreground mt-2 max-w-md">
-          Your TEE applications will appear here once they're registered and
-          generating attestation reports.
+          No applications match your search criteria. Try adjusting your
+          filters.
         </p>
       </div>
     )
@@ -72,8 +147,24 @@ function AppList({apps}: {apps: any[]}) {
   )
 }
 
-export default async function HomePage() {
-  const apps = await getApps({sortBy: 'appName'})
+interface HomePageProps {
+  searchParams: Promise<{
+    keyword?: string
+    dstackVersions?: string
+  }>
+}
+
+export default async function HomePage({searchParams}: HomePageProps) {
+  const params = await searchParams
+  const selectedVersions = params.dstackVersions
+    ? params.dstackVersions.split(',')
+    : []
+  const apps = await getApps({
+    sortBy: 'appName',
+    keyword: params.keyword,
+    dstackVersions: selectedVersions,
+  })
+  const dstackVersions = await getDstackVersions({keyword: params.keyword})
   const totalApps = apps.length
 
   return (
@@ -103,6 +194,7 @@ export default async function HomePage() {
             <h2 className="text-2xl font-medium mb-8 sm:text-3xl sm:mb-12 md:text-4xl md:mb-16">
               Verified Apps
             </h2>
+            <AppFilters dstackVersions={dstackVersions} />
             <AppList apps={apps} />
           </div>
         </div>

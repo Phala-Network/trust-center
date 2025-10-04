@@ -5,9 +5,9 @@ import type React from 'react'
 import {Separator} from '@/components/ui/separator'
 import {getReportItem} from '@/data/report-items'
 import {cn} from '@/lib/utils'
-import {ReportItemContent} from '../ReportItemCard'
-import {HandleGroup} from './HandleGroup'
-import {ItemWithHandles} from './ItemWithHandles'
+import {ReportItemContent} from '../report-item-card'
+import {HandleGroup} from './handle-group'
+import {ItemWithHandles} from './item-with-handles'
 import type {ObjectNodeData} from './types'
 
 interface ObjectNodeProps extends NodeProps {
