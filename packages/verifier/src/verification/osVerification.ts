@@ -7,6 +7,18 @@ import {
 } from '../utils/dstack-mr'
 
 /**
+ * Get the base path for DStack images.
+ * Uses import.meta.dirname to resolve relative to source file.
+ * Works in both dev and Docker since verifier package structure is identical.
+ */
+function getDStackImagesBasePath(): string {
+  if (!import.meta.dirname) {
+    throw new Error('import.meta.dirname is not available')
+  }
+  return path.join(import.meta.dirname, '../../external/dstack-images')
+}
+
+/**
  * Measures DStack OS images and compares with expected TCB values.
  *
  * @param appInfo - Application information containing VM config
@@ -18,10 +30,7 @@ export async function verifyOSIntegrity(
   imageFolderName: string = 'dstack-0.5.3',
 ): Promise<boolean> {
   const measurementResult = await measureDstackImages({
-    image_folder: path.join(
-      __dirname,
-      `../../external/dstack-images/${imageFolderName}`,
-    ),
+    image_folder: path.join(getDStackImagesBasePath(), imageFolderName),
     vm_config: appInfo.vm_config,
   })
 
@@ -41,10 +50,7 @@ export async function verifyOSIntegrityLegacy(
   imageFolderName: string = 'dstack-0.5.3',
 ): Promise<boolean> {
   const measurementResult = await measureDstackImagesLegacy({
-    image_folder: path.join(
-      __dirname,
-      `../../external/dstack-images/${imageFolderName}`,
-    ),
+    image_folder: path.join(getDStackImagesBasePath(), imageFolderName),
     vm_config: appInfo.vm_config,
   })
 

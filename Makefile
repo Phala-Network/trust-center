@@ -1,5 +1,5 @@
 # DStack Verifier Server - Simplified Makefile
-.PHONY: help dev prod logs shell down clean status health
+.PHONY: help build dev prod logs shell down clean status health
 
 IMAGE_NAME := dstack-verifier-server
 PLATFORM := linux/amd64
@@ -9,6 +9,7 @@ help:
 	@echo "====================="
 	@echo ""
 	@echo "Commands:"
+	@echo "  build   - Build Docker image (linux/amd64)"
 	@echo "  dev     - Start development environment"
 	@echo "  prod    - Start production environment"
 	@echo "  logs    - View container logs"
@@ -17,6 +18,11 @@ help:
 	@echo "  clean   - Remove containers and volumes"
 	@echo "  status  - Show container status"
 	@echo "  health  - Check service health"
+
+build:
+	@echo "🔨 Building Docker image for $(PLATFORM)..."
+	@docker buildx build --platform $(PLATFORM) -t $(IMAGE_NAME):latest --load .
+	@echo "✅ Image built: $(IMAGE_NAME):latest"
 
 dev:
 	@echo "🚀 Starting development..."

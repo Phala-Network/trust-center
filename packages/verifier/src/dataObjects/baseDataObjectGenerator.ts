@@ -1,6 +1,18 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+/**
+ * Get the base path for DStack images.
+ * Uses import.meta.dirname to resolve relative to source file.
+ * Works in both dev and Docker since verifier package structure is identical.
+ */
+function getDStackImagesBasePath(): string {
+  if (!import.meta.dirname) {
+    throw new Error('import.meta.dirname is not available')
+  }
+  return join(import.meta.dirname, '../../external/dstack-images')
+}
+
 import type {
   AppInfo,
   CompleteAppMetadata,
@@ -51,7 +63,7 @@ export abstract class BaseDataObjectGenerator {
   }
 
   /**
-   * Reads DStack image metadata from external/dstack-images directory
+   * Reads DStack image metadata from dstack-images directory
    */
   protected readDStackImageMetadata(
     version: string,
@@ -63,9 +75,7 @@ export abstract class BaseDataObjectGenerator {
       ? `dstack-nvidia-${cleanVersion}`
       : `dstack-${cleanVersion}`
     const metadataPath = join(
-      process.cwd(),
-      'external',
-      'dstack-images',
+      getDStackImagesBasePath(),
       imageDirName,
       'metadata.json',
     )
