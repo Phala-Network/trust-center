@@ -3,9 +3,9 @@ import React, {useEffect} from 'react'
 
 import {cn} from '@/lib/utils'
 import {Button} from '../ui/button'
-import NodesView from './NodesView'
-import ReportView from './ReportView'
-import ValuesView from './ValuesView'
+import NodesView from './nodes-view'
+import ReportView from './report-view'
+import ValuesView from './values-view'
 
 interface PanelProps {
   view: 'report' | 'values' | 'nodes'

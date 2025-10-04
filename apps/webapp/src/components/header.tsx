@@ -6,7 +6,7 @@ import Link from 'next/link'
 import type React from 'react'
 import {useMemo} from 'react'
 
-import {useAttestationData} from '@/components/AttestationDataContext'
+import {useAttestationData} from '@/components/attestation-data-context'
 import {Input} from '@/components/ui/input'
 import {useLayout} from '@/hooks/use-layout'
 import {Button} from './ui/button'

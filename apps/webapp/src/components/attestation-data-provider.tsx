@@ -3,7 +3,7 @@
 import {useAtom} from 'jotai'
 import {useEffect, useState} from 'react'
 
-import {AttestationDataProvider as ContextProvider} from '@/components/AttestationDataContext'
+import {AttestationDataProvider as ContextProvider} from '@/components/attestation-data-context'
 import type {Data} from '@/data/schema'
 import {fetchDataFromS3Client} from '@/lib/s3-data-client'
 import {taskAtom} from '@/stores/app'

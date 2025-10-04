@@ -2,12 +2,12 @@ import {useAtom} from 'jotai'
 import {Check} from 'lucide-react'
 import type React from 'react'
 
-import {useAttestationData} from '@/components/AttestationDataContext'
 import {AppLogo} from '@/components/app-logo'
+import {useAttestationData} from '@/components/attestation-data-context'
 import {
   type ReportItem,
   ReportItemCard,
-} from '@/components/visualization/ReportItemCard'
+} from '@/components/visualization/report-item-card'
 import {REPORT_ITEMS} from '@/data/report-items'
 import {appInfoAtom} from '@/stores/app'
 

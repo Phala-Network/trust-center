@@ -6,13 +6,13 @@ import {useRouter, useSearchParams} from 'next/navigation'
 import {Fragment, useEffect, useRef} from 'react'
 import type {ImperativePanelGroupHandle} from 'react-resizable-panels'
 
-import {useAttestationData} from '@/components/AttestationDataContext'
+import {useAttestationData} from '@/components/attestation-data-context'
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable'
-import Panel from '@/components/visualization/Panel'
+import Panel from '@/components/visualization/panel'
 import {useLayout} from '@/hooks/use-layout'
 import {
   PANEL_CONFIG,
