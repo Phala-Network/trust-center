@@ -1,141 +1,152 @@
 'use client'
 
-import {Search} from 'lucide-react'
-import {useRouter, useSearchParams} from 'next/navigation'
-import {useEffect, useState, useTransition} from 'react'
+import {debounce} from 'es-toolkit'
+import {Search, X} from 'lucide-react'
+import {parseAsArrayOf, parseAsString, useQueryStates} from 'nuqs'
+import {useEffect, useMemo, useState, useTransition} from 'react'
 
+import {Button} from '@/components/ui/button'
 import {Checkbox} from '@/components/ui/checkbox'
 import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
-import {Button} from '@/components/ui/button'
+import {useDstackVersions} from '@/lib/queries'
 
-interface AppFiltersProps {
-  dstackVersions: Array<{version: string; count: number}>
-}
+export function AppFilters() {
+  const [, startTransition] = useTransition()
 
-export function AppFilters({dstackVersions}: AppFiltersProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [isPending, startTransition] = useTransition()
+  const [{keyword, dstackVersions: selectedVersions}, setQuery] =
+    useQueryStates(
+      {
+        keyword: parseAsString.withDefault(''),
+        dstackVersions: parseAsArrayOf(parseAsString).withDefault([]),
+      },
+      {
+        // shallow: true (default) only updates URL without triggering server re-render
+        // This allows client-side react-query to handle filtering without page refresh
+        // Pass startTransition for non-blocking UI updates
+        startTransition,
+      },
+    )
 
-  const keyword = searchParams.get('keyword') || ''
-  const dstackVersionsParam = searchParams.get('dstackVersions') || ''
-  const selectedVersions = dstackVersionsParam ? dstackVersionsParam.split(',') : []
+  // Fetch dstack versions with react-query
+  const {data: dstackVersions = []} = useDstackVersions({keyword})
 
-  // Local state for search input with debounce
+  // Local state only for debounced search input
   const [searchValue, setSearchValue] = useState(keyword)
 
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      updateKeyword(searchValue)
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [searchValue])
-
-  // Sync with URL params when navigating back
+  // Sync search value when keyword changes (e.g., browser back/forward)
   useEffect(() => {
     setSearchValue(keyword)
   }, [keyword])
 
-  const updateKeyword = (value: string) => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (value) {
-      params.set('keyword', value)
-    } else {
-      params.delete('keyword')
+  // Debounced update function using es-toolkit
+  const debouncedSetQuery = useMemo(
+    () =>
+      debounce((value: string) => {
+        setQuery({keyword: value || null})
+      }, 300),
+    [setQuery],
+  )
+
+  // Update search on input change
+  useEffect(() => {
+    if (searchValue !== keyword) {
+      debouncedSetQuery(searchValue)
     }
-    startTransition(() => {
-      router.push(`/?${params.toString()}`)
-    })
-  }
+  }, [searchValue, keyword, debouncedSetQuery])
 
   const toggleVersion = (version: string) => {
-    const params = new URLSearchParams(searchParams.toString())
-    const currentVersions = selectedVersions.slice()
+    const newVersions = selectedVersions.includes(version)
+      ? selectedVersions.filter((v) => v !== version)
+      : [...selectedVersions, version]
 
-    const index = currentVersions.indexOf(version)
-    if (index > -1) {
-      currentVersions.splice(index, 1)
-    } else {
-      currentVersions.push(version)
-    }
-
-    if (currentVersions.length > 0) {
-      params.set('dstackVersions', currentVersions.join(','))
-    } else {
-      params.delete('dstackVersions')
-    }
-
-    startTransition(() => {
-      router.push(`/?${params.toString()}`)
-    })
+    // nuqs handles optimistic updates automatically
+    setQuery({dstackVersions: newVersions.length > 0 ? newVersions : null})
   }
 
   const clearVersions = () => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('dstackVersions')
-    startTransition(() => {
-      router.push(`/?${params.toString()}`)
-    })
+    setQuery({dstackVersions: null})
   }
 
+  const clearSearch = () => {
+    setSearchValue('')
+    setQuery({keyword: null})
+  }
+
+  const hasActiveFilters = keyword || selectedVersions.length > 0
+
   return (
-    <div className="w-full mb-8 space-y-6">
-      {/* Search Input */}
-      <div className="relative max-w-xl">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by app name or app ID..."
-          value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
-          className="pl-10"
-        />
+    <div className="w-full space-y-6">
+      {/* Search and Clear All Row */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-xl">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search by app name or app ID..."
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            className="pl-10 pr-10"
+          />
+          {searchValue && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSearch}
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0 hover:bg-muted"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Clear search</span>
+            </Button>
+          )}
+        </div>
+        {hasActiveFilters && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              clearSearch()
+              clearVersions()
+            }}
+            className="whitespace-nowrap"
+          >
+            Clear all filters
+          </Button>
+        )}
       </div>
 
       {/* DStack Version Filters */}
       {dstackVersions.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">DStack Versions</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Filter by version
+            </h3>
             {selectedVersions.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearVersions}
-                className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
-              >
-                Clear all
-              </Button>
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {selectedVersions.length} selected
+              </span>
             )}
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             {dstackVersions.map((item) => (
-              <div
+              <label
                 key={item.version}
-                className="flex items-center space-x-2 bg-muted/50 rounded-md px-3 py-2 hover:bg-muted transition-colors"
+                className="inline-flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2 cursor-pointer hover:bg-accent hover:border-accent-foreground/20 transition-colors has-[:checked]:bg-primary/10 has-[:checked]:border-primary has-[:checked]:text-primary"
               >
                 <Checkbox
                   id={item.version}
                   checked={selectedVersions.includes(item.version)}
                   onCheckedChange={() => toggleVersion(item.version)}
+                  className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
-                <Label
-                  htmlFor={item.version}
-                  className="text-sm font-normal cursor-pointer flex items-center gap-1.5"
-                >
-                  {item.version}
-                  <span className="text-xs text-muted-foreground">({item.count})</span>
-                </Label>
-              </div>
+                <span className="text-sm font-medium">{item.version}</span>
+                <span className="text-xs text-muted-foreground">
+                  ({item.count})
+                </span>
+              </label>
             ))}
           </div>
         </div>
-      )}
-
-      {isPending && (
-        <div className="text-sm text-muted-foreground">Loading...</div>
       )}
     </div>
   )
