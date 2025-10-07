@@ -1,6 +1,7 @@
 import type {NextRequest} from 'next/server'
 
 import {env} from '@/env'
+import {createTasks} from '@/lib/task-service'
 
 interface AppData {
   app_id: string
@@ -76,7 +77,6 @@ function isVersion053(baseImage: string): boolean {
     return false
   }
 }
-
 
 // Helper function to process app data and create task
 function processAppData(app: AppData): TaskData {
@@ -162,20 +162,19 @@ export async function GET(request: NextRequest) {
       .filter(
         (task) => task.contractAddress !== '' && task.modelOrDomain !== '',
       )
-      .filter((task) =>
-        isVersion053(
-          apps.find((app) => app.app_id === task.appId)?.base_image || '',
-        ),
-      )
+    // .filter((task) =>
+    //   isVersion053(
+    //     apps.find((app) => app.app_id === task.appId)?.base_image || '',
+    //   ),
+    // )
 
     // Create tasks directly in database and queue
-    const {createTasksDirectly} = await import('@/lib/task-service')
-    const batchResult = await createTasksDirectly(tasks)
+    const result = await createTasks(tasks)
 
     return Response.json({
       success: true,
       tasksCreated: tasks.length,
-      batchResult,
+      result,
     })
   } catch (error) {
     console.error('Sync tasks error:', error)

@@ -13,79 +13,39 @@ import {env} from '@/env'
 // Create database connection
 const db = createDbConnection(env.DATABASE_POSTGRES_URL)
 
-type CreateTaskInput = TaskCreateRequest
+type CreateTaskInput = TaskCreateRequest | TaskCreateRequest[]
 
-interface CreateTaskResult {
-  index: number
-  success: boolean
-  taskId: string | null
-  error: string | null
-}
-
-export async function createTask(input: CreateTaskInput) {
+export async function createTasks(input: CreateTaskInput) {
   try {
-    const taskId = randomUUID()
+    // Handle batch insert
+    const tasks = Array.isArray(input) ? input : [input]
 
-    // Insert task into database with pending status
-    // Server worker will pick it up and add to queue
-    await db.insert(verificationTasksTable).values({
-      id: taskId,
-      appId: input.appId,
-      appName: input.appName,
-      appConfigType: input.appConfigType,
-      contractAddress: input.contractAddress,
-      modelOrDomain: input.modelOrDomain,
-      dstackVersion: input.dstackVersion || null,
-      appMetadata: input.metadata || null,
-      verificationFlags: input.flags || null,
-      status: 'pending',
+    const values = tasks.map(task => ({
+      id: randomUUID(),
+      appId: task.appId,
+      appName: task.appName,
+      appConfigType: task.appConfigType,
+      contractAddress: task.contractAddress,
+      modelOrDomain: task.modelOrDomain,
+      dstackVersion: task.dstackVersion || null,
+      appMetadata: task.metadata || null,
+      verificationFlags: task.flags || null,
+      status: 'pending' as const,
       createdAt: new Date(),
-    })
+    }))
 
-    return {taskId, message: 'Task created successfully'}
+    // Insert all tasks in a single batch operation
+    await db.insert(verificationTasksTable).values(values)
+
+    // Return single task ID or array of task IDs
+    const taskIds = values.map(v => v.id)
+    return Array.isArray(input)
+      ? {taskIds, message: `${taskIds.length} tasks created successfully`}
+      : {taskId: taskIds[0], message: 'Task created successfully'}
   } catch (error) {
     throw new Error(
-      `Failed to create task: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      `Failed to create task(s): ${error instanceof Error ? error.message : 'Unknown error'}`,
     )
-  }
-}
-
-export async function createTasksDirectly(tasks: CreateTaskInput[]): Promise<{
-  total: number
-  successful: number
-  failed: number
-  results: CreateTaskResult[]
-}> {
-  const results: CreateTaskResult[] = []
-  let successful = 0
-  let failed = 0
-
-  for (let i = 0; i < tasks.length; i++) {
-    try {
-      const result = await createTask(tasks[i])
-      results.push({
-        index: i,
-        success: true,
-        taskId: result.taskId,
-        error: null,
-      })
-      successful++
-    } catch (error) {
-      results.push({
-        index: i,
-        success: false,
-        taskId: null,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-      failed++
-    }
-  }
-
-  return {
-    total: tasks.length,
-    successful,
-    failed,
-    results,
   }
 }
 
