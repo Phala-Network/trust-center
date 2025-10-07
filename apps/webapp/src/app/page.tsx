@@ -3,6 +3,7 @@ import {
   HydrationBoundary,
   QueryClient,
 } from '@tanstack/react-query'
+import {Suspense} from 'react'
 
 import {Hero} from '@/components/hero'
 import {getApps, getDstackVersions} from '@/lib/db'
@@ -39,7 +40,9 @@ export default async function HomePage() {
                   Verified Applications
                 </h2>
               </div>
-              <HomeClient />
+              <Suspense fallback={<div className="w-full h-96" />}>
+                <HomeClient />
+              </Suspense>
             </div>
           </div>
         </section>
