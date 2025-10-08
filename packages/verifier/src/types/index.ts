@@ -20,7 +20,10 @@ export type {
   GatewayMetadata,
   GovernanceInfo,
   HardwareInfo,
+  ImageVersionString,
   KmsMetadata,
+  KmsVersionString,
+  NormalizedVersionString,
   OSSourceInfo,
   VerifierMetadata,
 } from './metadata'

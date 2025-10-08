@@ -8,6 +8,38 @@
 import { z } from 'zod'
 
 /**
+ * KMS version format from SystemInfo.kms_info.version
+ * Format: "v0.5.3 (git:abc123)"
+ * Contains both version number and git commit hash
+ */
+export type KmsVersionString = string & { readonly __brand: 'KmsVersion' }
+
+/**
+ * Image version from SystemInfo.instances.image_version
+ * Format: "dstack-dev-0.3.6"
+ * Docker image tag format
+ */
+export type ImageVersionString = string & { readonly __brand: 'ImageVersion' }
+
+/**
+ * Normalized version for storage/comparison
+ * Format: "v0.3.6" (always with 'v' prefix)
+ * Used in metadata and API responses
+ */
+export type NormalizedVersionString = string & {
+  readonly __brand: 'NormalizedVersion'
+}
+
+// Helper functions to create branded types (runtime no-op, compile-time type assertion)
+export const createKmsVersion = (s: string): KmsVersionString =>
+  s as KmsVersionString
+export const createImageVersion = (s: string): ImageVersionString =>
+  s as ImageVersionString
+export const createNormalizedVersion = (s: string): NormalizedVersionString =>
+  s as NormalizedVersionString
+
+/**
+ * @deprecated Use NormalizedVersionString instead
  * Version string that starts with 'v' prefix.
  * Examples: "v0.5.3", "v0.5.3 (git:c06e524bd460fd9c9add)"
  */
@@ -23,8 +55,8 @@ export const OSSourceInfoSchema = z.object({
   github_repo: z.string(),
   /** Git commit hash of the OS build */
   git_commit: z.string(),
-  /** Version string of the OS that starts with 'v' prefix */
-  version: VersionStringSchema,
+  /** Normalized version string (e.g., "v0.5.3") */
+  version: z.string(),
 })
 
 /**
@@ -128,14 +160,42 @@ export const VerifierMetadataSchema = z.union([
   CompleteAppMetadataSchema,
 ])
 
-// Export TypeScript types from Zod schemas
+// Export TypeScript types from Zod schemas with branded type overrides
 export type VersionString = z.infer<typeof VersionStringSchema>
-export type OSSourceInfo = z.infer<typeof OSSourceInfoSchema>
+
+export type OSSourceInfo = {
+  github_repo: string
+  git_commit: string
+  version: ImageVersionString
+}
+
 export type AppSourceInfo = z.infer<typeof AppSourceInfoSchema>
 export type HardwareInfo = z.infer<typeof HardwareInfoSchema>
 export type GovernanceInfo = z.infer<typeof GovernanceInfoSchema>
-export type KmsMetadata = z.infer<typeof KmsMetadataSchema>
-export type GatewayMetadata = z.infer<typeof GatewayMetadataSchema>
-export type CompleteAppMetadata = z.infer<typeof CompleteAppMetadataSchema>
-export type AppMetadata = z.infer<typeof AppMetadataSchema>
-export type VerifierMetadata = z.infer<typeof VerifierMetadataSchema>
+
+export type KmsMetadata = {
+  osSource: OSSourceInfo
+  appSource: AppSourceInfo
+  hardware: HardwareInfo
+  governance: GovernanceInfo
+}
+
+export type GatewayMetadata = {
+  osSource: OSSourceInfo
+  appSource: AppSourceInfo
+  hardware: HardwareInfo
+  governance: GovernanceInfo
+}
+
+export type CompleteAppMetadata = {
+  osSource: OSSourceInfo
+  appSource?: AppSourceInfo
+  hardware: HardwareInfo
+  governance?: GovernanceInfo
+}
+
+export type AppMetadata = Partial<CompleteAppMetadata>
+export type VerifierMetadata =
+  | KmsMetadata
+  | GatewayMetadata
+  | CompleteAppMetadata

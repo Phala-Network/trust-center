@@ -10,7 +10,7 @@ import type {
   QuoteData,
   SystemInfo,
 } from '../types'
-import { versionToSourceInfo } from '../utils/metadataUtils'
+import { kmsVersionToSourceInfo } from '../utils/metadataUtils'
 import { Verifier } from '../verifier'
 
 /**
@@ -23,8 +23,8 @@ export class LegacyKmsStubVerifier extends Verifier {
     // Create minimal metadata for the stub verifier
     super(
       {
-        osSource: versionToSourceInfo(systemInfo.kms_info.version),
-        appSource: versionToSourceInfo(systemInfo.kms_info.version, 'kms'),
+        osSource: kmsVersionToSourceInfo(systemInfo.kms_info.version),
+        appSource: kmsVersionToSourceInfo(systemInfo.kms_info.version, 'kms'),
         hardware: {
           cpuManufacturer: 'Intel Corporation',
           cpuModel: 'Intel(R) Xeon(R) CPU',
@@ -44,7 +44,7 @@ export class LegacyKmsStubVerifier extends Verifier {
   }
 
   private generateLegacyDataObjects(): void {
-    const sourceInfo = versionToSourceInfo(
+    const sourceInfo = kmsVersionToSourceInfo(
       this.systemInfo.kms_info.version,
       'kms',
     )
@@ -142,8 +142,11 @@ export class LegacyGatewayStubVerifier extends Verifier {
     // Create minimal metadata for the stub verifier
     super(
       {
-        osSource: versionToSourceInfo(systemInfo.kms_info.version),
-        appSource: versionToSourceInfo(systemInfo.kms_info.version, 'gateway'),
+        osSource: kmsVersionToSourceInfo(systemInfo.kms_info.version),
+        appSource: kmsVersionToSourceInfo(
+          systemInfo.kms_info.version,
+          'gateway',
+        ),
         hardware: {
           cpuManufacturer: 'Intel Corporation',
           cpuModel: 'Intel(R) Xeon(R) CPU',
@@ -163,7 +166,7 @@ export class LegacyGatewayStubVerifier extends Verifier {
   }
 
   private generateLegacyDataObjects(): void {
-    const sourceInfo = versionToSourceInfo(
+    const sourceInfo = kmsVersionToSourceInfo(
       this.systemInfo.kms_info.version,
       'gateway',
     )

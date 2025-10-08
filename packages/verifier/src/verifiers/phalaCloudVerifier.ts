@@ -17,13 +17,16 @@ import {
   type SystemInfo,
 } from '../types'
 import { DstackApp } from '../utils/dstackContract'
-import { isLegacyVersion } from '../utils/metadataUtils'
+import {
+  createImageVersion,
+  createKmsVersion,
+  isLegacyVersion,
+} from '../utils/metadataUtils'
 import {
   isUpToDate,
   verifyTeeQuote,
 } from '../verification/hardwareVerification'
 import {
-  getImageFolder,
   verifyOSIntegrity,
   verifyOSIntegrityLegacy,
 } from '../verification/osVerification'
@@ -223,14 +226,34 @@ export class PhalaCloudVerifier extends Verifier {
         )
       }
 
+      // Filter out invalid instances (empty objects when instance is turned off)
+      const validInstances = parseResult.data.instances.filter(
+        (instance) =>
+          instance.quote !== undefined &&
+          instance.eventlog !== undefined &&
+          instance.image_version !== undefined,
+      )
+
+      // Check if instances list is empty (instance is turned off)
+      if (validInstances.length === 0) {
+        throw new Error(
+          `App '${appId}' has no running instances on Phala Cloud`,
+        )
+      }
+
       // Transform quotes to ensure they have 0x prefix
       const transformedData: SystemInfo = {
         ...parseResult.data,
-        instances: parseResult.data.instances.map((instance) => ({
-          ...instance,
-          quote: instance.quote.startsWith('0x')
-            ? (instance.quote as `0x${string}`)
-            : (`0x${instance.quote}` as `0x${string}`),
+        kms_info: {
+          ...parseResult.data.kms_info,
+          version: createKmsVersion(parseResult.data.kms_info.version),
+        },
+        instances: validInstances.map((instance) => ({
+          quote: instance.quote!.startsWith('0x')
+            ? (instance.quote! as `0x${string}`)
+            : (`0x${instance.quote!}` as `0x${string}`),
+          eventlog: instance.eventlog!,
+          image_version: createImageVersion(instance.image_version!),
         })),
       }
 
@@ -264,7 +287,16 @@ export class PhalaCloudVerifier extends Verifier {
 
   public async verifyOperatingSystem(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
-    const imageFolderName = getImageFolder('app')
+
+    // Get image version from first instance
+    const imageFolderName = this.systemInfo.instances[0]?.image_version
+    if (!imageFolderName) {
+      throw new Error('No image_version found in SystemInfo.instances[0]')
+    }
+
+    // Ensure image is downloaded
+    const { ensureDstackImage } = await import('../utils/imageDownloader')
+    await ensureDstackImage(imageFolderName)
 
     const isValid = isLegacyVersion(this.systemInfo.kms_info.version)
       ? await verifyOSIntegrityLegacy(appInfo, imageFolderName)

@@ -10,9 +10,8 @@
 # Architecture:
 #   1. Base & Dependencies - Bun workspace setup
 #   2. Build Tools - Compile verification binaries (dcap-qvl, qemu, dstack-mr-cli)
-#   3. Download Assets - Fetch dstack images
-#   4. Runtime Assembly - Combine all artifacts
-#   5. Final Image - Application with all dependencies
+#   3. Runtime Assembly - Combine all artifacts
+#   4. Final Image - Application with all dependencies
 #
 # ==============================================================================
 
@@ -97,30 +96,7 @@ RUN apk add --no-cache git
 RUN go install github.com/kvinwang/dstack-mr@latest
 
 # ------------------------------------------------------------------------------
-# Stage 4: Download Assets - DStack images
-# ------------------------------------------------------------------------------
-FROM alpine:3.19 AS dstack-images
-RUN apk add --no-cache wget
-WORKDIR /images
-
-# Download and extract DStack OS images
-RUN wget -q -O dstack-0.5.3.tar.gz \
-    https://github.com/Dstack-TEE/meta-dstack/releases/download/v0.5.3/dstack-0.5.3.tar.gz && \
-    tar -xzf dstack-0.5.3.tar.gz && \
-    rm dstack-0.5.3.tar.gz
-
-RUN wget -q -O dstack-nvidia-0.5.3.tar.gz \
-    https://github.com/nearai/private-ml-sdk/releases/download/v0.5.3/dstack-nvidia-0.5.3.tar.gz && \
-    tar -xzf dstack-nvidia-0.5.3.tar.gz && \
-    rm dstack-nvidia-0.5.3.tar.gz
-
-RUN wget -q -O dstack-nvidia-dev-0.5.3.tar.gz \
-    https://github.com/nearai/private-ml-sdk/releases/download/v0.5.3/dstack-nvidia-dev-0.5.3.tar.gz && \
-    tar -xzf dstack-nvidia-dev-0.5.3.tar.gz && \
-    rm dstack-nvidia-dev-0.5.3.tar.gz
-
-# ------------------------------------------------------------------------------
-# Stage 5: Runtime Assembly - Combine artifacts
+# Stage 4: Runtime Assembly - Combine artifacts
 # ------------------------------------------------------------------------------
 FROM deps AS runtime
 
@@ -141,8 +117,8 @@ COPY --from=qemu-builder /build/qemu-tdx/pc-bios/efi-virtio.rom /usr/local/share
 COPY --from=qemu-builder /build/qemu-tdx/pc-bios/kvmvapic.bin /usr/local/share/qemu/
 COPY --from=qemu-builder /build/qemu-tdx/pc-bios/linuxboot_dma.bin /usr/local/share/qemu/
 
-# Copy DStack images for measurement verification
-COPY --from=dstack-images /images /app/packages/verifier/external/dstack-images
+# Create directory for DStack images (downloaded on demand)
+RUN mkdir -p /app/packages/verifier/external/dstack-images
 
 # Make binaries executable
 RUN chmod +x \
@@ -152,7 +128,7 @@ RUN chmod +x \
     /usr/local/bin/dstack-acpi-tables
 
 # ------------------------------------------------------------------------------
-# Stage 6: Final Image - Application
+# Stage 5: Final Image - Application
 # ------------------------------------------------------------------------------
 FROM runtime AS final
 

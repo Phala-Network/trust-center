@@ -29,9 +29,9 @@ export const KmsInfoSchema = z.object({
 })
 
 export const DstackInstanceSchema = z.object({
-  quote: z.string(),
-  eventlog: EventLogSchema,
-  image_version: z.string(),
+  quote: z.string().optional(),
+  eventlog: EventLogSchema.optional(),
+  image_version: z.string().optional(),
 })
 
 export const SystemInfoSchema = z.object({
