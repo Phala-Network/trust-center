@@ -1,7 +1,11 @@
 import { exec } from 'node:child_process'
-import { existsSync, mkdirSync } from 'node:fs'
+import { createWriteStream, existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
+
+import type { NormalizedVersionString } from '../types/metadata'
+import { createNormalizedVersion } from '../types/metadata'
 
 const execAsync = promisify(exec)
 
@@ -10,7 +14,7 @@ const execAsync = promisify(exec)
  */
 interface ImageInfo {
   variant: 'standard' | 'nvidia'
-  version: string
+  version: NormalizedVersionString
   downloadUrl: string
 }
 
@@ -21,38 +25,46 @@ interface ImageInfo {
  */
 function parseImageFolderName(folderName: string): ImageInfo {
   if (folderName.startsWith('dstack-nvidia-dev-')) {
-    const version = folderName.replace('dstack-nvidia-dev-', '')
+    const version = createNormalizedVersion(
+      `v${folderName.replace('dstack-nvidia-dev-', '')}`,
+    )
     return {
       variant: 'nvidia',
       version,
-      downloadUrl: `https://github.com/nearai/private-ml-sdk/releases/download/v${version}/dstack-nvidia-dev-${version}.tar.gz`,
+      downloadUrl: `https://github.com/nearai/private-ml-sdk/releases/download/${version}/dstack-nvidia-dev-${version.slice(1)}.tar.gz`,
     }
   }
 
   if (folderName.startsWith('dstack-nvidia-')) {
-    const version = folderName.replace('dstack-nvidia-', '')
+    const version = createNormalizedVersion(
+      `v${folderName.replace('dstack-nvidia-', '')}`,
+    )
     return {
       variant: 'nvidia',
       version,
-      downloadUrl: `https://github.com/nearai/private-ml-sdk/releases/download/v${version}/dstack-nvidia-${version}.tar.gz`,
+      downloadUrl: `https://github.com/nearai/private-ml-sdk/releases/download/${version}/dstack-nvidia-${version.slice(1)}.tar.gz`,
     }
   }
 
   if (folderName.startsWith('dstack-dev-')) {
-    const version = folderName.replace('dstack-dev-', '')
+    const version = createNormalizedVersion(
+      `v${folderName.replace('dstack-dev-', '')}`,
+    )
     return {
       variant: 'standard',
       version,
-      downloadUrl: `https://github.com/Dstack-TEE/meta-dstack/releases/download/v${version}/dstack-dev-${version}.tar.gz`,
+      downloadUrl: `https://github.com/Dstack-TEE/meta-dstack/releases/download/${version}/dstack-dev-${version.slice(1)}.tar.gz`,
     }
   }
 
   if (folderName.startsWith('dstack-')) {
-    const version = folderName.replace('dstack-', '')
+    const version = createNormalizedVersion(
+      `v${folderName.replace('dstack-', '')}`,
+    )
     return {
       variant: 'standard',
       version,
-      downloadUrl: `https://github.com/Dstack-TEE/meta-dstack/releases/download/v${version}/dstack-${version}.tar.gz`,
+      downloadUrl: `https://github.com/Dstack-TEE/meta-dstack/releases/download/${version}/dstack-${version.slice(1)}.tar.gz`,
     }
   }
 
@@ -83,11 +95,22 @@ async function downloadAndExtract(
     // Create target directory
     mkdirSync(targetDir, { recursive: true })
 
-    // Download tarball
-    await execAsync(`wget -O "${tarballPath}" "${downloadUrl}"`)
+    // Download tarball using native fetch (avoids fd inheritance issues with wget)
+    const response = await fetch(downloadUrl)
+    if (!response.ok || !response.body) {
+      throw new Error(
+        `Failed to download: ${response.status} ${response.statusText}`,
+      )
+    }
 
-    // Extract tarball into the target directory
-    await execAsync(`tar -xzf "${tarballPath}" -C "${targetDir}"`)
+    // Stream response to file
+    await pipeline(
+      response.body as unknown as NodeJS.ReadableStream,
+      createWriteStream(tarballPath),
+    )
+
+    // Extract tarball into the target directory, stripping the root folder
+    await execAsync(`tar -xzf "${tarballPath}" -C "${targetDir}" --strip-components=1`)
 
     // Clean up tarball
     await execAsync(`rm "${tarballPath}"`)

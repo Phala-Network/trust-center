@@ -7,7 +7,7 @@ import type {
   RedpillConfig,
   VerificationFlags,
 } from './config'
-import type { SystemInfo } from './types'
+import type { AppMetadata, SystemInfo } from './types'
 import {
   completeAppMetadata,
   createGatewayMetadata,
@@ -39,7 +39,10 @@ export function createVerifiers(
   const gatewayMetadata = createGatewayMetadata(systemInfo)
 
   // Complete app metadata with default values when needed
-  const appMetadata = completeAppMetadata(systemInfo, appConfig.metadata)
+  const appMetadata = completeAppMetadata(
+    systemInfo,
+    appConfig.metadata as AppMetadata | undefined,
+  )
 
   if ('model' in appConfig) {
     // Redpill app chain: RedpillKms -> Gateway -> RedpillApp

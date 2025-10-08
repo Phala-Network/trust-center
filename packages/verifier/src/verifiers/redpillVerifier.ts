@@ -11,6 +11,10 @@ import type {
 import { parseAttestationBundle } from '../types'
 import { DstackApp } from '../utils/dstackContract'
 import {
+  createImageVersion,
+  createKmsVersion,
+} from '../utils/metadataUtils'
+import {
   isUpToDate,
   verifyTeeQuote,
 } from '../verification/hardwareVerification'
@@ -142,7 +146,7 @@ export class RedpillVerifier extends Verifier {
         kms_info: {
           contract_address: '0xbfd2d557118fc650ea25a0e7d85355d335f259d8',
           chain_id: 8453,
-          version: 'v0.5.3 (git:c06e524bd460fd9c9add)',
+          version: createKmsVersion('v0.5.3 (git:c06e524bd460fd9c9add)'),
           url: '',
           gateway_app_id: '0x39F2f3373CEcFf85BD8BBd985adeeF32547a302c',
           gateway_app_url: 'https://gateway.llm-04.phala.network:9204',
@@ -151,7 +155,7 @@ export class RedpillVerifier extends Verifier {
           {
             quote: quoteData.quote,
             eventlog: quoteData.eventlog,
-            image_version: 'dstack-nvidia-0.5.3',
+            image_version: createImageVersion('dstack-nvidia-0.5.3'),
           },
         ],
       }

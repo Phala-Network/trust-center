@@ -17,7 +17,11 @@ import {
   type SystemInfo,
 } from '../types'
 import { DstackApp } from '../utils/dstackContract'
-import { isLegacyVersion } from '../utils/metadataUtils'
+import {
+  createImageVersion,
+  createKmsVersion,
+  isLegacyVersion,
+} from '../utils/metadataUtils'
 import {
   isUpToDate,
   verifyTeeQuote,
@@ -240,12 +244,16 @@ export class PhalaCloudVerifier extends Verifier {
       // Transform quotes to ensure they have 0x prefix
       const transformedData: SystemInfo = {
         ...parseResult.data,
+        kms_info: {
+          ...parseResult.data.kms_info,
+          version: createKmsVersion(parseResult.data.kms_info.version),
+        },
         instances: validInstances.map((instance) => ({
           quote: instance.quote!.startsWith('0x')
             ? (instance.quote! as `0x${string}`)
             : (`0x${instance.quote!}` as `0x${string}`),
           eventlog: instance.eventlog!,
-          image_version: instance.image_version!,
+          image_version: createImageVersion(instance.image_version!),
         })),
       }
 
