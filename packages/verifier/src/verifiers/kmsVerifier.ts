@@ -12,10 +12,7 @@ import {
   isUpToDate,
   verifyTeeQuote,
 } from '../verification/hardwareVerification'
-import {
-  getImageFolder,
-  verifyOSIntegrity,
-} from '../verification/osVerification'
+import { verifyOSIntegrity } from '../verification/osVerification'
 import { verifyComposeHash } from '../verification/sourceCodeVerification'
 import { Verifier } from '../verifier'
 
@@ -120,7 +117,16 @@ export abstract class KmsVerifier extends Verifier {
    */
   public async verifyOperatingSystem(): Promise<boolean> {
     const appInfo = await this.getAppInfo()
-    const imageFolderName = getImageFolder('kms')
+
+    // Extract version from KMS info and construct image folder name
+    const { extractVersionNumber, ensureDstackImage } = await import(
+      '../utils/imageDownloader'
+    )
+    const version = extractVersionNumber(this.kmsInfo.version)
+    const imageFolderName = `dstack-${version}`
+
+    // Ensure image is downloaded
+    await ensureDstackImage(imageFolderName)
 
     const measurementResult = await verifyOSIntegrity(appInfo, imageFolderName)
 

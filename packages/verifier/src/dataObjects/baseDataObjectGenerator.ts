@@ -18,11 +18,14 @@ import type {
   CompleteAppMetadata,
   DataObject,
   GatewayMetadata,
+  ImageVersionString,
   KmsMetadata,
   LogEntry,
+  NormalizedVersionString,
   QuoteData,
   VerifyQuoteResult,
 } from '../types'
+import { parseImageVersion } from '../utils/metadataUtils'
 
 /**
  * Interface for DStack image metadata from external/dstack-images directory
@@ -33,7 +36,7 @@ interface DStackImageMetadata {
   cmdline: string
   initrd: string
   rootfs: string
-  version: string
+  version: NormalizedVersionString
   git_revision: string
   shared_ro: boolean
   is_dev: boolean
@@ -66,39 +69,24 @@ export abstract class BaseDataObjectGenerator {
    * Reads DStack image metadata from dstack-images directory
    */
   protected readDStackImageMetadata(
-    version: string,
-    isNvidiaVariant: boolean,
+    version: ImageVersionString,
   ): DStackImageMetadata {
-    // Strip 'v' prefix if present
-    const cleanVersion = version.startsWith('v') ? version.slice(1) : version
-    const imageDirName = isNvidiaVariant
-      ? `dstack-nvidia-${cleanVersion}`
-      : `dstack-${cleanVersion}`
     const metadataPath = join(
       getDStackImagesBasePath(),
-      imageDirName,
+      version,
       'metadata.json',
     )
 
     try {
       const metadataContent = readFileSync(metadataPath, 'utf8')
       return JSON.parse(metadataContent) as DStackImageMetadata
-    } catch {
-      // Fallback to hardcoded values if metadata file is not found
-      console.warn(
-        `Warning: Could not read metadata from ${metadataPath}, using fallback values`,
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
+      throw new Error(
+        `Failed to read DStack image metadata from ${metadataPath}: ${errorMessage}. ` +
+          `Please ensure version ${version} is downloaded or available.`,
       )
-      return {
-        bios: 'ovmf.fd',
-        kernel: 'bzImage',
-        cmdline: '',
-        initrd: 'initramfs.cpio.gz',
-        rootfs: 'rootfs.img.verity',
-        version: cleanVersion,
-        git_revision: '',
-        shared_ro: true,
-        is_dev: false,
-      }
     }
   }
 
@@ -171,25 +159,23 @@ export abstract class BaseDataObjectGenerator {
     appInfo: AppInfo,
     hasNvidiaSupport: boolean = false,
   ): DataObject {
-    const osVersionString = this.metadata.osSource.version
+    const imageVersion = this.metadata.osSource.version
+    const versionString = parseImageVersion(imageVersion)
     const isNvidiaVariant =
       hasNvidiaSupport || this.metadata.hardware.hasNvidiaSupport
 
     // Read dynamic metadata from dstack-images
-    const imageMetadata = this.readDStackImageMetadata(
-      osVersionString,
-      Boolean(isNvidiaVariant),
-    )
+    const imageMetadata = this.readDStackImageMetadata(imageVersion)
 
     return {
       id: this.generateObjectId('os'),
       name: `${this.verifierType.toUpperCase()} OS`,
       description: `Integrity measurements and configuration of the ${this.verifierType} operating system, including boot parameters and system components.`,
       fields: {
-        os: osVersionString,
+        os: imageVersion,
         artifacts: isNvidiaVariant
-          ? `https://github.com/nearai/private-ml-sdk/releases/tag/${osVersionString}`
-          : `https://github.com/Dstack-TEE/meta-dstack/releases/tag/${osVersionString}`,
+          ? `https://github.com/nearai/private-ml-sdk/releases/tag/${versionString}`
+          : `https://github.com/Dstack-TEE/meta-dstack/releases/tag/${versionString}`,
         vm_config: appInfo.vm_config
           ? JSON.stringify(appInfo.vm_config)
           : 'N/A',

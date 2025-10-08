@@ -1,4 +1,5 @@
 import type { EventLog, Quote } from './core'
+import type { ImageVersionString, KmsVersionString } from './metadata'
 
 /**
  * Types related to application configuration and deployment.
@@ -187,7 +188,7 @@ export interface KmsInfo {
   /** Chain ID where the contract is deployed, null for legacy versions without governance contracts */
   chain_id: number | null
   /** Version of the KMS software, like "v0.5.3 (git:ca4af023e974427e4153)" */
-  version: string
+  version: KmsVersionString
   /** URL endpoint for the KMS service */
   url: string
   /** Gateway application ID associated with this KMS */
@@ -205,7 +206,7 @@ export interface DstackInstance {
   /** Event log containing measurement data */
   eventlog: EventLog
   /** Version of the DStack OS image, like "dstack[-nvidia][-dev]-0.5.3" */
-  image_version: string
+  image_version: ImageVersionString
 }
 
 /**

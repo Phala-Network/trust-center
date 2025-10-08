@@ -21,7 +21,10 @@ import {
   clearAllDataObjects,
   configureVerifierRelationships,
 } from './utils/dataObjectCollector'
-import { isLegacyVersion } from './utils/metadataUtils'
+import {
+  getGitCommitFromImageVersion,
+  isLegacyVersion,
+} from './utils/metadataUtils'
 import { createVerifiers, executeVerifiers } from './verifierChain'
 import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
 import { RedpillVerifier } from './verifiers/redpillVerifier'
@@ -53,6 +56,20 @@ export class VerificationService {
     try {
       // Get complete DStack info from the app
       const systemInfo = await this.getSystemInfo(appConfig)
+
+      // Extract git commit from instance image version if available (Phala Cloud only)
+      if ('domain' in appConfig && systemInfo.instances[0]?.image_version) {
+        const imageVersion = systemInfo.instances[0].image_version
+        const gitCommit = await getGitCommitFromImageVersion(imageVersion)
+        if (!appConfig.metadata) {
+          appConfig.metadata = {}
+        }
+        appConfig.metadata.osSource = {
+          github_repo: 'https://github.com/Dstack-TEE/meta-dstack',
+          git_commit: gitCommit,
+          version: imageVersion,
+        }
+      }
 
       // Create and execute verifier chain
       const verifiers = createVerifiers(appConfig, systemInfo)
