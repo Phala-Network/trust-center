@@ -6,9 +6,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-The Trust Center is a comprehensive TypeScript-based platform for managing and verifying Trusted Execution Environment (TEE) attestations in the DStack ecosystem. It provides a full-stack solution with a backend API server for verification task management, database persistence, queue-based processing, and a Next.js web application for user interaction.
+The Trust Center is a comprehensive TypeScript-based platform for managing and verifying Trusted Execution Environment (TEE) attestations in the dstack ecosystem. It provides a full-stack solution with a background worker for verification task processing, database persistence, queue-based processing, and a Next.js web application for user interaction.
 
-The platform implements a modular monorepo architecture with separate packages for the verification engine, database layer, and applications. It features production-ready verification workflows with Intel TDX attestation, NVIDIA GPU verification, blockchain integration, and comprehensive verification data management.
+### Core Concept
+
+dstack relies on TEE hardware to measure the programs it executes and generate **attestation reports** that are cryptographically signed by hardware to ensure authority and integrity. The dstack operating system is customized to perform comprehensive measurements of applications (Docker images), Key Management Services (KMS), and Gateway configurations, writing measurement digests into attestation reports.
+
+Specifically, dstack leverages the **RTMR3 measurement register** in attestation reports to store a series of events that measure various application aspects. The dstack-verifier collects information from multiple sources (Docker images, application source code, OS source code, domains) and compares them with measurement values in attestation reports, helping users confirm the source code authenticity of applications they interact with.
+
+### Verification Architecture
+
+The platform implements a modular monorepo architecture with:
+- **Verification Engine** (`@phala/dstack-verifier`): Core library with multi-entity, multi-phase verification
+- **Database Layer** (`@phala/trust-center-db`): Shared schema, types, and ORM
+- **Background Worker** (`apps/server`): Queue-based task processing
+- **Web Application** (`apps/webapp`): User interface with direct database access
+
+The system supports **four verification phases** for **three entity types**:
+1. **Hardware Verification**: Intel TDX/SGX quote validation, NVIDIA GPU attestation
+2. **OS Integrity**: MRTD and RTMR0-2 measurement comparison
+3. **Source Code**: Compose hash extraction from RTMR3 and blockchain validation
+4. **Domain Verification**: Zero Trust HTTPS implementation (Gateway only)
 
 ## Key Development Notes
 
@@ -17,7 +35,7 @@ The platform implements a modular monorepo architecture with separate packages f
 - **Type Safety**: Strict TypeScript with modular type definitions across packages
 - **Code Quality**: Biome for formatting and linting (single quotes, minimal semicolons)
 - **Database**: PostgreSQL with Drizzle ORM in shared `@phala/trust-center-db` package
-- **API Server**: Elysia-based REST API with OpenAPI documentation
+- **Background Worker**: BullMQ-based queue processing (no HTTP API)
 - **Queue System**: Redis-based BullMQ for background verification processing
 - **Storage**: S3-compatible object storage for verification results
 - **Frontend**: Next.js web application with shadcn/ui components
@@ -105,15 +123,38 @@ Core verification engine for TEE attestation validation.
 - `VerificationService`: Main verification orchestration class
 - Config types: `RedpillConfig`, `PhalaCloudConfig`, `VerificationFlags`
 - API types: `VerificationResponse`, `VerificationError`
-- Metadata types: `AppMetadata`, `OSSourceInfo`, `AppSourceInfo`, etc.
+- Metadata types: `AppMetadata`, `OSSourceInfo`, `AppSourceInfo`, `HardwareInfo`, `GovernanceInfo`
 - Schema: `AppMetadataSchema` (Zod validation)
 
+**Architecture:**
+- `VerificationService` (src/verificationService.ts): Top-level orchestration with DataObjectCollector instance per verification
+- `Verifier Chain` (src/verifierChain.ts): Creates appropriate verifiers based on app type (Redpill vs Phala Cloud)
+- `Verifiers` (src/verifiers/): Entity-specific verifiers (App, KMS, Gateway) with legacy support
+- `Verification Modules` (src/verification/): Isolated verification logic
+  - `hardwareVerification.ts`: Intel DCAP-QVL integration
+  - `osVerification.ts`: Measurement register comparison (MRTD, RTMR0-2)
+  - `sourceCodeVerification.ts`: Compose hash extraction and validation
+  - `domainVerification.ts`: Certificate, DNS CAA, CT log validation
+- `DataObjectCollector` (src/utils/dataObjectCollector.ts): Collects verification metadata and relationships
+- `Measurement Tools` (src/utils/):
+  - `dcap-qvl.ts`: Intel quote verification wrapper
+  - `dstack-mr.ts`: Measurement calculation tool integration (Rust/Go)
+  - `imageDownloader.ts`: dstack OS image management
+  - `dstackContract.ts`: Smart contract integration (Base network)
+
 **Features:**
-- Hardware attestation (Intel TDX/SGX quote verification)
-- OS integrity verification (measurement registers)
-- Source code authenticity (compose hash validation)
-- Domain ownership verification (CT logs, DNS CAA, certificates)
-- Modular verification system with configurable flags
+- Multi-entity verification: App, KMS, Gateway
+- Multi-phase verification: Hardware → OS → Source Code → Domain
+- Configurable verification flags for performance optimization
+- Version-aware verification (legacy vs current dstack versions)
+- Measurement register validation (MRTD, RTMR0-3)
+- Smart contract integration for on-chain governance
+- Concurrent verification support with isolated DataObjectCollectors
+
+**External Dependencies:**
+- `external/dcap-qvl/`: Rust-based Intel DCAP Quote Verification Library
+- `external/dstack-images/`: dstack OS images for measurement calculation
+- `bin/dcap-qvl`: Compiled quote verification binary
 
 **Location:** `packages/verifier/`
 
@@ -166,12 +207,13 @@ Next.js web application for user interaction with the verification platform.
 
 ### Backend Stack
 
-- **Elysia**: Fast and type-safe web framework
+- **Bun**: JavaScript runtime and package manager
 - **PostgreSQL**: Relational database for task persistence
-- **Drizzle ORM**: Type-safe database ORM
+- **Drizzle ORM**: Type-safe database ORM with migrations
 - **Redis**: In-memory store for queue management
 - **BullMQ**: Queue system for background processing
 - **S3 Storage**: Object storage for verification results
+- **TypeScript**: Strict type safety across all services
 
 ### Frontend Stack
 
@@ -182,10 +224,13 @@ Next.js web application for user interaction with the verification platform.
 
 ### Verification Stack
 
-- **Intel DCAP-QVL**: Rust-based quote verification
-- **Docker**: Measurement tools
-- **viem**: Ethereum client for smart contracts
-- **Base Network**: L2 blockchain for attestation storage
+- **Intel DCAP-QVL**: Rust-based quote verification library (custom build)
+- **dstack-mr-cli**: Rust-based measurement register calculation (latest versions)
+- **dstack-mr**: Go-based measurement calculation (legacy versions)
+- **qemu-tdx**: Modified QEMU for ACPI table extraction and measurement
+- **viem**: Ethereum client for smart contract integration
+- **Base Network**: L2 blockchain for on-chain governance and compose hash registry
+- **Zod**: Runtime schema validation for all verification data
 
 ## Configuration & Environment
 
@@ -286,17 +331,19 @@ bun run typecheck        # Type check all packages
 
 ### Cryptographic Verification
 
-- Production Intel DCAP-QVL for hardware attestation
-- Certificate chain validation with trusted CAs
-- TEE-controlled key validation
-- Secure hash comparison for compose integrity
+- **Hardware Attestation**: Production Intel DCAP-QVL with certificate chain validation
+- **Measurement Integrity**: Secure hash comparison for MRTD and RTMR registers
+- **TEE-Controlled Keys**: Validates that TLS private keys are generated and managed by TEE
+- **Compose Hash**: SHA-256 hash validation against blockchain registry
+- **Certificate Validation**: Full chain validation with trusted root CAs
+- **Smart Contract Integration**: Read-only contract calls for governance and registry
 
-### API Security
+### Data Security
 
-- Bearer token authentication for protected endpoints
-- Input validation with Zod schemas
-- Rate limiting and request validation
-- CORS configuration for frontend integration
+- **No API Endpoints**: Server is a background worker only, no HTTP exposure
+- **Direct Database Access**: Webapp uses Drizzle for type-safe database queries
+- **Input Validation**: Zod schemas validate all external data
+- **Environment Isolation**: Separate environments for dev/prod with different credentials
 
 ### Database Security
 
@@ -378,16 +425,159 @@ drizzle-kit studio
 ```typescript
 import { VerificationService } from '@phala/dstack-verifier'
 
+// Create a new service instance (important: one per verification task)
 const service = new VerificationService()
+
+// Redpill app verification
 const result = await service.verify({
-  contractAddress: '0x...',
-  model: 'phala/model-name',
+  contractAddress: '0x1234...',
+  model: 'phala/llama-3.1-8b',
+  metadata: {
+    osSource: {
+      github_repo: 'https://github.com/Dstack-TEE/meta-dstack',
+      git_commit: 'abc123',
+      version: 'v0.5.3'
+    }
+  }
 }, {
   hardware: true,
   os: true,
   sourceCode: true,
+  teeControlledKey: true,
+  certificateKey: true,
+  dnsCAA: false,
+  ctLog: false  // Skip slow CT log queries
+})
+
+// Phala Cloud app verification
+const result2 = await service.verify({
+  contractAddress: '0x5678...',
+  domain: 'myapp.phala.network',
 })
 ```
+
+### Important Concurrency Note
+
+Each `VerificationService` instance maintains its own `DataObjectCollector` to prevent data pollution between concurrent verifications. **Always create a new instance per verification task:**
+
+```typescript
+// ✅ Correct: New instance per task
+async function verifyTask(taskId: string) {
+  const service = new VerificationService()
+  return await service.verify(config, flags)
+}
+
+// ❌ Wrong: Shared instance will cause data pollution
+const sharedService = new VerificationService()
+async function verifyTask(taskId: string) {
+  return await sharedService.verify(config, flags)
+}
+```
+
+## Verification Technical Details
+
+### Measurement Registers (RTMR)
+
+dstack leverages Intel TDX/SGX measurement registers to ensure system integrity:
+
+- **MRTD** (Measurement Register for Trusted Domain): Captures the entire Trusted Domain measurement including OS image, kernel, and initramfs. This is calculated during TD initialization.
+
+- **RTMR0** (Runtime Measurement Register 0): First boot stage measurements. Updated during early boot process.
+
+- **RTMR1** (Runtime Measurement Register 1): Second boot stage measurements. Updated during system initialization.
+
+- **RTMR2** (Runtime Measurement Register 2): Third boot stage measurements. Updated during final boot stages.
+
+- **RTMR3** (Runtime Measurement Register 3): Application-specific measurements. Used by dstack to store event logs including:
+  - `compose-hash` event: SHA-256 hash of Docker Compose configuration
+  - Application configuration events
+  - Gateway and KMS configuration events
+
+### Verification Flow for Each Entity
+
+Each entity (App, KMS, Gateway) follows this verification chain:
+
+```
+1. Hardware Verification
+   ├─ Fetch attestation report from entity endpoint
+   ├─ Extract quote data using DCAP-QVL (Rust binary)
+   ├─ Validate certificate chain against Intel root CA
+   ├─ Extract MRTD, RTMR0-3, and event log
+   └─ For Redpill: Validate NVIDIA GPU attestation
+
+2. OS Integrity Verification
+   ├─ Determine dstack OS version from systemInfo
+   ├─ Download corresponding OS images from external/dstack-images/
+   ├─ Calculate expected measurements using:
+   │  ├─ dstack-mr-cli (Rust) for latest versions
+   │  └─ dstack-mr (Go) for legacy versions
+   ├─ Compare calculated vs actual:
+   │  ├─ MRTD (Trusted Domain measurement)
+   │  ├─ RTMR0 (boot stage 1)
+   │  ├─ RTMR1 (boot stage 2)
+   │  └─ RTMR2 (boot stage 3)
+   └─ All must match exactly
+
+3. Source Code Verification
+   ├─ Extract event log from RTMR3
+   ├─ Find "compose-hash" event in event log
+   ├─ Calculate SHA-256 hash of provided compose config
+   ├─ Compare calculated hash with extracted hash
+   └─ For on-chain apps: Verify hash is registered in smart contract
+
+4. Domain Verification (Gateway only)
+   ├─ TEE-Controlled Key Verification:
+   │  ├─ Extract public key from quote report data
+   │  ├─ Extract public key from TLS certificate
+   │  └─ Verify they match (TEE controls the private key)
+   ├─ Certificate Validation:
+   │  ├─ Validate certificate chain
+   │  ├─ Check certificate is valid (not expired)
+   │  └─ Verify issued by Let's Encrypt (ACME)
+   ├─ DNS CAA Verification (optional, slow):
+   │  └─ Query DNS CAA records to verify domain authorization
+   └─ Certificate Transparency (optional, very slow):
+      └─ Query crt.sh for CT log entries
+```
+
+### Verifier Chain Pattern
+
+The system uses a chain-of-responsibility pattern:
+
+```typescript
+// For Redpill apps (GPU-based LLM inference)
+RedpillKmsVerifier → GatewayVerifier → RedpillVerifier
+
+// For Phala Cloud apps (current versions)
+PhalaCloudKmsVerifier → GatewayVerifier → PhalaCloudVerifier
+
+// For Phala Cloud apps (legacy versions)
+LegacyKmsStubVerifier → LegacyGatewayStubVerifier → PhalaCloudVerifier
+```
+
+Each verifier:
+1. Fetches entity-specific data (attestation, config)
+2. Runs verification phases based on flags
+3. Generates DataObjects with verification results
+4. Passes to next verifier in chain
+
+### DataObject System
+
+The `DataObjectCollector` tracks verification results in a structured format:
+
+- **DataObject**: Represents a verified entity (App, KMS, Gateway) with:
+  - `id`: Unique identifier
+  - `name`: Display name
+  - `type`: "app", "kms", "gateway"
+  - `info`: Verification metadata (measurements, hashes, certificates, etc.)
+  - `checks`: Array of verification check results
+
+- **ObjectRelationship**: Represents dependencies between entities:
+  - `from`: Source entity ID
+  - `to`: Target entity ID
+  - `type`: Relationship type ("uses_kms", "uses_gateway", etc.)
+
+This structure powers the web UI's visualization of trust relationships.
 
 ## Migration Notes
 
@@ -401,3 +591,6 @@ const result = await service.verify({
 - Docker files moved to root (Dockerfile, compose.yml, compose.dev.yml, Makefile)
 - Database migrations managed in `packages/db/` with `db:migrate` script
 - Task flow: webapp → database → dbMonitor → queue → worker → results
+- Fixed critical concurrency bug: Each VerificationService now creates its own DataObjectCollector
+- Added support for both dstack-mr-cli (Rust) and dstack-mr (Go) for measurement calculation
+- Improved OS version detection and image downloading logic
