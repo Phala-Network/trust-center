@@ -1,8 +1,8 @@
+import {VerificationService} from '@phala/dstack-verifier'
 import type {
   PhalaCloudConfig,
   RedpillConfig,
   VerificationResponse,
-  VerificationService,
 } from '@phala/dstack-verifier'
 import {type Job, Queue, Worker} from 'bullmq'
 import IORedis from 'ioredis'
@@ -34,7 +34,6 @@ export interface TaskResult {
 
 export const createQueueService = (
   config: QueueConfig,
-  verificationService: VerificationService,
   verificationTaskService: VerificationTaskService,
   s3Service: S3Service,
 ) => {
@@ -106,6 +105,10 @@ export const createQueueService = (
             metadata,
           }
         }
+
+        // Create a new VerificationService instance for each task to avoid state pollution
+        // This ensures complete isolation between concurrent verification tasks
+        const verificationService = new VerificationService()
 
         // Execute verification using VerificationService
         // verificationFlags can be partial - VerificationService will merge with defaults
