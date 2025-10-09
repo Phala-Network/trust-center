@@ -7,6 +7,7 @@ import type {
   KmsMetadata,
   QuoteData,
 } from '../types'
+import type { DataObjectCollector } from '../utils/dataObjectCollector'
 import { DstackKms } from '../utils/dstackContract'
 import {
   isUpToDate,
@@ -35,8 +36,12 @@ export abstract class KmsVerifier extends Verifier {
   /**
    * Creates a new KMS verifier instance.
    */
-  constructor(metadata: KmsMetadata, kmsInfo: KmsInfo) {
-    super(metadata, 'kms')
+  constructor(
+    metadata: KmsMetadata,
+    kmsInfo: KmsInfo,
+    collector: DataObjectCollector,
+  ) {
+    super(metadata, 'kms', collector)
     // Only create smart contract if governance is OnChain
     if (metadata.governance?.type === 'OnChain') {
       this.registrySmartContract = new DstackKms(

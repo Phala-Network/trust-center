@@ -7,26 +7,18 @@ import type {
 } from '../types'
 
 /**
- * Global DataObject Collector - Singleton class for managing DataObject generation
- * and relationships during TEE verification processes.
+ * DataObject Collector - Manages DataObject generation and relationships
+ * during TEE verification processes.
+ *
+ * IMPORTANT: Each verification should create its own instance to avoid
+ * data pollution between concurrent verifications.
  */
-class DataObjectCollector {
-  private static instance: DataObjectCollector
+export class DataObjectCollector {
   private dataObjects: Map<string, DataObject> = new Map()
   private relationships: ObjectRelationship[] = []
   private eventCallbacks: DataObjectEventCallback[] = []
 
-  private constructor() {}
-
-  /**
-   * Get the singleton instance of DataObjectCollector
-   */
-  public static getInstance(): DataObjectCollector {
-    if (!DataObjectCollector.instance) {
-      DataObjectCollector.instance = new DataObjectCollector()
-    }
-    return DataObjectCollector.instance
-  }
+  constructor() {}
 
   /**
    * Add an event callback for DataObject events
@@ -140,38 +132,4 @@ class DataObjectCollector {
     this.dataObjects.clear()
     this.relationships.length = 0
   }
-}
-
-// Export the singleton instance
-export const dataObjectCollector = DataObjectCollector.getInstance()
-
-// Export convenience functions
-export function createDataObject(dataObject: DataObject): void {
-  dataObjectCollector.createOrUpdateObject(dataObject)
-}
-
-export function getAllDataObjects(): DataObject[] {
-  return dataObjectCollector.getAllObjects()
-}
-
-export function addDataObjectRelationships(
-  relationships: ObjectRelationship[],
-): void {
-  dataObjectCollector.addRelationships(relationships)
-}
-
-export function configureVerifierRelationships(
-  config: VerifierRelationshipConfig,
-): void {
-  dataObjectCollector.configureVerifierRelationships(config)
-}
-
-export function clearAllDataObjects(): void {
-  dataObjectCollector.clear()
-}
-
-export function addDataObjectEventListener(
-  callback: DataObjectEventCallback,
-): void {
-  dataObjectCollector.addEventListener(callback)
 }

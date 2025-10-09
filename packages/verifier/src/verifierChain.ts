@@ -8,6 +8,7 @@ import type {
   VerificationFlags,
 } from './config'
 import type { AppMetadata, SystemInfo } from './types'
+import type { DataObjectCollector } from './utils/dataObjectCollector'
 import {
   completeAppMetadata,
   createGatewayMetadata,
@@ -31,6 +32,7 @@ import { RedpillVerifier } from './verifiers/redpillVerifier'
 export function createVerifiers(
   appConfig: RedpillConfig | PhalaCloudConfig,
   systemInfo: SystemInfo,
+  collector: DataObjectCollector,
 ): Verifier[] {
   const verifiers: Verifier[] = []
 
@@ -47,36 +49,39 @@ export function createVerifiers(
   if ('model' in appConfig) {
     // Redpill app chain: RedpillKms -> Gateway -> RedpillApp
     verifiers.push(
-      new RedpillKmsVerifier(kmsMetadata, systemInfo.kms_info),
-      new GatewayVerifier(gatewayMetadata, systemInfo),
+      new RedpillKmsVerifier(kmsMetadata, systemInfo.kms_info, collector),
+      new GatewayVerifier(gatewayMetadata, systemInfo, collector),
       new RedpillVerifier(
         appConfig.contractAddress,
         appConfig.model,
         appMetadata,
+        collector,
       ),
     )
   } else {
     if (isLegacyVersion(systemInfo.kms_info.version)) {
       // Legacy Phala Cloud app: use stub verifiers + PhalaApp verifier
       verifiers.push(
-        new LegacyKmsStubVerifier(systemInfo),
-        new LegacyGatewayStubVerifier(systemInfo),
+        new LegacyKmsStubVerifier(systemInfo, collector),
+        new LegacyGatewayStubVerifier(systemInfo, collector),
         new PhalaCloudVerifier(
           appConfig.contractAddress,
           appConfig.domain,
           appMetadata,
           systemInfo,
+          collector,
         ),
       )
     } else {
       verifiers.push(
-        new PhalaCloudKmsVerifier(kmsMetadata, systemInfo.kms_info),
-        new GatewayVerifier(gatewayMetadata, systemInfo),
+        new PhalaCloudKmsVerifier(kmsMetadata, systemInfo.kms_info, collector),
+        new GatewayVerifier(gatewayMetadata, systemInfo, collector),
         new PhalaCloudVerifier(
           appConfig.contractAddress,
           appConfig.domain,
           appMetadata,
           systemInfo,
+          collector,
         ),
       )
     }

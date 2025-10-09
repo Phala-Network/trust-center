@@ -9,6 +9,7 @@ import type {
   SystemInfo,
 } from '../types'
 import { parseAttestationBundle } from '../types'
+import type { DataObjectCollector } from '../utils/dataObjectCollector'
 import { DstackApp } from '../utils/dstackContract'
 import {
   createImageVersion,
@@ -33,12 +34,13 @@ export class RedpillVerifier extends Verifier {
     contractAddress: `0x${string}`,
     model: string,
     metadata: CompleteAppMetadata,
+    collector: DataObjectCollector,
   ) {
     if (!metadata.governance || metadata.governance.type !== 'OnChain') {
       throw new Error('RedpillVerifier requires governance to be onchain')
     }
 
-    super(metadata, 'app')
+    super(metadata, 'app', collector)
     this.registrySmartContract = new DstackApp(
       contractAddress,
       metadata.governance.chainId,
