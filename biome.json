@@ -42,7 +42,7 @@
   "javascript": {
     "formatter": {
       "quoteStyle": "single",
-      "bracketSpacing": true,
+      "bracketSpacing": false,
       "semicolons": "asNeeded"
     }
   },
