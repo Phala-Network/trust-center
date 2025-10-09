@@ -17,10 +17,7 @@ import type {
   VerificationError,
   VerificationResponse,
 } from './types'
-import {
-  clearAllDataObjects,
-  configureVerifierRelationships,
-} from './utils/dataObjectCollector'
+import { DataObjectCollector } from './utils/dataObjectCollector'
 import {
   getGitCommitFromImageVersion,
   isLegacyVersion,
@@ -31,9 +28,17 @@ import { RedpillVerifier } from './verifiers/redpillVerifier'
 
 /**
  * Service class for orchestrating verification operations
+ * Each instance maintains its own DataObjectCollector to avoid
+ * data pollution between concurrent verifications.
  */
 export class VerificationService {
   private errors: VerificationError[] = []
+  private collector: DataObjectCollector
+
+  constructor() {
+    // Each verification service gets its own collector instance
+    this.collector = new DataObjectCollector()
+  }
 
   /**
    * Execute verification based on app configuration and flags
@@ -50,8 +55,8 @@ export class VerificationService {
       ...flags,
     }
 
-    // Clear any existing DataObjects
-    clearAllDataObjects()
+    // Clear any existing DataObjects from previous verifications
+    this.collector.clear()
 
     try {
       // Get complete DStack info from the app
@@ -71,8 +76,8 @@ export class VerificationService {
         }
       }
 
-      // Create and execute verifier chain
-      const verifiers = createVerifiers(appConfig, systemInfo)
+      // Create and execute verifier chain with this collector instance
+      const verifiers = createVerifiers(appConfig, systemInfo, this.collector)
 
       const result = await executeVerifiers(verifiers, mergedFlags)
       this.configureVerifierRelationships(systemInfo)
@@ -156,7 +161,7 @@ export class VerificationService {
       },
     ]
 
-    configureVerifierRelationships({ relationships })
+    this.collector.configureVerifierRelationships({ relationships })
   }
 
   /**
@@ -181,9 +186,8 @@ export class VerificationService {
    * Build the final verification response
    */
   private buildResponse(): VerificationResponse {
-    // Import getAllDataObjects dynamically to avoid circular dependencies
-    const { getAllDataObjects } = require('./utils/dataObjectCollector')
-    const dataObjects = getAllDataObjects()
+    // Use this instance's collector
+    const dataObjects = this.collector.getAllObjects()
     const success = this.errors.length === 0
 
     return {

@@ -10,6 +10,7 @@ import type {
   QuoteData,
   SystemInfo,
 } from '../types'
+import type { DataObjectCollector } from '../utils/dataObjectCollector'
 import { kmsVersionToSourceInfo } from '../utils/metadataUtils'
 import { Verifier } from '../verifier'
 
@@ -19,7 +20,7 @@ import { Verifier } from '../verifier'
 export class LegacyKmsStubVerifier extends Verifier {
   private systemInfo: SystemInfo
 
-  constructor(systemInfo: SystemInfo) {
+  constructor(systemInfo: SystemInfo, collector: DataObjectCollector) {
     // Create minimal metadata for the stub verifier
     super(
       {
@@ -37,6 +38,7 @@ export class LegacyKmsStubVerifier extends Verifier {
         },
       },
       'kms',
+      collector,
     )
 
     this.systemInfo = systemInfo
@@ -138,7 +140,7 @@ export class LegacyKmsStubVerifier extends Verifier {
 export class LegacyGatewayStubVerifier extends Verifier {
   private systemInfo: SystemInfo
 
-  constructor(systemInfo: SystemInfo) {
+  constructor(systemInfo: SystemInfo, collector: DataObjectCollector) {
     // Create minimal metadata for the stub verifier
     super(
       {
@@ -159,6 +161,7 @@ export class LegacyGatewayStubVerifier extends Verifier {
         },
       },
       'gateway',
+      collector,
     )
 
     this.systemInfo = systemInfo

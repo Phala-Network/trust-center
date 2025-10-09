@@ -16,6 +16,7 @@ import {
   type QuoteData,
   type SystemInfo,
 } from '../types'
+import type { DataObjectCollector } from '../utils/dataObjectCollector'
 import { DstackApp } from '../utils/dstackContract'
 import {
   verifyCertificateKey,
@@ -47,8 +48,12 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   /**
    * Creates a new Gateway verifier instance.
    */
-  constructor(metadata: GatewayMetadata, systemInfo: SystemInfo) {
-    super(metadata, 'gateway')
+  constructor(
+    metadata: GatewayMetadata,
+    systemInfo: SystemInfo,
+    collector: DataObjectCollector,
+  ) {
+    super(metadata, 'gateway', collector)
 
     // Only create smart contract if governance is OnChain
     if (metadata.governance?.type === 'OnChain') {

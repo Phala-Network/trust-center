@@ -16,6 +16,7 @@ import {
   type QuoteData,
   type SystemInfo,
 } from '../types'
+import type { DataObjectCollector } from '../utils/dataObjectCollector'
 import { DstackApp } from '../utils/dstackContract'
 import {
   createImageVersion,
@@ -46,8 +47,9 @@ export class PhalaCloudVerifier extends Verifier {
     domain: string,
     metadata: CompleteAppMetadata,
     systemInfo: SystemInfo,
+    collector: DataObjectCollector,
   ) {
-    super(metadata, 'app')
+    super(metadata, 'app', collector)
     // Only create smart contract if governance is OnChain
     if (metadata.governance?.type === 'OnChain') {
       this.registrySmartContract = new DstackApp(
