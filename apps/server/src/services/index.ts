@@ -15,7 +15,6 @@ import {
 
 // Types
 export interface Services {
-  verification: VerificationService
   queue: QueueService
   s3: S3Service
   verificationTask: VerificationTaskService
@@ -58,19 +57,19 @@ const buildServiceConfig = (): ServiceConfig => ({
 
 // Functional service composition
 const composeServices = (config: ServiceConfig): Services => {
-  const verification = new VerificationService()
   const s3 = createS3Service(config.s3)
   const verificationTask = createVerificationTaskService(config.databaseUrl)
+  // Note: VerificationService is now created per-task in queue worker
+  // to avoid state pollution between concurrent verifications
   const queue = createQueueService(
     config.queue,
-    verification,
     verificationTask,
     s3,
   )
   const db = verificationTask.getDb()
   const dbMonitor = createDbMonitorService(db, queue, config.dbMonitor)
 
-  return {verification, queue, s3, verificationTask, dbMonitor}
+  return {queue, s3, verificationTask, dbMonitor}
 }
 
 // Service lifecycle management with functional approach
