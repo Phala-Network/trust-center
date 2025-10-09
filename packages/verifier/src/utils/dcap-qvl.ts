@@ -1,4 +1,5 @@
 import { exec } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { access } from 'node:fs/promises'
 import { rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -129,7 +130,8 @@ export async function decodeQuote(
   quoteString: string,
   options?: { hex?: boolean; fmspc?: boolean },
 ): Promise<QuoteResult> {
-  const temporaryFilePath = path.join(tmpdir(), `quote-${Date.now()}.hex`)
+  // Use randomUUID to prevent filename collisions in concurrent scenarios
+  const temporaryFilePath = path.join(tmpdir(), `quote-${randomUUID()}.hex`)
   await writeFile(temporaryFilePath, quoteString)
 
   try {
@@ -155,7 +157,8 @@ export async function verifyQuote(
   quoteString: string,
   options?: { hex?: boolean },
 ): Promise<VerifyQuoteResult> {
-  const temporaryFilePath = path.join(tmpdir(), `quote-${Date.now()}.hex`)
+  // Use randomUUID to prevent filename collisions in concurrent scenarios
+  const temporaryFilePath = path.join(tmpdir(), `quote-${randomUUID()}.hex`)
   await writeFile(temporaryFilePath, quoteString)
 
   try {
