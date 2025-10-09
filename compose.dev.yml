@@ -45,10 +45,14 @@ services:
         - linux/amd64
       args:
         - BUILDKIT_INLINE_CACHE=1
+    pull_policy: build
     container_name: dstack-verifier-server-dev
     restart: unless-stopped
     # Development command with migrations and hot reload
     command: [ "sh", "-c", "cd /app/packages/db && bun run migrate && cd /app/apps/server && bun run dev" ]
+    volumes:
+      # Persist downloaded dstack images across container restarts
+      - dstack_images_dev:/app/packages/verifier/external/dstack-images
     environment:
       # Database configuration
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dstack_verifier_dev}
@@ -107,3 +111,4 @@ volumes:
   postgres_data_dev:
   redis_data_dev:
   drizzle_gateway_dev:
+  dstack_images_dev:
