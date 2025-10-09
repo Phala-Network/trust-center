@@ -17,6 +17,9 @@ services:
     pull_policy: always
     depends_on:
       - redis
+    volumes:
+      # Persist downloaded dstack images across container restarts
+      - dstack_images:/app/packages/verifier/external/dstack-images
     environment:
       # Database configuration (using Supabase in production)
       DATABASE_URL: ${DATABASE_URL}
@@ -50,3 +53,4 @@ services:
 
 volumes:
   redis_data:
+  dstack_images:

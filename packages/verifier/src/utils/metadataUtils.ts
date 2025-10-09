@@ -161,7 +161,28 @@ export function parseKmsVersion(version: KmsVersionString): {
 export function parseImageVersion(
   version: ImageVersionString,
 ): NormalizedVersionString {
-  // Extract version number from formats like "dstack-dev-0.3.6", "dstack-0.5.3", or "0.3.6"
+  // Extract version number from various dstack image formats
+  // Formats: "dstack-nvidia-dev-0.5.4.1", "dstack-nvidia-0.5.4.1", "dstack-dev-0.3.6", "dstack-0.5.3", or "0.3.6"
+
+  // Match "dstack-nvidia-dev-X.Y.Z" format
+  const nvidiaDevMatch = version.match(/^dstack-nvidia-dev-(.+)$/)
+  if (nvidiaDevMatch?.[1]) {
+    const versionNum = nvidiaDevMatch[1]
+    return createNormalizedVersion(
+      versionNum.startsWith('v') ? versionNum : `v${versionNum}`,
+    )
+  }
+
+  // Match "dstack-nvidia-X.Y.Z" format
+  const nvidiaMatch = version.match(/^dstack-nvidia-(.+)$/)
+  if (nvidiaMatch?.[1]) {
+    const versionNum = nvidiaMatch[1]
+    return createNormalizedVersion(
+      versionNum.startsWith('v') ? versionNum : `v${versionNum}`,
+    )
+  }
+
+  // Match "dstack-dev-X.Y.Z" format
   const devMatch = version.match(/^dstack-dev-(.+)$/)
   if (devMatch?.[1]) {
     const versionNum = devMatch[1]
@@ -179,6 +200,7 @@ export function parseImageVersion(
     )
   }
 
+  // Match simple version format "X.Y.Z" or "vX.Y.Z"
   const simpleMatch = version.match(/^v?(\d+\.\d+\.\d+(?:\.\d+)?)$/)
   if (simpleMatch?.[1]) {
     return createNormalizedVersion(`v${simpleMatch[1]}`)

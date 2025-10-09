@@ -31,7 +31,32 @@ export const KmsInfoSchema = z.object({
 export const DstackInstanceSchema = z.object({
   quote: z.string().optional(),
   eventlog: EventLogSchema.optional(),
-  image_version: z.string().optional(),
+  image_version: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return val
+
+      const trimmed = val.trim()
+
+      // Fix common malformation: "vnvidia-" instead of "dstack-nvidia-"
+      if (trimmed.startsWith('vnvidia-')) {
+        const corrected = `dstack-nvidia-${trimmed.slice(8)}`
+        console.warn(
+          `[Schema] Auto-corrected malformed image_version from API: "${val}" -> "${corrected}"`,
+        )
+        return corrected
+      }
+
+      return trimmed
+    })
+    .refine(
+      (val) => !val || val.startsWith('dstack-'),
+      {
+        message:
+          'image_version must start with "dstack-" (format: dstack-[nvidia-][dev-]<version>)',
+      },
+    ),
 })
 
 export const SystemInfoSchema = z.object({
