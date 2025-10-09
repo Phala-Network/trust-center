@@ -1,13 +1,17 @@
 import { exec } from 'node:child_process'
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
+import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 
 import type { NormalizedVersionString } from '../types/metadata'
 import { createNormalizedVersion } from '../types/metadata'
 
 const execAsync = promisify(exec)
+
+// Singleton pattern: Track ongoing downloads to prevent duplicates
+const downloadPromises = new Map<string, Promise<string>>()
 
 /**
  * Information extracted from dstack image folder name
@@ -134,7 +138,22 @@ async function downloadAndExtract(
 }
 
 /**
+ * Get the base directory for the verifier package
+ * Works in both dev (from source) and Docker (from dist)
+ */
+function getVerifierBaseDir(): string {
+  // In ESM context, __dirname is not available, so we use import.meta.url
+  // This file is at packages/verifier/src/utils/imageDownloader.ts
+  // We need to get to packages/verifier/
+  const currentFileUrl = import.meta.url
+  const currentFilePath = fileURLToPath(currentFileUrl)
+  // Go up: utils -> src -> verifier
+  return join(dirname(currentFilePath), '..', '..')
+}
+
+/**
  * Ensures a dstack image is available locally, downloading it if necessary
+ * Uses singleton pattern to prevent duplicate downloads when called simultaneously
  * @param imageFolderName - e.g., "dstack-0.5.3", "dstack-nvidia-0.5.3"
  * @returns Path to the image folder
  * @throws Error if download fails or image is invalid
@@ -142,35 +161,56 @@ async function downloadAndExtract(
 export async function ensureDstackImage(
   imageFolderName: string,
 ): Promise<string> {
-  const imagesDir = join(process.cwd(), 'external', 'dstack-images')
-  const imagePath = join(imagesDir, imageFolderName)
-  const metadataPath = join(imagePath, 'metadata.json')
-
-  // Create images directory if it doesn't exist
-  if (!existsSync(imagesDir)) {
-    mkdirSync(imagesDir, { recursive: true })
+  // Check if download is already in progress for this image
+  const existingPromise = downloadPromises.get(imageFolderName)
+  if (existingPromise) {
+    console.log(`Waiting for ongoing download of ${imageFolderName}...`)
+    return existingPromise
   }
 
-  // Check if already downloaded and valid
-  if (existsSync(metadataPath)) {
-    console.log(`Using cached dstack image: ${imageFolderName}`)
-    return imagePath
-  }
+  // Start new download process
+  const downloadPromise = (async () => {
+    try {
+      const verifierBaseDir = getVerifierBaseDir()
+      const imagesDir = join(verifierBaseDir, 'external', 'dstack-images')
+      const imagePath = join(imagesDir, imageFolderName)
+      const metadataPath = join(imagePath, 'metadata.json')
 
-  // Parse folder name to get download URL
-  const imageInfo = parseImageFolderName(imageFolderName)
+      // Create images directory if it doesn't exist
+      if (!existsSync(imagesDir)) {
+        mkdirSync(imagesDir, { recursive: true })
+      }
 
-  // Download and extract
-  await downloadAndExtract(imageInfo.downloadUrl, imageFolderName, imagesDir)
+      // Check if already downloaded and valid
+      if (existsSync(metadataPath)) {
+        console.log(`Using cached dstack image: ${imageFolderName}`)
+        return imagePath
+      }
 
-  // Verify metadata.json exists after extraction
-  if (!existsSync(metadataPath)) {
-    throw new Error(
-      `Downloaded dstack image ${imageFolderName} is missing metadata.json`,
-    )
-  }
+      // Parse folder name to get download URL
+      const imageInfo = parseImageFolderName(imageFolderName)
 
-  return imagePath
+      // Download and extract
+      await downloadAndExtract(imageInfo.downloadUrl, imageFolderName, imagesDir)
+
+      // Verify metadata.json exists after extraction
+      if (!existsSync(metadataPath)) {
+        throw new Error(
+          `Downloaded dstack image ${imageFolderName} is missing metadata.json`,
+        )
+      }
+
+      return imagePath
+    } finally {
+      // Remove from tracking map when complete (success or failure)
+      downloadPromises.delete(imageFolderName)
+    }
+  })()
+
+  // Track this download
+  downloadPromises.set(imageFolderName, downloadPromise)
+
+  return downloadPromise
 }
 
 /**
