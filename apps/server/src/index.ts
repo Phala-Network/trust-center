@@ -20,6 +20,7 @@ export async function startServer() {
 
     console.log(`[SERVER] Server running on http://${host}:${port}`)
     console.log('[SERVER] Health check available at /health')
+    console.log('[SERVER] Cron management available at /cron')
     console.log('[SERVER] API documentation available at /openapi')
 
     // Graceful shutdown handling

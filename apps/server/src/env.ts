@@ -34,6 +34,10 @@ export const env = createEnv({
     // DB Monitor configuration
     DB_MONITOR_POLL_INTERVAL: z.coerce.number().positive().default(5000),
 
+    // Sync service configuration
+    METABASE_URL: z.url().optional(),
+    METABASE_API_KEY: z.string().optional(),
+
     BASE_RPC_URL: z.string().optional(),
     ETHEREUM_RPC_URL: z.string().optional(),
   },

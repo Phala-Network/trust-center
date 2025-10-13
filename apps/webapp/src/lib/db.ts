@@ -28,8 +28,11 @@ export async function getApps(params?: {
   page?: number
   perPage?: number
 }): Promise<App[]> {
-  // Build where conditions
-  const whereConditions = [eq(verificationTasksTable.status, 'completed')]
+  // Build where conditions - only show public apps
+  const whereConditions = [
+    eq(verificationTasksTable.status, 'completed'),
+    eq(verificationTasksTable.isPublic, true),
+  ]
 
   if (params?.keyword) {
     whereConditions.push(
@@ -104,8 +107,11 @@ export async function getApps(params?: {
 export async function getDstackVersions(params?: {
   keyword?: string
 }): Promise<Array<{version: string; count: number}>> {
-  // Build where conditions for completed tasks
-  const whereConditions = [eq(verificationTasksTable.status, 'completed')]
+  // Build where conditions for completed public tasks
+  const whereConditions = [
+    eq(verificationTasksTable.status, 'completed'),
+    eq(verificationTasksTable.isPublic, true),
+  ]
 
   if (params?.keyword) {
     whereConditions.push(
@@ -153,7 +159,12 @@ export async function getApp(appId: string): Promise<App | null> {
   const results = await db
     .select()
     .from(verificationTasksTable)
-    .where(eq(verificationTasksTable.appId, appId))
+    .where(
+      and(
+        eq(verificationTasksTable.appId, appId),
+        eq(verificationTasksTable.isPublic, true),
+      ),
+    )
     .orderBy(desc(verificationTasksTable.createdAt))
     .limit(1)
 
@@ -263,6 +274,7 @@ export async function getTask(
       and(
         eq(verificationTasksTable.id, taskId),
         eq(verificationTasksTable.appId, appId),
+        eq(verificationTasksTable.isPublic, true),
       ),
     )
     .limit(1)

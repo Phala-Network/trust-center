@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   jsonb,
   pgEnum,
@@ -106,6 +107,9 @@ export const verificationTasksTable = pgTable(
     s3Bucket: text(),
     dataObjects: jsonb().$type<string[]>(), // Array of data object IDs
 
+    // Public visibility flag
+    isPublic: boolean().notNull().default(false), // Whether app is listed publicly
+
     // Timestamps
     createdAt: timestamp().notNull().defaultNow(),
     startedAt: timestamp(),
@@ -127,6 +131,7 @@ export const verificationTasksTable = pgTable(
     index().on(t.contractAddress),
     index().on(t.modelOrDomain),
     index().on(t.dstackVersion),
+    index().on(t.isPublic),
   ],
 )
 

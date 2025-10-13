@@ -4,9 +4,6 @@ import {z} from 'zod'
 export const env = createEnv({
   server: {
     DATABASE_POSTGRES_URL: z.string(),
-    VERIFIER_BASE_URL: z.url(),
-    METABASE_URL: z.url(),
-    METABASE_API_KEY: z.string(),
   },
   client: {
     NEXT_PUBLIC_S3_BUCKET_URL: z.url(),

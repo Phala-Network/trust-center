@@ -1,8 +1,9 @@
-import { openapi } from '@elysiajs/openapi'
-import { Elysia } from 'elysia'
+import {openapi} from '@elysiajs/openapi'
+import {Elysia} from 'elysia'
 import z from 'zod'
 
-import { healthRoutes } from './routes/health'
+import {cronRoutes} from './routes/cron'
+import {healthRoutes} from './routes/health'
 
 // Pure error mapping function
 const mapErrorResponse = (code: string | number, error: unknown) => {
@@ -36,8 +37,9 @@ export const createApp = () => {
         },
       }),
     )
+    .use(cronRoutes)
     .group('/health', (app) => app.use(healthRoutes))
-    .onError(({ code, error, set }) => {
+    .onError(({code, error, set}) => {
       console.error('[ERROR]', code, error)
       const response = mapErrorResponse(code, error)
       set.status = response.status

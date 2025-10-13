@@ -9,6 +9,11 @@ import {
 import {createQueueService, type QueueConfig, type QueueService} from './queue'
 import {createS3Service, type S3Config, type S3Service} from './s3'
 import {
+  createSyncService,
+  type SyncService,
+  type SyncServiceConfig,
+} from './syncService'
+import {
   createVerificationTaskService,
   type VerificationTaskService,
 } from './taskService'
@@ -19,6 +24,7 @@ export interface Services {
   s3: S3Service
   verificationTask: VerificationTaskService
   dbMonitor: DbMonitorService
+  sync: SyncService | null
 }
 
 export interface ServiceConfig {
@@ -26,6 +32,7 @@ export interface ServiceConfig {
   s3: S3Config
   queue: QueueConfig
   dbMonitor: DbMonitorConfig
+  sync: SyncServiceConfig | null
 }
 
 // Pure configuration builders
@@ -48,11 +55,22 @@ const buildDbMonitorConfig = (): DbMonitorConfig => ({
   pollIntervalMs: Number(env.DB_MONITOR_POLL_INTERVAL) || 5000, // Poll every 5 seconds by default
 })
 
+const buildSyncConfig = (): SyncServiceConfig | null => {
+  if (!env.METABASE_URL || !env.METABASE_API_KEY) {
+    return null
+  }
+  return {
+    metabaseUrl: env.METABASE_URL,
+    metabaseApiKey: env.METABASE_API_KEY,
+  }
+}
+
 const buildServiceConfig = (): ServiceConfig => ({
   databaseUrl: env.DATABASE_URL,
   s3: buildS3Config(),
   queue: buildQueueConfig(),
   dbMonitor: buildDbMonitorConfig(),
+  sync: buildSyncConfig(),
 })
 
 // Functional service composition
@@ -61,15 +79,14 @@ const composeServices = (config: ServiceConfig): Services => {
   const verificationTask = createVerificationTaskService(config.databaseUrl)
   // Note: VerificationService is now created per-task in queue worker
   // to avoid state pollution between concurrent verifications
-  const queue = createQueueService(
-    config.queue,
-    verificationTask,
-    s3,
-  )
+  const queue = createQueueService(config.queue, verificationTask, s3)
   const db = verificationTask.getDb()
   const dbMonitor = createDbMonitorService(db, queue, config.dbMonitor)
+  const sync = config.sync
+    ? createSyncService(config.sync, verificationTask)
+    : null
 
-  return {queue, s3, verificationTask, dbMonitor}
+  return {queue, s3, verificationTask, dbMonitor, sync}
 }
 
 // Service lifecycle management with functional approach
@@ -117,10 +134,17 @@ export const closeServices = async (): Promise<void> => {
 }
 
 // Export types and factory functions
-export {createQueueService, createS3Service, createVerificationTaskService}
+export {
+  createQueueService,
+  createS3Service,
+  createSyncService,
+  createVerificationTaskService,
+}
 export type {
   QueueConfig,
   S3Config,
+  SyncService,
+  SyncServiceConfig,
   QueueService,
   S3Service,
   VerificationTaskService,
