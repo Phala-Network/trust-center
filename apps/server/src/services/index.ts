@@ -1,11 +1,6 @@
 import {VerificationService} from '@phala/dstack-verifier'
 
 import {env} from '../env'
-import {
-  createDbMonitorService,
-  type DbMonitorConfig,
-  type DbMonitorService,
-} from './dbMonitor'
 import {createQueueService, type QueueConfig, type QueueService} from './queue'
 import {createS3Service, type S3Config, type S3Service} from './s3'
 import {
@@ -23,7 +18,6 @@ export interface Services {
   queue: QueueService
   s3: S3Service
   verificationTask: VerificationTaskService
-  dbMonitor: DbMonitorService
   sync: SyncService | null
 }
 
@@ -31,7 +25,6 @@ export interface ServiceConfig {
   databaseUrl: string
   s3: S3Config
   queue: QueueConfig
-  dbMonitor: DbMonitorConfig
   sync: SyncServiceConfig | null
 }
 
@@ -51,10 +44,6 @@ const buildQueueConfig = (): QueueConfig => ({
   backoffDelay: Number(env.QUEUE_BACKOFF_DELAY) || 2000,
 })
 
-const buildDbMonitorConfig = (): DbMonitorConfig => ({
-  pollIntervalMs: Number(env.DB_MONITOR_POLL_INTERVAL) || 5000, // Poll every 5 seconds by default
-})
-
 const buildSyncConfig = (): SyncServiceConfig | null => {
   if (!env.METABASE_URL || !env.METABASE_API_KEY) {
     return null
@@ -69,7 +58,6 @@ const buildServiceConfig = (): ServiceConfig => ({
   databaseUrl: env.DATABASE_URL,
   s3: buildS3Config(),
   queue: buildQueueConfig(),
-  dbMonitor: buildDbMonitorConfig(),
   sync: buildSyncConfig(),
 })
 
@@ -80,13 +68,9 @@ const composeServices = (config: ServiceConfig): Services => {
   // Note: VerificationService is now created per-task in queue worker
   // to avoid state pollution between concurrent verifications
   const queue = createQueueService(config.queue, verificationTask, s3)
-  const db = verificationTask.getDb()
-  const dbMonitor = createDbMonitorService(db, queue, config.dbMonitor)
-  const sync = config.sync
-    ? createSyncService(config.sync, verificationTask)
-    : null
+  const sync = config.sync ? createSyncService(config.sync, queue) : null
 
-  return {queue, s3, verificationTask, dbMonitor, sync}
+  return {queue, s3, verificationTask, sync}
 }
 
 // Service lifecycle management with functional approach

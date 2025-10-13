@@ -41,6 +41,22 @@ export const createVerificationTaskService = (
     return true
   }
 
+  // Create a single task
+  const createTask = async (taskData: {
+    id: string
+    appId: string
+    appName: string
+    appConfigType: 'redpill' | 'phala_cloud'
+    contractAddress: string
+    modelOrDomain: string
+    dstackVersion?: string | null
+    isPublic?: boolean
+    status: 'pending'
+    createdAt: Date
+  }): Promise<void> => {
+    await db.insert(verificationTasksTable).values(taskData)
+  }
+
   // Create tasks in batch
   const createBatchTasks = async (
     values: Array<{
@@ -61,6 +77,7 @@ export const createVerificationTaskService = (
 
   return {
     updateVerificationTask,
+    createTask,
     createBatchTasks,
     getDb: () => db,
   }

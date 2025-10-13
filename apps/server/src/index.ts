@@ -6,10 +6,7 @@ export async function startServer() {
   console.log('[SERVER] Starting DStack Verifier Server...')
 
   try {
-    const services = createServices()
-
-    // Start database monitor to watch for new pending tasks
-    services.dbMonitor.start()
+    createServices()
 
     const app = createApp()
 
@@ -30,9 +27,6 @@ export async function startServer() {
       )
 
       try {
-        // Stop database monitor
-        services.dbMonitor.stop()
-
         await closeServices()
         console.log('[SERVER] All services closed successfully')
         process.exit(0)

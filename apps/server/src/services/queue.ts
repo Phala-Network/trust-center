@@ -24,6 +24,18 @@ export interface TaskData extends TaskCreateRequest {
   postgresTaskId: string // PostgreSQL task ID for correlation
 }
 
+export interface NewTaskData {
+  appId: string
+  appName: string
+  appConfigType: 'phala_cloud' | 'redpill'
+  contractAddress: string
+  modelOrDomain: string
+  dstackVersion?: string
+  isPublic?: boolean
+  metadata?: any
+  flags?: any
+}
+
 export interface TaskResult {
   postgresTaskId: string // Include this for correlation
   success: boolean
@@ -352,6 +364,53 @@ export const createQueueService = (
     }
   }
 
+  // Add new task (creates DB record and adds to queue)
+  const addTask = async (taskData: NewTaskData): Promise<string> => {
+    // Create task ID
+    const taskId = crypto.randomUUID()
+
+    // Create task in database first
+    await verificationTaskService.createTask({
+      id: taskId,
+      appId: taskData.appId,
+      appName: taskData.appName,
+      appConfigType: taskData.appConfigType,
+      contractAddress: taskData.contractAddress,
+      modelOrDomain: taskData.modelOrDomain,
+      dstackVersion: taskData.dstackVersion || null,
+      isPublic: taskData.isPublic ?? false,
+      status: 'pending' as const,
+      createdAt: new Date(),
+    })
+
+    // Add to queue
+    const queueData: TaskData = {
+      postgresTaskId: taskId,
+      appId: taskData.appId,
+      appName: taskData.appName,
+      appConfigType: taskData.appConfigType,
+      contractAddress: taskData.contractAddress,
+      modelOrDomain: taskData.modelOrDomain,
+      metadata: taskData.metadata,
+      flags: taskData.flags,
+    }
+
+    const job = await queue.add('verification', queueData, {
+      jobId: taskId,
+    })
+
+    // Update task with job ID
+    await verificationTaskService.updateVerificationTask(taskId, {
+      bullJobId: job.id,
+    })
+
+    console.log(
+      `[QUEUE] Created and queued verification task ${taskId} for app ${taskData.appId}/${taskData.appName}`,
+    )
+
+    return taskId
+  }
+
   const close = async () => {
     await worker.close()
     await queue.close()
@@ -359,6 +418,7 @@ export const createQueueService = (
   }
 
   return {
+    addTask,
     addExistingTask,
     getStats,
     healthCheck,

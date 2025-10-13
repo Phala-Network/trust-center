@@ -31,9 +31,6 @@ export const env = createEnv({
     QUEUE_MAX_ATTEMPTS: z.string().default('3'),
     QUEUE_BACKOFF_DELAY: z.string().default('2000'),
 
-    // DB Monitor configuration
-    DB_MONITOR_POLL_INTERVAL: z.coerce.number().positive().default(5000),
-
     // Sync service configuration
     METABASE_URL: z.url().optional(),
     METABASE_API_KEY: z.string().optional(),

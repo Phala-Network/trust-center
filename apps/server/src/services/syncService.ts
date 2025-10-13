@@ -1,6 +1,6 @@
 import {z} from 'zod'
 
-import type {VerificationTaskService} from './taskService'
+import type {QueueService} from './queue'
 
 // Zod schema for Metabase API response
 const AppDataSchema = z.object({
@@ -23,8 +23,8 @@ export interface TaskData {
   appConfigType: 'phala_cloud' | 'redpill'
   contractAddress: string
   modelOrDomain: string
-  dstackVersion: string
-  isPublic: boolean
+  dstackVersion?: string
+  isPublic?: boolean
 }
 
 // Helper function to parse version from base_image
@@ -134,7 +134,7 @@ export interface SyncService {
 
 export function createSyncService(
   config: SyncServiceConfig,
-  taskService: VerificationTaskService,
+  queueService: QueueService,
 ): SyncService {
   // Fetch apps from Metabase
   const fetchApps = async (): Promise<AppData[]> => {
@@ -182,23 +182,22 @@ export function createSyncService(
         return {tasksCreated: 0, apps: []}
       }
 
-      // Create tasks in database using batch insert
-      const values = tasks.map((task) => ({
-        id: crypto.randomUUID(),
-        appId: task.appId,
-        appName: task.appName,
-        appConfigType: task.appConfigType,
-        contractAddress: task.contractAddress,
-        modelOrDomain: task.modelOrDomain,
-        dstackVersion: task.dstackVersion,
-        isPublic: task.isPublic,
-        status: 'pending' as const,
-        createdAt: new Date(),
-      }))
+      // Add tasks directly to queue (they will be created in DB by the worker)
+      const jobPromises = tasks.map((task) =>
+        queueService.addTask({
+          appId: task.appId,
+          appName: task.appName,
+          appConfigType: task.appConfigType,
+          contractAddress: task.contractAddress,
+          modelOrDomain: task.modelOrDomain,
+          dstackVersion: task.dstackVersion,
+          isPublic: task.isPublic,
+        }),
+      )
 
-      await taskService.createBatchTasks(values)
+      await Promise.all(jobPromises)
 
-      console.log(`[SYNC] Created ${tasks.length} tasks successfully`)
+      console.log(`[SYNC] Added ${tasks.length} tasks to queue successfully`)
       return {tasksCreated: tasks.length, apps}
     } catch (error) {
       console.error('[SYNC] Sync all tasks error:', error)
@@ -235,23 +234,22 @@ export function createSyncService(
         return {tasksCreated: 0, apps: selectedApps}
       }
 
-      // Create tasks in database using batch insert
-      const values = tasks.map((task) => ({
-        id: crypto.randomUUID(),
-        appId: task.appId,
-        appName: task.appName,
-        appConfigType: task.appConfigType,
-        contractAddress: task.contractAddress,
-        modelOrDomain: task.modelOrDomain,
-        dstackVersion: task.dstackVersion,
-        isPublic: task.isPublic,
-        status: 'pending' as const,
-        createdAt: new Date(),
-      }))
+      // Add tasks directly to queue (they will be created in DB by the worker)
+      const jobPromises = tasks.map((task) =>
+        queueService.addTask({
+          appId: task.appId,
+          appName: task.appName,
+          appConfigType: task.appConfigType,
+          contractAddress: task.contractAddress,
+          modelOrDomain: task.modelOrDomain,
+          dstackVersion: task.dstackVersion,
+          isPublic: task.isPublic,
+        }),
+      )
 
-      await taskService.createBatchTasks(values)
+      await Promise.all(jobPromises)
 
-      console.log(`[SYNC] Created ${tasks.length} tasks successfully`)
+      console.log(`[SYNC] Added ${tasks.length} tasks to queue successfully`)
       return {tasksCreated: tasks.length, apps: selectedApps}
     } catch (error) {
       console.error('[SYNC] Sync selected tasks error:', error)
