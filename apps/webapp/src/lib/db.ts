@@ -1,12 +1,15 @@
 'use server'
 
 import {
+  and,
   createDbConnection,
+  desc,
+  eq,
+  sql,
   type Task,
   type VerificationFlags,
+  verificationTasksTable,
 } from '@phala/trust-center-db'
-import {verificationTasksTable} from '@phala/trust-center-db/schema'
-import {and, desc, eq, sql} from 'drizzle-orm'
 
 import {env} from '@/env'
 
@@ -36,13 +39,16 @@ export async function getApps(params?: {
 
   if (params?.keyword) {
     whereConditions.push(
-      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`
+      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`,
     )
   }
 
   if (params?.dstackVersions && params.dstackVersions.length > 0) {
     whereConditions.push(
-      sql`${verificationTasksTable.dstackVersion} IN (${sql.join(params.dstackVersions.map(v => sql`${v}`), sql`, `)})`
+      sql`${verificationTasksTable.dstackVersion} IN (${sql.join(
+        params.dstackVersions.map((v) => sql`${v}`),
+        sql`, `,
+      )})`,
     )
   }
 
@@ -115,7 +121,7 @@ export async function getDstackVersions(params?: {
 
   if (params?.keyword) {
     whereConditions.push(
-      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`
+      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`,
     )
   }
 
@@ -131,7 +137,10 @@ export async function getDstackVersions(params?: {
       })
       .from(verificationTasksTable)
       .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-      .groupBy(verificationTasksTable.appId, verificationTasksTable.dstackVersion),
+      .groupBy(
+        verificationTasksTable.appId,
+        verificationTasksTable.dstackVersion,
+      ),
   )
 
   // Count apps per dstack version
@@ -168,11 +177,10 @@ export async function getApp(appId: string): Promise<App | null> {
     .orderBy(desc(verificationTasksTable.createdAt))
     .limit(1)
 
-  if (results.length === 0) {
+  const task = results[0]
+  if (!task) {
     return null
   }
-
-  const task = results[0]
   return {
     id: task.id,
     appId: task.appId,
@@ -238,11 +246,10 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
     .where(eq(verificationTasksTable.id, taskId))
     .limit(1)
 
-  if (results.length === 0) {
+  const task = results[0]
+  if (!task) {
     return null
   }
-
-  const task = results[0]
   return {
     id: task.id,
     appId: task.appId,
@@ -279,11 +286,10 @@ export async function getTask(
     )
     .limit(1)
 
-  if (results.length === 0) {
+  const task = results[0]
+  if (!task) {
     return null
   }
-
-  const task = results[0]
   return {
     id: task.id,
     appId: task.appId,

@@ -11,4 +11,6 @@ export function createDbConnection(databaseUrl: string) {
 
 export type DbConnection = ReturnType<typeof createDbConnection>
 
+export * from 'drizzle-orm'
+
 export * from './schema'

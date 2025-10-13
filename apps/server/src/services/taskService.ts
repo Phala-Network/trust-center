@@ -1,9 +1,10 @@
-import {createDbConnection, type DbConnection} from '@phala/trust-center-db'
 import {
+  createDbConnection,
+  type DbConnection,
+  eq,
   type VerificationTaskStatus,
   verificationTasksTable,
-} from '@phala/trust-center-db/schema'
-import {eq, sql} from 'drizzle-orm'
+} from '@phala/trust-center-db'
 
 // Types
 export interface UpdateVerificationTaskData {
