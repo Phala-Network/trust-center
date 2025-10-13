@@ -1,0 +1,2 @@
+ALTER TABLE "verification_tasks" ADD COLUMN "is_public" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE INDEX "verification_tasks_is_public_index" ON "verification_tasks" USING btree ("is_public");

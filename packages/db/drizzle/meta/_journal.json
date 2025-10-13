@@ -22,6 +22,13 @@
       "when": 1759273855423,
       "tag": "0002_parched_the_renegades",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1760394873904,
+      "tag": "0003_thankful_spot",
+      "breakpoints": true
     }
   ]
 }
