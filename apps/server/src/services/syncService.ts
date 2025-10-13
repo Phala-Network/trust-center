@@ -1,16 +1,21 @@
+import {z} from 'zod'
+
 import type {VerificationTaskService} from './taskService'
 
-export interface AppData {
-  app_id: string
-  name: string
-  chain_id: string | null
-  kms_contract_address: string | null
-  contract_address: string | null
-  base_image: string
-  tproxy_base_domain: string | null
-  gateway_domain_suffix: string | null
-  listed: boolean
-}
+// Zod schema for Metabase API response
+const AppDataSchema = z.object({
+  app_id: z.string(),
+  name: z.string(),
+  chain_id: z.string().nullable(),
+  kms_contract_address: z.string().nullable(),
+  contract_address: z.string().nullable(),
+  base_image: z.string(),
+  tproxy_base_domain: z.string().nullable(),
+  gateway_domain_suffix: z.string().nullable(),
+  listed: z.boolean(),
+})
+
+export type AppData = z.infer<typeof AppDataSchema>
 
 export interface TaskData {
   appId: string
@@ -150,7 +155,8 @@ export function createSyncService(
       )
     }
 
-    const apps = (await metabaseResponse.json()) as AppData[]
+    const data = await metabaseResponse.json()
+    const apps = z.array(AppDataSchema).parse(data)
     return apps
   }
 
