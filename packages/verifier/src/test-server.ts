@@ -15,7 +15,7 @@ import { VerificationService } from './verificationService'
  * DStack Verifier API Server
  */
 export class DStackVerifierServer {
-  private server: Bun.Server | undefined
+  private server: Bun.Server<undefined> | undefined
   private verificationService: VerificationService
 
   constructor(private config: ServerConfig = DEFAULT_SERVER_CONFIG) {
