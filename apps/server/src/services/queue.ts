@@ -22,6 +22,8 @@ export interface QueueConfig {
 
 export interface TaskData extends TaskCreateRequest {
   postgresTaskId: string // PostgreSQL task ID for correlation
+  dstackVersion?: string
+  isPublic?: boolean
 }
 
 export interface NewTaskData {
@@ -75,6 +77,8 @@ export const createQueueService = (
         appConfigType,
         contractAddress,
         modelOrDomain,
+        dstackVersion,
+        isPublic,
         metadata,
         flags,
       } = job.data
@@ -87,11 +91,23 @@ export const createQueueService = (
           throw new Error('Invalid contract address')
         }
 
-        // Update task status to active
-        await verificationTaskService.updateVerificationTask(postgresTaskId, {
-          status: 'active',
+        // Create task in database when starting processing
+        await verificationTaskService.createTask({
+          id: postgresTaskId,
+          appId,
+          appName,
+          appConfigType,
+          contractAddress,
+          modelOrDomain,
+          dstackVersion: dstackVersion || null,
+          isPublic: isPublic ?? false,
+          status: 'active' as const,
+          bullJobId: job.id,
+          createdAt: new Date(),
           startedAt: new Date(),
         })
+
+        console.log(`[QUEUE] Created DB record for task ${postgresTaskId}`)
 
         console.log(
           `[QUEUE] Processing verification for ${appConfigType} config:`,
@@ -307,26 +323,6 @@ export const createQueueService = (
   worker.on('failed', handleJobFailed)
   worker.on('progress', handleJobProgress)
 
-  // Add existing task back to queue (used by dbMonitor)
-  const addExistingTask = async (taskData: TaskData): Promise<string> => {
-    const job = await queue.add('verification', taskData, {
-      jobId: taskData.postgresTaskId,
-    })
-
-    // Update PostgreSQL task with job ID only (keep status as pending)
-    await verificationTaskService.updateVerificationTask(
-      taskData.postgresTaskId,
-      {
-        bullJobId: job.id,
-      },
-    )
-
-    console.log(
-      `[QUEUE] Added verification task ${taskData.postgresTaskId} for app ${taskData.appId}/${taskData.appName}`,
-    )
-    return taskData.postgresTaskId
-  }
-
   const getStats = async () => {
     const [waiting, active, completed, failed, delayed] = await Promise.all([
       queue.getWaiting(),
@@ -364,26 +360,12 @@ export const createQueueService = (
     }
   }
 
-  // Add new task (creates DB record and adds to queue)
+  // Add new task (only adds to queue, worker will create DB record)
   const addTask = async (taskData: NewTaskData): Promise<string> => {
     // Create task ID
     const taskId = crypto.randomUUID()
 
-    // Create task in database first
-    await verificationTaskService.createTask({
-      id: taskId,
-      appId: taskData.appId,
-      appName: taskData.appName,
-      appConfigType: taskData.appConfigType,
-      contractAddress: taskData.contractAddress,
-      modelOrDomain: taskData.modelOrDomain,
-      dstackVersion: taskData.dstackVersion || null,
-      isPublic: taskData.isPublic ?? false,
-      status: 'pending' as const,
-      createdAt: new Date(),
-    })
-
-    // Add to queue
+    // Add to queue directly (worker will create DB record)
     const queueData: TaskData = {
       postgresTaskId: taskId,
       appId: taskData.appId,
@@ -391,6 +373,8 @@ export const createQueueService = (
       appConfigType: taskData.appConfigType,
       contractAddress: taskData.contractAddress,
       modelOrDomain: taskData.modelOrDomain,
+      dstackVersion: taskData.dstackVersion,
+      isPublic: taskData.isPublic,
       metadata: taskData.metadata,
       flags: taskData.flags,
     }
@@ -399,13 +383,8 @@ export const createQueueService = (
       jobId: taskId,
     })
 
-    // Update task with job ID
-    await verificationTaskService.updateVerificationTask(taskId, {
-      bullJobId: job.id,
-    })
-
     console.log(
-      `[QUEUE] Created and queued verification task ${taskId} for app ${taskData.appId}/${taskData.appName}`,
+      `[QUEUE] Queued verification task ${taskId} for app ${taskData.appId}/${taskData.appName}`,
     )
 
     return taskId
@@ -419,7 +398,6 @@ export const createQueueService = (
 
   return {
     addTask,
-    addExistingTask,
     getStats,
     healthCheck,
     close,

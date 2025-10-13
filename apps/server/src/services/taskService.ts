@@ -51,34 +51,17 @@ export const createVerificationTaskService = (
     modelOrDomain: string
     dstackVersion?: string | null
     isPublic?: boolean
-    status: 'pending'
+    status: 'pending' | 'active'
+    bullJobId?: string | null
     createdAt: Date
+    startedAt?: Date | null
   }): Promise<void> => {
     await db.insert(verificationTasksTable).values(taskData)
-  }
-
-  // Create tasks in batch
-  const createBatchTasks = async (
-    values: Array<{
-      id: string
-      appId: string
-      appName: string
-      appConfigType: 'redpill' | 'phala_cloud'
-      contractAddress: string
-      modelOrDomain: string
-      dstackVersion?: string | null
-      isPublic?: boolean
-      status: 'pending'
-      createdAt: Date
-    }>,
-  ): Promise<void> => {
-    await db.insert(verificationTasksTable).values(values)
   }
 
   return {
     updateVerificationTask,
     createTask,
-    createBatchTasks,
     getDb: () => db,
   }
 }
