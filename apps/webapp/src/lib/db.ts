@@ -164,16 +164,12 @@ export async function getDstackVersions(params?: {
 }
 
 // Get a single app by ID (latest task for this app)
+// Note: No isPublic check - allows direct access via URL even if not listed publicly
 export async function getApp(appId: string): Promise<App | null> {
   const results = await db
     .select()
     .from(verificationTasksTable)
-    .where(
-      and(
-        eq(verificationTasksTable.appId, appId),
-        eq(verificationTasksTable.isPublic, true),
-      ),
-    )
+    .where(eq(verificationTasksTable.appId, appId))
     .orderBy(desc(verificationTasksTable.createdAt))
     .limit(1)
 
@@ -270,6 +266,7 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
 }
 
 // Get task by app and task ID
+// Note: No isPublic check - allows direct access via URL even if not listed publicly
 export async function getTask(
   appId: string,
   taskId: string,
@@ -281,7 +278,6 @@ export async function getTask(
       and(
         eq(verificationTasksTable.id, taskId),
         eq(verificationTasksTable.appId, appId),
-        eq(verificationTasksTable.isPublic, true),
       ),
     )
     .limit(1)
