@@ -18,7 +18,7 @@
 # ------------------------------------------------------------------------------
 # Stage 1: Base - Workspace setup
 # ------------------------------------------------------------------------------
-FROM oven/bun:1.2.23-slim AS base
+FROM oven/bun:1.3.0-slim AS base
 WORKDIR /app
 
 # Copy workspace configuration

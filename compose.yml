@@ -33,7 +33,7 @@ services:
 
       # Queue configuration
       QUEUE_NAME: ${QUEUE_NAME:-verification-queue}
-      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-10}
+      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-20}
       QUEUE_MAX_ATTEMPTS: ${QUEUE_MAX_ATTEMPTS:-3}
       QUEUE_BACKOFF_DELAY: ${QUEUE_BACKOFF_DELAY:-2000}
 
@@ -48,6 +48,10 @@ services:
 
       ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL}
       BASE_RPC_URL: ${BASE_RPC_URL}
+
+      CRON_API_KEY: ${CRON_API_KEY}
+      METABASE_URL: ${METABASE_URL}
+      METABASE_API_KEY: ${METABASE_API_KEY}
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
 

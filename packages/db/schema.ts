@@ -51,6 +51,7 @@ export const TaskCreateRequestSchema = z.object({
   dstackVersion: z.string().optional(),
   metadata: z.any().optional(),
   flags: VerificationFlagsSchema.optional(),
+  user: z.string().optional(),
 })
 
 export const TaskSchema = z.object({
@@ -69,6 +70,7 @@ export const TaskSchema = z.object({
   createdAt: z.string(),
   startedAt: z.string().optional(),
   finishedAt: z.string().optional(),
+  user: z.string().optional(),
 })
 
 // Verification tasks table - stores VerificationService execution data
@@ -110,6 +112,9 @@ export const verificationTasksTable = pgTable(
     // Public visibility flag
     isPublic: boolean().notNull().default(false), // Whether app is listed publicly
 
+    // User identification
+    user: text(), // User identifier assigned based on business rules
+
     // Timestamps
     createdAt: timestamp().notNull().defaultNow(),
     startedAt: timestamp(),
@@ -132,6 +137,7 @@ export const verificationTasksTable = pgTable(
     index().on(t.modelOrDomain),
     index().on(t.dstackVersion),
     index().on(t.isPublic),
+    index().on(t.user),
   ],
 )
 

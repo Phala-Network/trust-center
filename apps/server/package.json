@@ -14,6 +14,7 @@
     "@types/pg": "^8.15.5"
   },
   "dependencies": {
+    "@elysiajs/bearer": "^1.4.1",
     "@elysiajs/cron": "^1.4.1",
     "@elysiajs/openapi": "^1.4.11",
     "@phala/dstack-verifier": "workspace:*",

@@ -35,6 +35,9 @@ export const env = createEnv({
     METABASE_URL: z.url().optional(),
     METABASE_API_KEY: z.string().optional(),
 
+    // Cron API authentication (required)
+    CRON_API_KEY: z.string().min(1, 'CRON_API_KEY must not be empty'),
+
     BASE_RPC_URL: z.string().optional(),
     ETHEREUM_RPC_URL: z.string().optional(),
   },

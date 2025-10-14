@@ -29,6 +29,13 @@
       "when": 1760394873904,
       "tag": "0003_thankful_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1760416770679,
+      "tag": "0004_chemical_zzzax",
+      "breakpoints": true
     }
   ]
 }

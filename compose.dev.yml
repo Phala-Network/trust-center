@@ -72,7 +72,7 @@ services:
 
       # Queue configuration (lighter for development)
       QUEUE_NAME: ${QUEUE_NAME:-dev-verification-queue}
-      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-3}
+      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-20}
       QUEUE_MAX_ATTEMPTS: ${QUEUE_MAX_ATTEMPTS:-2}
       QUEUE_BACKOFF_DELAY: ${QUEUE_BACKOFF_DELAY:-1000}
 
@@ -88,6 +88,10 @@ services:
 
       ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL}
       BASE_RPC_URL: ${BASE_RPC_URL}
+
+      CRON_API_KEY: ${CRON_API_KEY}
+      METABASE_URL: ${METABASE_URL}
+      METABASE_API_KEY: ${METABASE_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy

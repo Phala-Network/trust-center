@@ -36,6 +36,7 @@ export interface NewTaskData {
   isPublic?: boolean
   metadata?: any
   flags?: any
+  user?: string
 }
 
 export interface TaskResult {
@@ -81,6 +82,7 @@ export const createQueueService = (
         isPublic,
         metadata,
         flags,
+        user,
       } = job.data
 
       try {
@@ -101,6 +103,7 @@ export const createQueueService = (
           modelOrDomain,
           dstackVersion: dstackVersion || null,
           isPublic: isPublic ?? false,
+          user: user || null,
           status: 'active' as const,
           bullJobId: job.id,
           createdAt: new Date(),
@@ -377,6 +380,7 @@ export const createQueueService = (
       isPublic: taskData.isPublic,
       metadata: taskData.metadata,
       flags: taskData.flags,
+      user: taskData.user,
     }
 
     const job = await queue.add('verification', queueData, {

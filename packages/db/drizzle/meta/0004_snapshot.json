@@ -1,0 +1,401 @@
+{
+  "id": "102ec2a7-5697-4f52-b232-684df3171411",
+  "prevId": "a6117d2c-a5d3-4fcf-9874-d2c28aaa6822",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.verification_tasks": {
+      "name": "verification_tasks",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "job_name": {
+          "name": "job_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'verification'"
+        },
+        "bull_job_id": {
+          "name": "bull_job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "app_id": {
+          "name": "app_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "app_name": {
+          "name": "app_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "app_config_type": {
+          "name": "app_config_type",
+          "type": "app_config_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dstack_version": {
+          "name": "dstack_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contract_address": {
+          "name": "contract_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_or_domain": {
+          "name": "model_or_domain",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "app_metadata": {
+          "name": "app_metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "verification_flags": {
+          "name": "verification_flags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "verification_task_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "s3_filename": {
+          "name": "s3_filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "s3_key": {
+          "name": "s3_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "s3_bucket": {
+          "name": "s3_bucket",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "data_objects": {
+          "name": "data_objects",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_public": {
+          "name": "is_public",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "user": {
+          "name": "user",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "verification_tasks_job_name_index": {
+          "name": "verification_tasks_job_name_index",
+          "columns": [
+            {
+              "expression": "job_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_status_index": {
+          "name": "verification_tasks_status_index",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_bull_job_id_index": {
+          "name": "verification_tasks_bull_job_id_index",
+          "columns": [
+            {
+              "expression": "bull_job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_created_at_index": {
+          "name": "verification_tasks_created_at_index",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_started_at_index": {
+          "name": "verification_tasks_started_at_index",
+          "columns": [
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_finished_at_index": {
+          "name": "verification_tasks_finished_at_index",
+          "columns": [
+            {
+              "expression": "finished_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_app_id_index": {
+          "name": "verification_tasks_app_id_index",
+          "columns": [
+            {
+              "expression": "app_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_app_name_index": {
+          "name": "verification_tasks_app_name_index",
+          "columns": [
+            {
+              "expression": "app_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_app_config_type_index": {
+          "name": "verification_tasks_app_config_type_index",
+          "columns": [
+            {
+              "expression": "app_config_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_contract_address_index": {
+          "name": "verification_tasks_contract_address_index",
+          "columns": [
+            {
+              "expression": "contract_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_model_or_domain_index": {
+          "name": "verification_tasks_model_or_domain_index",
+          "columns": [
+            {
+              "expression": "model_or_domain",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_dstack_version_index": {
+          "name": "verification_tasks_dstack_version_index",
+          "columns": [
+            {
+              "expression": "dstack_version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_is_public_index": {
+          "name": "verification_tasks_is_public_index",
+          "columns": [
+            {
+              "expression": "is_public",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "verification_tasks_user_index": {
+          "name": "verification_tasks_user_index",
+          "columns": [
+            {
+              "expression": "user",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.app_config_type": {
+      "name": "app_config_type",
+      "schema": "public",
+      "values": [
+        "redpill",
+        "phala_cloud"
+      ]
+    },
+    "public.verification_task_status": {
+      "name": "verification_task_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "active",
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

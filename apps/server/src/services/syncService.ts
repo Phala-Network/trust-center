@@ -6,13 +6,15 @@ import type {QueueService} from './queue'
 const AppDataSchema = z.object({
   app_id: z.string(),
   name: z.string(),
-  chain_id: z.string().nullable(),
+  chain_id: z.number().nullable(),
   kms_contract_address: z.string().nullable(),
   contract_address: z.string().nullable(),
   base_image: z.string(),
   tproxy_base_domain: z.string().nullable(),
   gateway_domain_suffix: z.string().nullable(),
   listed: z.boolean(),
+  email: z.string().nullable(),
+  username: z.string().nullable(),
 })
 
 export type AppData = z.infer<typeof AppDataSchema>
@@ -25,6 +27,70 @@ export interface TaskData {
   modelOrDomain: string
   dstackVersion?: string
   isPublic?: boolean
+  user?: string
+}
+
+// Helper function to determine user based on business rules
+function determineUser(app: AppData): string | undefined {
+  const email = app.email?.toLowerCase()
+  const username = app.username?.toLowerCase()
+  const name = app.name.toLowerCase()
+
+  // Crossmint -> Name contains crossmint
+  if (name.includes('crossmint')) {
+    return 'Crossmint'
+  }
+
+  // Vana -> User == volod@opendatalabs.xyz
+  if (email === 'volod@opendatalabs.xyz') {
+    return 'Vana'
+  }
+
+  // Rena Labs -> user == Ranalabs
+  if (username === 'ranalabs') {
+    return 'Rena Labs'
+  }
+
+  // Blormy -> User == tint@blorm.xyz
+  if (email === 'tint@blorm.xyz') {
+    return 'blormy'
+  }
+
+  // NEAR -> User == robertyan.ai or kaku5555 or robertyan
+  if (
+    username === 'robertyan.ai' ||
+    username === 'kaku5555' ||
+    username === 'robertyan'
+  ) {
+    return 'NEAR'
+  }
+
+  // Sahara -> Name contains sahara
+  if (name.includes('sahara')) {
+    return 'Sahara'
+  }
+
+  // Magic Link -> User == infra@magic.link
+  if (email === 'infra@magic.link') {
+    return 'Magic Link'
+  }
+
+  // Lit -> User == chris@litprotocol.com
+  if (email === 'chris@litprotocol.com') {
+    return 'Lit'
+  }
+
+  // Vijil -> User == vele-vijil
+  if (username === 'vele-vijil') {
+    return 'Vijil'
+  }
+
+  // Rift -> User == alpinevm
+  if (username === 'alpinevm') {
+    return 'Rift'
+  }
+
+  return undefined
 }
 
 // Helper function to parse version from base_image
@@ -116,6 +182,7 @@ function processAppData(app: AppData): TaskData {
     modelOrDomain,
     dstackVersion: base_image,
     isPublic: listed,
+    user: determineUser(app),
   }
 }
 
@@ -192,6 +259,7 @@ export function createSyncService(
           modelOrDomain: task.modelOrDomain,
           dstackVersion: task.dstackVersion,
           isPublic: task.isPublic,
+          user: task.user,
         }),
       )
 
@@ -244,6 +312,7 @@ export function createSyncService(
           modelOrDomain: task.modelOrDomain,
           dstackVersion: task.dstackVersion,
           isPublic: task.isPublic,
+          user: task.user,
         }),
       )
 

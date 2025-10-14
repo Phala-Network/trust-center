@@ -52,6 +52,7 @@ export const createVerificationTaskService = (
     modelOrDomain: string
     dstackVersion?: string | null
     isPublic?: boolean
+    user?: string | null
     status: 'pending' | 'active'
     bullJobId?: string | null
     createdAt: Date
