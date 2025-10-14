@@ -45,7 +45,7 @@ function determineUser(app: AppData): string | undefined {
   }
 
   // Rena Labs -> user == Renalabs
-  if (username === 'Renalabs') {
+  if (username === 'Renalabs ') {
     return 'Rena Labs'
   }
 
