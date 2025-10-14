@@ -55,7 +55,7 @@ const ReportHeader: React.FC = () => {
       <div className="p-3">
         <div className="flex items-center gap-4 mb-2">
           {/* App Logo */}
-          <AppLogo appName={appInfo?.name} size="md" />
+          <AppLogo appId={appInfo?.id} appName={appInfo?.name} size="md" />
 
           {/* App Info */}
           <div className="flex-1 min-w-0">

@@ -1,9 +1,12 @@
 import {Package} from 'lucide-react'
 
+import {getAppLogoUrl} from '@/lib/app-logos'
 import {cn} from '@/lib/utils'
 
 interface AppLogoProps {
-  /** App logo URL if available */
+  /** App ID to lookup logo */
+  appId?: string
+  /** App logo URL if available (overrides appId lookup) */
   logoUrl?: string
   /** App name for alt text */
   appName?: string
@@ -26,11 +29,15 @@ const iconSizeClasses = {
 }
 
 export function AppLogo({
+  appId,
   logoUrl,
   appName = 'Application',
   size = 'md',
   className,
 }: AppLogoProps) {
+  // Use provided logoUrl, or lookup from appId, or fallback to icon
+  const finalLogoUrl = logoUrl || (appId ? getAppLogoUrl(appId) : undefined)
+
   return (
     <div
       className={cn(
@@ -39,11 +46,11 @@ export function AppLogo({
         className,
       )}
     >
-      {logoUrl ? (
+      {finalLogoUrl ? (
         <img
-          src={logoUrl}
+          src={finalLogoUrl}
           alt={`${appName} logo`}
-          className="w-full h-full rounded-lg object-cover"
+          className="w-full h-full rounded-lg object-contain"
         />
       ) : (
         <Package

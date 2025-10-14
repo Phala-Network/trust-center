@@ -17,6 +17,7 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
       <div className="bg-gradient-to-br from-muted/40 to-muted/20 p-5 border-b border-border/50">
         <div className="flex items-start gap-4">
           <AppLogo
+            appId={app.appId}
             appName={app.appName}
             size="lg"
             className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
