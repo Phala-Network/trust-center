@@ -1,13 +1,16 @@
-import {Activity, Database, SearchX} from 'lucide-react'
+import {Activity, SearchX} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {memo} from 'react'
 
 import {AppLogo} from '@/components/app-logo'
 import {Badge} from '@/components/ui/badge'
+import {getAppBadges} from '@/lib/app-badges'
 import type {App} from '@/lib/db'
 
 const AppCard = memo(function AppCard({app}: {app: App}) {
+  const badges = getAppBadges(app.dstackVersion, app.dataObjects)
+
   return (
     <Link
       href={`/app/${app.appId}`}
@@ -15,51 +18,55 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
     >
       {/* Header with gradient background */}
       <div className="bg-gradient-to-br from-muted/40 to-muted/20 p-5 border-b border-border/50">
-        <div className="flex items-start gap-4">
+        <div className="flex items-center gap-4">
           <AppLogo
             user={app.user}
             appName={app.appName}
             size="lg"
             className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
           />
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex flex-col justify-center">
             {app.user && (
-              <p className="text-xs font-medium text-muted-foreground/90 truncate mb-1">
+              <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
                 {app.user}
               </p>
             )}
-            <h3 className="text-lg font-semibold tracking-tight truncate">
+            <h3 className="text-lg font-semibold tracking-tight truncate leading-tight">
               {app.appName}
             </h3>
-            <p className="text-xs text-muted-foreground/80 truncate mt-0.5 font-mono">
-              {app.appId}
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              {badges.versionBadge.show && (
+                <Badge
+                  variant="secondary"
+                  className="flex items-center gap-1.5 text-xs h-5 px-2"
+                >
+                  <Image
+                    src="/dstack.svg"
+                    alt="DStack"
+                    width={48}
+                    height={12}
+                    className="opacity-70"
+                  />
+                  <span className="font-semibold">
+                    {badges.versionBadge.fullVersion}
+                  </span>
+                </Badge>
+              )}
+              {badges.kmsBadge.show && (
+                <Badge
+                  variant="outline"
+                  className="text-xs h-5 px-2 font-medium"
+                >
+                  {badges.kmsBadge.text}
+                </Badge>
+              )}
+            </div>
           </div>
-          {app.dataObjectsCount && app.dataObjectsCount > 0 && (
-            <Badge
-              variant="secondary"
-              className="flex items-center gap-1.5 text-xs flex-shrink-0 shadow-sm"
-            >
-              <Database className="h-3 w-3" />
-              <span className="font-semibold">{app.dataObjectsCount}</span>
-            </Badge>
-          )}
         </div>
       </div>
 
       {/* Attributes Section */}
       <div className="p-5 space-y-3">
-        {app.user && (
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
-              Owner
-            </span>
-            <span className="flex-1 font-medium text-foreground">
-              {app.user}
-            </span>
-          </div>
-        )}
-
         <div className="flex items-center gap-3 text-sm">
           <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
             Type
@@ -86,26 +93,6 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
             {app.contractAddress}
           </span>
         </div>
-
-        {app.dstackVersion && (
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
-              Version
-            </span>
-            <div className="flex items-center gap-2 flex-1">
-              <Image
-                className="opacity-70"
-                src="/dstack.svg"
-                alt="DStack"
-                width={60}
-                height={14}
-              />
-              <span className="font-medium text-foreground">
-                {app.dstackVersion.replace('dstack-', '')}
-              </span>
-            </div>
-          </div>
-        )}
 
         <div className="flex items-center gap-3 text-sm pt-3 mt-3 border-t border-border/50">
           <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">

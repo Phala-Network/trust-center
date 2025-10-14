@@ -43,6 +43,7 @@ export default async function AppLayout({
         name: task.appName,
         description: `${task.appConfigType === 'phala_cloud' ? 'Phala Cloud' : 'Redpill'} Application`,
         configType: task.appConfigType,
+        user: task.user,
       }
     : null
 

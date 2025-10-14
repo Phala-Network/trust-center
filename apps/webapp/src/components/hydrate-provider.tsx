@@ -2,7 +2,7 @@
 
 import {useHydrateAtoms} from 'jotai/utils'
 
-import {appIdAtom, appInfoAtom, taskAtom, taskIdAtom} from '@/stores/app'
+import {appIdAtom, taskAtom, taskIdAtom} from '@/stores/app'
 
 interface HydrateProviderProps {
   children: React.ReactNode
@@ -14,6 +14,7 @@ interface HydrateProviderProps {
     name: string
     description?: string
     configType?: string
+    user?: string
   } | null
 }
 
@@ -22,7 +23,6 @@ export function HydrateProvider({
   appId,
   taskId,
   task,
-  appInfo,
 }: HydrateProviderProps) {
   // Hydrate the atoms with SSR values
   useHydrateAtoms(
@@ -30,7 +30,6 @@ export function HydrateProvider({
       [appIdAtom, appId || null],
       [taskIdAtom, taskId || null],
       [taskAtom, task || null],
-      [appInfoAtom, appInfo || null],
     ],
     {dangerouslyForceHydrate: true},
   )

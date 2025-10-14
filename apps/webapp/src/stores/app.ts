@@ -1,8 +1,6 @@
 import {atom} from 'jotai'
 import type {ImperativePanelGroupHandle} from 'react-resizable-panels'
 
-import type {Data} from '@/data/schema'
-
 // Storage key for panel layout persistence
 export const PANEL_LAYOUT_STORAGE_KEY = 'panel-layout'
 
@@ -15,14 +13,11 @@ export type ViewType = 'report' | 'values' | 'nodes'
 // App information atoms
 export const appIdAtom = atom<string | null>(null)
 export const taskIdAtom = atom<string | null>(null)
-export const taskAtom = atom<any | null>(null) // Task data from server
-export const appInfoAtom = atom<{
-  id: string
-  name: string
-  description?: string
-  configType?: string
-} | null>(null)
-
+export const taskAtom = atom<{
+  dstackVersion?: string
+  dataObjects?: string[]
+  [key: string]: any
+} | null>(null) // Task data from server
 // Layout mode types
 export type LayoutMode = 'compact-small' | 'compact-medium' | 'large'
 

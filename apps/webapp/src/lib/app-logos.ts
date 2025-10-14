@@ -7,7 +7,7 @@ export const USER_LOGO_MAP: Record<string, string> = {
   Crossmint: 'crossmint.png',
   Vana: 'vana.jpg',
   'Rena Labs': 'rena-labs.jpg',
-  Blormy: 'blormmy.jpg',
+  blormy: 'blormmy.jpg',
   NEAR: 'near.jpg',
   Sahara: 'sahara.png',
   'Magic Link': 'magic-link.jpg',

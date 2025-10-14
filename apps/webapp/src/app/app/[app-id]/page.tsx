@@ -49,6 +49,9 @@ export default async function AppPage({params, searchParams}: AppPageProps) {
     createdAt: app.createdAt,
     startedAt: app.startedAt,
     finishedAt: app.finishedAt,
+    user: app.user,
+    dstackVersion: app.dstackVersion,
+    dataObjects: app.dataObjects,
   }
 
   return (

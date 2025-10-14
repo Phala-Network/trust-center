@@ -32,9 +32,7 @@ export interface TaskData {
 
 // Helper function to determine user based on business rules
 function determineUser(app: AppData): string | undefined {
-  const email = app.email?.toLowerCase()
-  const username = app.username?.toLowerCase()
-  const name = app.name.toLowerCase()
+  const {email, username, name} = app
 
   // Crossmint -> Name contains crossmint
   if (name.includes('crossmint')) {
@@ -70,6 +68,7 @@ function determineUser(app: AppData): string | undefined {
     return 'Sahara'
   }
 
+  // Lit -> User == chris@litprotocol.com
   if (email === 'chris@litprotocol.com') {
     return 'Lit'
   }
@@ -77,11 +76,6 @@ function determineUser(app: AppData): string | undefined {
   // Magic Link -> User == infra@magic.link
   if (email === 'infra@magic.link') {
     return 'Magic Link'
-  }
-
-  // Lit -> User == chris@litprotocol.com
-  if (email === 'chris@litprotocol.com') {
-    return 'Lit'
   }
 
   // Vijil -> User == vele-vijil

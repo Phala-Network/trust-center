@@ -19,6 +19,7 @@ const db = createDbConnection(env.DATABASE_POSTGRES_URL)
 export interface App extends Task {
   dstackVersion?: string
   dataObjectsCount?: number
+  dataObjects?: string[]
 }
 
 // Get all unique apps (latest task per app)
@@ -119,6 +120,9 @@ export async function getApps(params?: {
     dataObjectsCount: Array.isArray(r.verification_tasks.dataObjects)
       ? r.verification_tasks.dataObjects.length
       : 0,
+    dataObjects: Array.isArray(r.verification_tasks.dataObjects)
+      ? (r.verification_tasks.dataObjects as string[])
+      : undefined,
   }))
 }
 
@@ -258,6 +262,10 @@ export async function getApp(appId: string): Promise<App | null> {
     startedAt: task.startedAt?.toISOString(),
     finishedAt: task.finishedAt?.toISOString(),
     user: task.user || undefined,
+    dstackVersion: task.dstackVersion || undefined,
+    dataObjects: Array.isArray(task.dataObjects)
+      ? (task.dataObjects as string[])
+      : undefined,
   }
 }
 
@@ -296,6 +304,11 @@ export async function getAppTasks(
     createdAt: task.createdAt.toISOString(),
     startedAt: task.startedAt?.toISOString(),
     finishedAt: task.finishedAt?.toISOString(),
+    user: task.user || undefined,
+    dstackVersion: task.dstackVersion || undefined,
+    dataObjects: Array.isArray(task.dataObjects)
+      ? (task.dataObjects as string[])
+      : undefined,
   }))
 }
 
@@ -327,6 +340,11 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
     createdAt: task.createdAt.toISOString(),
     startedAt: task.startedAt?.toISOString(),
     finishedAt: task.finishedAt?.toISOString(),
+    user: task.user || undefined,
+    dstackVersion: task.dstackVersion || undefined,
+    dataObjects: Array.isArray(task.dataObjects)
+      ? (task.dataObjects as string[])
+      : undefined,
   }
 }
 
@@ -367,5 +385,10 @@ export async function getTask(
     createdAt: task.createdAt.toISOString(),
     startedAt: task.startedAt?.toISOString(),
     finishedAt: task.finishedAt?.toISOString(),
+    user: task.user || undefined,
+    dstackVersion: task.dstackVersion || undefined,
+    dataObjects: Array.isArray(task.dataObjects)
+      ? (task.dataObjects as string[])
+      : undefined,
   }
 }
