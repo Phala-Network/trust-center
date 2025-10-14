@@ -20,7 +20,7 @@ export class PhalaCloudKmsVerifier extends KmsVerifier {
       return super.getQuote()
     }
 
-    if (this.kmsInfo.url === 'https://kms.dstack-pha-prod7.phala.network') {
+    if (/^https:\/\/kms\.dstack-pha-.*\.phala\.network$/.test(this.kmsInfo.url)) {
       const kmsInfo: KmsInfo = {
         caPubkey:
           '0x3059301306072a8648ce3d020106082a8648ce3d030107034200048844eb42ccdf8c52fd4f174f362fcb9bbd19c45fd48f1edec2d8f1ca23536ec1a74021b4cee610c074f8294d431b2b7fee2c39e5333fdaf0a4522d43fb159d9f',
