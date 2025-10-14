@@ -26,6 +26,7 @@ export async function getApps(params?: {
   keyword?: string
   appConfigType?: string
   dstackVersions?: string[]
+  users?: string[]
   sortBy?: 'appName' | 'taskCount' | 'lastCreated'
   sortOrder?: 'asc' | 'desc'
   page?: number
@@ -47,6 +48,15 @@ export async function getApps(params?: {
     whereConditions.push(
       sql`${verificationTasksTable.dstackVersion} IN (${sql.join(
         params.dstackVersions.map((v) => sql`${v}`),
+        sql`, `,
+      )})`,
+    )
+  }
+
+  if (params?.users && params.users.length > 0) {
+    whereConditions.push(
+      sql`${verificationTasksTable.user} IN (${sql.join(
+        params.users.map((u) => sql`${u}`),
         sql`, `,
       )})`,
     )
@@ -78,6 +88,8 @@ export async function getApps(params?: {
       ),
     )
     .orderBy(
+      // Sort apps with user/owner first, then by app name
+      sql`CASE WHEN ${verificationTasksTable.user} IS NULL THEN 1 ELSE 0 END`,
       params?.sortOrder === 'desc'
         ? desc(verificationTasksTable.appName)
         : verificationTasksTable.appName,
@@ -102,6 +114,7 @@ export async function getApps(params?: {
     createdAt: r.verification_tasks.createdAt.toISOString(),
     startedAt: r.verification_tasks.startedAt?.toISOString(),
     finishedAt: r.verification_tasks.finishedAt?.toISOString(),
+    user: r.verification_tasks.user || undefined,
     dstackVersion: r.verification_tasks.dstackVersion || undefined,
     dataObjectsCount: Array.isArray(r.verification_tasks.dataObjects)
       ? r.verification_tasks.dataObjects.length
@@ -163,6 +176,57 @@ export async function getDstackVersions(params?: {
     .filter((v): v is {version: string; count: number} => v.version !== null)
 }
 
+// Get all unique users from latest completed tasks (apps) with app counts
+export async function getUsers(params?: {
+  keyword?: string
+}): Promise<Array<{user: string; count: number}>> {
+  // Build where conditions for completed public tasks
+  const whereConditions = [
+    eq(verificationTasksTable.status, 'completed'),
+    eq(verificationTasksTable.isPublic, true),
+  ]
+
+  if (params?.keyword) {
+    whereConditions.push(
+      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`,
+    )
+  }
+
+  // Get latest task for each unique appId
+  const latestTasks = db.$with('latest_tasks').as(
+    db
+      .select({
+        appId: verificationTasksTable.appId,
+        user: verificationTasksTable.user,
+        maxCreatedAt: sql<string>`max(${verificationTasksTable.createdAt})`.as(
+          'maxCreatedAt',
+        ),
+      })
+      .from(verificationTasksTable)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .groupBy(verificationTasksTable.appId, verificationTasksTable.user),
+  )
+
+  // Count apps per user
+  const results = await db
+    .with(latestTasks)
+    .select({
+      user: latestTasks.user,
+      count: sql<number>`count(distinct ${latestTasks.appId})`.as('count'),
+    })
+    .from(latestTasks)
+    .where(sql`${latestTasks.user} IS NOT NULL`)
+    .groupBy(latestTasks.user)
+    .orderBy(latestTasks.user)
+
+  return results
+    .map((r) => ({
+      user: r.user as string,
+      count: r.count,
+    }))
+    .filter((u): u is {user: string; count: number} => u.user !== null)
+}
+
 // Get a single app by ID (latest task for this app)
 // Note: No isPublic check - allows direct access via URL even if not listed publicly
 export async function getApp(appId: string): Promise<App | null> {
@@ -193,6 +257,7 @@ export async function getApp(appId: string): Promise<App | null> {
     createdAt: task.createdAt.toISOString(),
     startedAt: task.startedAt?.toISOString(),
     finishedAt: task.finishedAt?.toISOString(),
+    user: task.user || undefined,
   }
 }
 

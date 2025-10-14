@@ -1,26 +1,33 @@
 /**
- * App logo mapping - maps appId to logo filename
+ * User logo mapping - maps user/owner to logo filename
  * Logos should be placed in public/logos/
  */
 
-export const APP_LOGO_MAP: Record<string, string> = {
-  // Blormmy
-  f5e10d9cb7a7175d11e392eeb53b31f47500805f: 'blormmy.jpg',
-
-  // NEAR Protocol
-  dac0f0e6db700d7c6596cbb4a4824eb4549f4d13: 'near.svg',
-  b79cad575dbe59d64516adf092740c32ebd01fca: 'near.svg',
-  d010735b3b16e17fdfa4edb9a8d5b5cf9d39f72e: 'near.svg',
-  ef7528d8170e073fcab30444702dbd2b5707a20d: 'near.svg',
-  '0054dc56352b84b876036418b48fe36f1bf928f1': 'near.svg',
+export const USER_LOGO_MAP: Record<string, string> = {
+  Crossmint: 'crossmint.png',
+  Vana: 'vana.jpg',
+  'Rena Labs': 'rena-labs.jpg',
+  Blormy: 'blormmy.jpg',
+  NEAR: 'near.jpg',
+  Sahara: 'sahara.png',
+  'Magic Link': 'magic-link.jpg',
+  OODA: 'ooda.jpg',
+  Lit: 'lit.jpg',
+  Proximity: 'proximity.jpg',
+  Vijil: 'vijil.jpeg',
+  Rift: 'rift.jpg',
+  'Blue Nexus': 'blue-nexus.png',
+  Succinct: 'succinct.jpg',
+  Rabbi: 'rabbi.jpg',
+  PropellerHeads: 'propeller-heads.jpg',
 }
 
 /**
- * Get logo URL for a given appId
- * @param appId - The app ID to look up
+ * Get logo URL for a given user
+ * @param user - The user/owner to look up
  * @returns Logo URL or undefined if not found
  */
-export function getAppLogoUrl(appId: string): string | undefined {
-  const filename = APP_LOGO_MAP[appId]
+export function getUserLogoUrl(user: string): string | undefined {
+  const filename = USER_LOGO_MAP[user]
   return filename ? `/logos/${filename}` : undefined
 }

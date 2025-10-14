@@ -17,12 +17,17 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
       <div className="bg-gradient-to-br from-muted/40 to-muted/20 p-5 border-b border-border/50">
         <div className="flex items-start gap-4">
           <AppLogo
-            appId={app.appId}
+            user={app.user}
             appName={app.appName}
             size="lg"
             className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
           />
           <div className="flex-1 min-w-0">
+            {app.user && (
+              <p className="text-xs font-medium text-muted-foreground/90 truncate mb-1">
+                {app.user}
+              </p>
+            )}
             <h3 className="text-lg font-semibold tracking-tight truncate">
               {app.appName}
             </h3>
@@ -44,6 +49,17 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
 
       {/* Attributes Section */}
       <div className="p-5 space-y-3">
+        {app.user && (
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
+              Owner
+            </span>
+            <span className="flex-1 font-medium text-foreground">
+              {app.user}
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center gap-3 text-sm">
           <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
             Type

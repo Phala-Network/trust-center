@@ -8,18 +8,21 @@ import {useApps} from '@/lib/queries'
 import {AppList} from './app-list'
 
 export function HomeClient() {
-  const [{keyword, dstackVersions}] = useQueryStates({
+  const [{keyword, dstackVersions, users}] = useQueryStates({
     keyword: parseAsString.withDefault(''),
     dstackVersions: parseAsArrayOf(parseAsString).withDefault([]),
+    users: parseAsArrayOf(parseAsString).withDefault([]),
   })
 
   const {data: apps = [], isFetching, isLoading} = useApps({
     sortBy: 'appName',
     keyword: keyword || undefined,
     dstackVersions: dstackVersions.length > 0 ? dstackVersions : undefined,
+    users: users.length > 0 ? users : undefined,
   })
 
-  const hasFilters = Boolean(keyword) || dstackVersions.length > 0
+  const hasFilters =
+    Boolean(keyword) || dstackVersions.length > 0 || users.length > 0
 
   return (
     <div className="w-full space-y-8">

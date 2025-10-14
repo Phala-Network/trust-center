@@ -8,7 +8,7 @@ export function Hero() {
     <div className="container mx-auto px-4 sm:px-6 lg:px-8">
       <div className="grid items-center gap-6 py-12 sm:gap-8 sm:py-16 lg:grid-cols-2 lg:gap-12 lg:py-20">
         {/* Left: Logo, Title, Description, CTA */}
-        <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+        <div className="flex flex-col items-center text-center lg:items-start lg:text-left lg:pl-8">
           {/* Logo */}
           <div className="mb-4">
             <Image

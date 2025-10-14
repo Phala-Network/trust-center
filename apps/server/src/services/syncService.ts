@@ -46,8 +46,8 @@ function determineUser(app: AppData): string | undefined {
     return 'Vana'
   }
 
-  // Rena Labs -> user == Ranalabs
-  if (username === 'ranalabs') {
+  // Rena Labs -> user == Renalabs
+  if (username === 'Renalabs') {
     return 'Rena Labs'
   }
 
@@ -68,6 +68,10 @@ function determineUser(app: AppData): string | undefined {
   // Sahara -> Name contains sahara
   if (name.includes('sahara')) {
     return 'Sahara'
+  }
+
+  if (email === 'chris@litprotocol.com') {
+    return 'Lit'
   }
 
   // Magic Link -> User == infra@magic.link
