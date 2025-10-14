@@ -426,21 +426,15 @@ const ValuesView: React.FC = () => {
                           className="p-1 align-middle"
                           rowSpan={measuredByObjectRowSpans[index]}
                         >
-                          {row.sourceObject?.isPlaceholder ? (
-                            <span className="text-left text-muted-foreground">
-                              {row.sourceObjectName}
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              className="text-left text-blue-600 underline hover:text-blue-800"
-                              onClick={() =>
-                                setSelectedObjectId(row.sourceObjectId)
-                              }
-                            >
-                              {row.sourceObjectName}
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            className="text-left text-blue-600 underline hover:text-blue-800"
+                            onClick={() =>
+                              setSelectedObjectId(row.sourceObjectId)
+                            }
+                          >
+                            {row.sourceObjectName}
+                          </button>
                         </td>
                       )}
                       {measuredByFieldRowSpans[index] > 0 && (
@@ -495,21 +489,15 @@ const ValuesView: React.FC = () => {
                           className="p-1 align-middle"
                           rowSpan={measurementsObjectRowSpans[index]}
                         >
-                          {row.targetObject?.isPlaceholder ? (
-                            <span className="text-left text-muted-foreground">
-                              {row.targetObjectName}
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              className="text-left text-blue-600 underline hover:text-blue-800"
-                              onClick={() =>
-                                setSelectedObjectId(row.targetObjectId)
-                              }
-                            >
-                              {row.targetObjectName}
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            className="text-left text-blue-600 underline hover:text-blue-800"
+                            onClick={() =>
+                              setSelectedObjectId(row.targetObjectId)
+                            }
+                          >
+                            {row.targetObjectName}
+                          </button>
                         </td>
                       )}
                       {measurementsSourceFieldRowSpans[index] > 0 && (

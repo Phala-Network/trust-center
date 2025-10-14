@@ -68,7 +68,6 @@ export const dataObjectSchema = z.object({
   kind: z.enum(['gateway', 'kms', 'app']),
   measuredBy: z.array(measuredBySchema).optional(),
   calculations: z.array(calculationSchema).optional(),
-  isPlaceholder: z.boolean().optional(),
 })
 
 export const dataSchema = z.array(dataObjectSchema)

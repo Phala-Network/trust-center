@@ -1,7 +1,6 @@
 'use client'
 
-import {placeholderData} from '@/data/placeholder-data'
-import {type Data, type DataObject, safeParseData} from '@/data/schema'
+import {type Data, safeParseData} from '@/data/schema'
 import {env} from '@/env'
 
 interface S3Response {
@@ -9,40 +8,6 @@ interface S3Response {
   dataObjects: any[]
   errors: any[]
   success: boolean
-}
-
-/**
- * Merge S3 data with placeholder data, marking missing objects as placeholders
- * @param s3Data - Data fetched from S3
- * @returns Merged data with placeholders marked
- */
-function mergeWithPlaceholderData(s3Data: Data): Data {
-  const s3DataMap = new Map<string, DataObject>()
-
-  // Create a map of S3 data by ID for fast lookup
-  for (const item of s3Data) {
-    s3DataMap.set(item.id, item)
-  }
-
-  const mergedData: Data = []
-
-  // Process each placeholder item
-  for (const placeholderItem of placeholderData) {
-    const s3Item = s3DataMap.get(placeholderItem.id)
-
-    if (s3Item) {
-      // S3 data exists, use it (without placeholder flag)
-      mergedData.push(s3Item)
-    } else {
-      // S3 data missing, use placeholder data and mark it
-      mergedData.push({
-        ...placeholderItem,
-        isPlaceholder: true,
-      })
-    }
-  }
-
-  return mergedData
 }
 
 /**
@@ -58,9 +23,6 @@ export async function fetchDataFromS3Client(
 
     const response = await fetch(s3Url, {
       method: 'GET',
-      // headers: {
-      //   'Content-Type': 'application/json',
-      // },
       // Always cache S3 data for better performance
       cache: 'force-cache',
     })
@@ -80,11 +42,8 @@ export async function fetchDataFromS3Client(
       return null
     }
 
-    // Parse the dataObjects array
-    const s3Data = safeParseData(rawData.dataObjects)
-
-    // Merge with placeholder data and mark missing items
-    return mergeWithPlaceholderData(s3Data)
+    // Parse and return the dataObjects array
+    return safeParseData(rawData.dataObjects)
   } catch (error) {
     console.warn('Error fetching data from S3:', error)
 

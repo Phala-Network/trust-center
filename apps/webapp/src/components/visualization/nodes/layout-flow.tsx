@@ -71,7 +71,6 @@ const LayoutFlow: React.FC = () => {
           isHighlighted: false,
           isDimmed: false,
           kind: o.kind,
-          isPlaceholder: o.isPlaceholder,
           edges: [],
         },
         position,
@@ -207,11 +206,7 @@ const LayoutFlow: React.FC = () => {
     node: Node,
   ) => {
     if (node?.id) {
-      const dataObject = attestationData.find((o) => o.id === node.id)
-      // Don't allow selection of placeholder objects
-      if (dataObject && !dataObject.isPlaceholder) {
-        setSelectedObjectId(node.id)
-      }
+      setSelectedObjectId(node.id)
     }
   }
 

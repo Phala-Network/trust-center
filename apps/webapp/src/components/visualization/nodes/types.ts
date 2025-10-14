@@ -7,7 +7,6 @@ export interface ObjectNodeData {
   isHighlighted: boolean
   isDimmed: boolean
   kind?: 'gateway' | 'kms' | 'app'
-  isPlaceholder?: boolean
   edges: Array<{
     id: string
     source: string

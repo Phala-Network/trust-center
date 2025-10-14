@@ -1,5 +1,4 @@
 import type {NodeProps} from '@xyflow/react'
-import {Lock} from 'lucide-react'
 import type React from 'react'
 
 import {Separator} from '@/components/ui/separator'
@@ -14,14 +13,7 @@ interface ObjectNodeProps extends NodeProps {
   data: ObjectNodeData
 }
 
-const getBorderColor = (
-  kind?: 'gateway' | 'kms' | 'app',
-  isPlaceholder?: boolean,
-) => {
-  if (isPlaceholder) {
-    return ''
-  }
-
+const getBorderColor = (kind?: 'gateway' | 'kms' | 'app') => {
   switch (kind) {
     case 'gateway':
       return 'border-blue-300'
@@ -36,16 +28,8 @@ const getBorderColor = (
 
 export const ObjectNode: React.FC<ObjectNodeProps> = (props) => {
   const {id, data} = props
-  const {
-    name,
-    fields,
-    calculations,
-    isHighlighted,
-    isDimmed,
-    kind,
-    edges,
-    isPlaceholder,
-  } = data
+  const {name, fields, calculations, isHighlighted, isDimmed, kind, edges} =
+    data
 
   const reportItem = getReportItem(id)
 
@@ -55,9 +39,8 @@ export const ObjectNode: React.FC<ObjectNodeProps> = (props) => {
         'relative min-w-[120px] max-w-[220px] select-none rounded-md bg-background p-2 text-left text-xs transition-all duration-200',
         isHighlighted
           ? 'border-2 border-yellow-300 shadow-lg ring-2 ring-yellow-300'
-          : `border-2 ${getBorderColor(kind, isPlaceholder)}`,
+          : `border-2 ${getBorderColor(kind)}`,
         isDimmed && 'opacity-30',
-        isPlaceholder && 'opacity-60',
       )}
       draggable={false}
     >
@@ -106,11 +89,6 @@ export const ObjectNode: React.FC<ObjectNodeProps> = (props) => {
             ))}
           </ul>
         </>
-      )}
-      {isPlaceholder && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-md">
-          <Lock className="h-6 w-6 text-muted-foreground/60" />
-        </div>
       )}
     </div>
   )
