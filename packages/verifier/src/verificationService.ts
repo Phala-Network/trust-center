@@ -18,6 +18,7 @@ import type {
   VerificationResponse,
 } from './types'
 import { DataObjectCollector } from './utils/dataObjectCollector'
+import { maskSensitiveDataObjects } from './utils/maskSensitiveData'
 import {
   getGitCommitFromImageVersion,
   isLegacyVersion,
@@ -188,10 +189,14 @@ export class VerificationService {
   private buildResponse(): VerificationResponse {
     // Use this instance's collector
     const dataObjects = this.collector.getAllObjects()
+
+    // Mask sensitive data before returning
+    const maskedDataObjects = maskSensitiveDataObjects(dataObjects)
+
     const success = this.errors.length === 0
 
     return {
-      dataObjects,
+      dataObjects: maskedDataObjects,
       completedAt: new Date().toISOString(),
       errors: [...this.errors],
       success,

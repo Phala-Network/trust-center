@@ -1,6 +1,9 @@
 // Core verifier exports
 export { VerificationService } from './verificationService'
 
+// Utility exports
+export { maskSensitiveDataObjects } from './utils/maskSensitiveData'
+
 // Config types
 export type {
   RedpillConfig,

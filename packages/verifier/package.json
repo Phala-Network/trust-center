@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "bun --watch run src/test-server.ts",
     "build:dcap-qvl": "cd external/dcap-qvl/cli && cargo build --release && mkdir -p ../../../bin && cp target/release/dcap-qvl ../../../bin/",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
     "format": "bunx biome format --write .",
     "lint": "bunx biome lint .",
     "check": "bunx biome check --write .",

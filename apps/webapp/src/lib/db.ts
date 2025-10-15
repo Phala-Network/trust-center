@@ -5,11 +5,13 @@ import {
   createDbConnection,
   desc,
   eq,
+  gte,
   sql,
   type Task,
   type VerificationFlags,
   verificationTasksTable,
 } from '@phala/trust-center-db'
+import {subDays} from 'date-fns'
 
 import {env} from '@/env'
 
@@ -33,10 +35,13 @@ export async function getApps(params?: {
   page?: number
   perPage?: number
 }): Promise<App[]> {
-  // Build where conditions - only show public apps
+  // Build where conditions - only show public apps from last 3 days
+  const threeDaysAgo = subDays(new Date(), 3)
+
   const whereConditions = [
     eq(verificationTasksTable.status, 'completed'),
     eq(verificationTasksTable.isPublic, true),
+    gte(verificationTasksTable.createdAt, threeDaysAgo),
   ]
 
   if (params?.keyword) {
@@ -89,11 +94,9 @@ export async function getApps(params?: {
       ),
     )
     .orderBy(
-      // Sort apps with user/owner first, then by app name
+      // Sort apps with user/owner first, then by creation time descending
       sql`CASE WHEN ${verificationTasksTable.user} IS NULL THEN 1 ELSE 0 END`,
-      params?.sortOrder === 'desc'
-        ? desc(verificationTasksTable.appName)
-        : verificationTasksTable.appName,
+      desc(verificationTasksTable.createdAt),
     )
 
   return results.map((r) => ({
