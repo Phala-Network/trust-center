@@ -66,7 +66,7 @@ const CollapsibleContent: React.FC<{
                       {valueString}
                     </a>
                   ) : (
-                    <p className="line-clamp-3 break-all text-xs">
+                    <p className="line-clamp-3 break-all text-xs text-foreground">
                       {valueString}
                     </p>
                   )}
@@ -117,7 +117,7 @@ export const CollapsibleReportItemCard: React.FC<{
         disabled={defaultExpanded}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <h4 className="font-medium text-sm truncate">
+          <h4 className="font-medium text-sm truncate text-foreground">
             {item.title}
           </h4>
           {item.vendorIcon && (

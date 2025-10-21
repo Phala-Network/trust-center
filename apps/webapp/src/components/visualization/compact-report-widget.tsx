@@ -135,7 +135,7 @@ const CompactReportHeader: React.FC<{
                 {displayUser}
               </p>
             )}
-            <h1 className="text-lg font-bold truncate">{displayName}</h1>
+            <h1 className="text-lg font-bold truncate text-foreground">{displayName}</h1>
             <div className="flex gap-1.5 mt-1">
               {badges.versionBadge.show && (
                 <Badge variant="secondary" className="h-5 px-2">
@@ -162,7 +162,7 @@ const CompactReportHeader: React.FC<{
             <span className="text-muted-foreground min-w-16 text-xs font-medium">
               Type
             </span>
-            <span className="flex-1 text-xs truncate">
+            <span className="flex-1 text-xs truncate text-foreground">
               {task.appConfigType}
             </span>
           </div>
@@ -171,7 +171,7 @@ const CompactReportHeader: React.FC<{
             <span className="text-muted-foreground min-w-16 text-xs font-medium">
               Domain
             </span>
-            <span className="flex-1 text-xs truncate">
+            <span className="flex-1 text-xs truncate text-foreground">
               {task.modelOrDomain}
             </span>
           </div>
@@ -180,7 +180,7 @@ const CompactReportHeader: React.FC<{
             <span className="text-muted-foreground min-w-16 text-xs font-medium">
               Contract
             </span>
-            <span className="flex-1 text-xs font-mono truncate">
+            <span className="flex-1 text-xs font-mono truncate text-foreground">
               {task.contractAddress}
             </span>
           </div>
@@ -206,7 +206,7 @@ const CompactReportHeader: React.FC<{
           <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground mx-auto mb-2">
             <Check className="h-5 w-5" />
           </div>
-          <h2 className="font-semibold text-sm text-center">Verified & Trusted</h2>
+          <h2 className="font-semibold text-sm text-center text-foreground">Verified & Trusted</h2>
           <p className="mt-1 text-xs text-muted-foreground text-center leading-relaxed">
             Complete chain of trust verification including hardware, OS, source
             code, network infrastructure, and trust authority.
@@ -238,7 +238,7 @@ const TrustSection: React.FC<{
         <div className="rounded-full bg-primary text-primary-foreground p-1">
           <Check className="h-3.5 w-3.5" />
         </div>
-        <h3 className="font-semibold text-sm">
+        <h3 className="font-semibold text-sm text-foreground">
           {section.title}
         </h3>
       </div>
