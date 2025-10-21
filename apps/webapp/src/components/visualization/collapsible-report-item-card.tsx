@@ -140,7 +140,7 @@ export const CollapsibleReportItemCard: React.FC<{
       </button>
 
       <div className="px-3 pb-2">
-        <CollapsibleContent item={item} isExpanded={isExpanded} />
+        <CollapsibleContent item={item} isExpanded={defaultExpanded || isExpanded} />
       </div>
     </div>
   )
