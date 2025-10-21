@@ -14,6 +14,7 @@ import {
 import {Label} from '@/components/ui/label'
 import {Switch} from '@/components/ui/switch'
 import {Separator} from '@/components/ui/separator'
+import {Input} from '@/components/ui/input'
 import {useAttestationData} from '@/components/attestation-data-context'
 import CompactReportWidget, {
   type CompactReportWidgetConfig,
@@ -70,6 +71,13 @@ export default function WidgetPlaygroundModal({
     setConfig((prev) => ({
       ...prev,
       sections: {...prev.sections, [section]: value},
+    }))
+  }
+
+  const updateCustomText = (key: 'customAppName' | 'customAppUser', value: string) => {
+    setConfig((prev) => ({
+      ...prev,
+      [key]: value || undefined,
     }))
   }
 
@@ -185,6 +193,43 @@ export default function WidgetPlaygroundModal({
                   onCheckedChange={(checked) =>
                     updateConfig('showVerificationStatus', checked)
                   }
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Customization Controls */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Customization
+              </h4>
+
+              <div className="space-y-2">
+                <Label htmlFor="custom-app-name" className="text-sm">
+                  Custom App Name
+                </Label>
+                <Input
+                  id="custom-app-name"
+                  type="text"
+                  placeholder="Leave empty to use original"
+                  value={config.customAppName || ''}
+                  onChange={(e) => updateCustomText('customAppName', e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="custom-app-user" className="text-sm">
+                  Custom App User
+                </Label>
+                <Input
+                  id="custom-app-user"
+                  type="text"
+                  placeholder="Leave empty to use original"
+                  value={config.customAppUser || ''}
+                  onChange={(e) => updateCustomText('customAppUser', e.target.value)}
+                  className="text-sm"
                 />
               </div>
             </div>
