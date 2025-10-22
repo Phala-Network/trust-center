@@ -28,6 +28,7 @@ export interface CompactReportWidgetConfig {
   showAttributes?: boolean
   showVerificationStatus?: boolean
   defaultExpanded?: boolean
+  showSectionContent?: boolean
   customAppName?: string
   customAppUser?: string
   sections?: {
@@ -44,6 +45,7 @@ const DEFAULT_CONFIG: Required<CompactReportWidgetConfig> = {
   showAttributes: true,
   showVerificationStatus: true,
   defaultExpanded: false,
+  showSectionContent: true,
   sections: {
     hardware: true,
     sourceCode: true,
@@ -114,39 +116,39 @@ const CompactReportHeader: React.FC<{
   return (
     <>
       {/* Phala Trust Certificate Header */}
-      <div className="p-4 space-y-3">
-        <div className="flex items-center justify-center gap-2">
+      <div className="bg-gradient-to-br from-muted/40 to-muted/20 p-5 border-b border-border/50">
+        <div className="flex items-center justify-center gap-2 mb-4">
           <Image src="/logo.svg" alt="Phala" width={60} height={20} />
           <span className="text-xs font-semibold text-muted-foreground">
             Trust Certificate
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <AppLogo
             user={displayUser}
             appName={displayName}
-            size="md"
-            className="w-12 h-12 ring-2 ring-primary/20"
+            size="lg"
+            className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
           />
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex flex-col justify-center">
             {displayUser && (
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
                 {displayUser}
               </p>
             )}
-            <h1 className="text-lg font-bold truncate text-foreground">{displayName}</h1>
-            <div className="flex gap-1.5 mt-1">
+            <h1 className="text-lg font-semibold tracking-tight truncate leading-tight text-foreground">{displayName}</h1>
+            <div className="flex items-center gap-2 mt-1">
               {badges.versionBadge.show && (
-                <Badge variant="secondary" className="h-5 px-2">
-                  <Image src="/dstack.svg" alt="DStack" width={40} height={10} className="opacity-70" />
-                  <span className="ml-1 text-[10px] font-semibold">
+                <Badge variant="secondary" className="flex items-center gap-1.5 text-xs h-5 px-2">
+                  <Image src="/dstack.svg" alt="DStack" width={48} height={12} className="opacity-70" />
+                  <span className="font-semibold">
                     {badges.versionBadge.fullVersion}
                   </span>
                 </Badge>
               )}
               {badges.kmsBadge.show && (
-                <Badge variant="outline" className="h-5 px-2 text-[10px]">
+                <Badge variant="outline" className="text-xs h-5 px-2 font-medium">
                   {badges.kmsBadge.text}
                 </Badge>
               )}
@@ -157,39 +159,39 @@ const CompactReportHeader: React.FC<{
 
       {/* Attributes Section */}
       {showAttributes && (
-        <div className="px-4 pb-3 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground min-w-16 text-xs font-medium">
+        <div className="p-5 space-y-3">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
               Type
             </span>
-            <span className="flex-1 text-xs truncate text-foreground">
+            <span className="flex-1 font-medium text-foreground">
               {task.appConfigType}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground min-w-16 text-xs font-medium">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
               Domain
             </span>
-            <span className="flex-1 text-xs truncate text-foreground">
+            <span className="flex-1 truncate text-foreground">
               {task.modelOrDomain}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground min-w-16 text-xs font-medium">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
               Contract
             </span>
-            <span className="flex-1 text-xs font-mono truncate text-foreground">
+            <span className="flex-1 truncate font-mono text-xs">
               {task.contractAddress}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 pt-2 mt-2 border-t">
-            <span className="text-muted-foreground min-w-16 text-xs font-medium">
+          <div className="flex items-center gap-3 text-sm pt-3 mt-3 border-t border-border/50">
+            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
               Created
             </span>
-            <span className="flex-1 text-xs text-muted-foreground">
+            <span className="flex-1 text-muted-foreground text-sm">
               {new Date(task.createdAt).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'short',
@@ -221,7 +223,8 @@ const CompactReportHeader: React.FC<{
 const TrustSection: React.FC<{
   section: TrustSection
   defaultExpanded: boolean
-}> = ({section, defaultExpanded}) => {
+  showContent: boolean
+}> = ({section, defaultExpanded, showContent}) => {
   const {attestationData} = useAttestationData()
 
   const filteredItems = section.items.filter((item) => {
@@ -234,24 +237,26 @@ const TrustSection: React.FC<{
 
   return (
     <div className="rounded-lg p-3.5">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="rounded-full bg-primary text-primary-foreground p-1">
-          <Check className="h-3.5 w-3.5" />
-        </div>
+      <div className="flex items-center justify-between gap-2 mb-3">
         <h3 className="font-semibold text-sm text-foreground">
           {section.title}
         </h3>
+        <div className="rounded-full bg-primary text-primary-foreground p-1 flex-shrink-0">
+          <Check className="h-3.5 w-3.5" />
+        </div>
       </div>
 
-      <div className="space-y-2">
-        {filteredItems.map((item) => (
-          <CollapsibleReportItemCard
-            key={item.id}
-            item={item}
-            defaultExpanded={defaultExpanded}
-          />
-        ))}
-      </div>
+      {showContent && (
+        <div className="space-y-2">
+          {filteredItems.map((item) => (
+            <CollapsibleReportItemCard
+              key={item.id}
+              item={item}
+              defaultExpanded={defaultExpanded}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -295,6 +300,7 @@ const CompactReportWidget: React.FC<{
             key={section.id}
             section={section}
             defaultExpanded={finalConfig.defaultExpanded}
+            showContent={finalConfig.showSectionContent}
           />
         ))}
       </div>

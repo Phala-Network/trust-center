@@ -1,7 +1,7 @@
 'use client'
 
 import {useState} from 'react'
-import {Check, Copy} from 'lucide-react'
+import {Copy} from 'lucide-react'
 
 import {Button} from '@/components/ui/button'
 import {
@@ -33,6 +33,7 @@ const defaultConfig: WidgetConfig = {
   showAttributes: true,
   showVerificationStatus: true,
   defaultExpanded: false,
+  showSectionContent: true,
   customAppName: undefined,
   customAppUser: undefined,
   sections: {
@@ -50,15 +51,8 @@ export default function WidgetPlaygroundModal({
   widgetUrl,
 }: WidgetPlaygroundModalProps) {
   const [config, setConfig] = useState<WidgetConfig>(defaultConfig)
-  const [copied, setCopied] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(false)
   const {attestationData} = useAttestationData()
-
-  const handleCopyConfig = () => {
-    navigator.clipboard.writeText(JSON.stringify(config, null, 2))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   const updateConfig = (key: keyof WidgetConfig, value: boolean) => {
     setConfig((prev) => ({...prev, [key]: value}))
@@ -114,6 +108,19 @@ export default function WidgetPlaygroundModal({
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Card Display
               </h4>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-section-content" className="text-sm">
+                  Show Section Content
+                </Label>
+                <Switch
+                  id="show-section-content"
+                  checked={config.showSectionContent}
+                  onCheckedChange={(checked) =>
+                    updateConfig('showSectionContent', checked)
+                  }
+                />
+              </div>
 
               <div className="flex items-center justify-between">
                 <Label htmlFor="default-expanded" className="text-sm">
@@ -179,19 +186,6 @@ export default function WidgetPlaygroundModal({
                   checked={config.showAttributes}
                   onCheckedChange={(checked) =>
                     updateConfig('showAttributes', checked)
-                  }
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-verification" className="text-sm">
-                  Show Verification Status
-                </Label>
-                <Switch
-                  id="show-verification"
-                  checked={config.showVerificationStatus}
-                  onCheckedChange={(checked) =>
-                    updateConfig('showVerificationStatus', checked)
                   }
                 />
               </div>
@@ -310,24 +304,6 @@ export default function WidgetPlaygroundModal({
 
             {/* Actions */}
             <div className="space-y-3">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleCopyConfig}
-              >
-                {copied ? (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Configuration
-                  </>
-                )}
-              </Button>
-
               <Button
                 variant="secondary"
                 className="w-full"
