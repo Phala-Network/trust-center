@@ -165,7 +165,7 @@ const CompactReportWidget: React.FC<{
   })
 
   const cardClassName = finalConfig.embedded
-    ? 'text-foreground max-w-sm relative mx-auto rounded-lg overflow-hidden bg-card'
+    ? 'text-foreground max-w-sm relative mx-auto overflow-hidden bg-card'
     : 'text-foreground max-w-sm relative mx-auto rounded-lg overflow-hidden bg-card border border-border shadow-sm'
 
   return (
