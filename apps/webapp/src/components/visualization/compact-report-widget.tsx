@@ -237,13 +237,13 @@ const TrustSection: React.FC<{
 
   return (
     <div className="rounded-lg p-3.5 bg-card border border-border shadow-sm">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <h3 className="font-semibold text-sm text-foreground">
-          {section.title}
-        </h3>
+      <div className="flex items-center gap-2 mb-3">
         <div className="rounded-full bg-primary text-primary-foreground p-1 flex-shrink-0">
           <Check className="h-3.5 w-3.5" />
         </div>
+        <h3 className="font-semibold text-sm text-foreground">
+          {section.title}
+        </h3>
       </div>
 
       {showContent && (
@@ -282,36 +282,39 @@ const CompactReportWidget: React.FC<{
   })
 
   return (
-    <div className="space-y-3 text-foreground max-w-sm relative">
-      {/* Dotted background pattern */}
+    <div className="relative p-4">
+      {/* Dotted background layer */}
       <div
-        className="absolute inset-0 -z-10 opacity-30"
+        className="absolute inset-0 pointer-events-none opacity-15"
         style={{
           backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
           backgroundSize: '16px 16px',
         }}
       />
 
-      {finalConfig.showHeader && (
-        <div className="rounded-lg overflow-hidden bg-card border border-border shadow-sm">
-          <CompactReportHeader
-            showAttributes={finalConfig.showAttributes}
-            showVerificationStatus={finalConfig.showVerificationStatus}
-            customAppName={config.customAppName}
-            customAppUser={config.customAppUser}
-          />
-        </div>
-      )}
+      {/* Widget content */}
+      <div className="space-y-3 text-foreground max-w-sm relative mx-auto">
+        {finalConfig.showHeader && (
+          <div className="rounded-lg overflow-hidden bg-card border border-border shadow-sm">
+            <CompactReportHeader
+              showAttributes={finalConfig.showAttributes}
+              showVerificationStatus={finalConfig.showVerificationStatus}
+              customAppName={config.customAppName}
+              customAppUser={config.customAppUser}
+            />
+          </div>
+        )}
 
-      <div className="space-y-2">
-        {visibleSections.map((section) => (
-          <TrustSection
-            key={section.id}
-            section={section}
-            defaultExpanded={finalConfig.defaultExpanded}
-            showContent={finalConfig.showSectionContent}
-          />
-        ))}
+        <div className="space-y-2">
+          {visibleSections.map((section) => (
+            <TrustSection
+              key={section.id}
+              section={section}
+              defaultExpanded={finalConfig.defaultExpanded}
+              showContent={finalConfig.showSectionContent}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )
