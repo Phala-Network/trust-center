@@ -29,11 +29,33 @@ export default async function WidgetTaskPage({params, searchParams}: WidgetTaskP
   const {['app-id']: appId, ['task-id']: taskId} = await params
   const {config: configParam} = await searchParams
 
-  // Parse config from URL
+  // Parse config from URL and expand short keys
   let config
   if (configParam) {
     try {
-      config = JSON.parse(decodeURIComponent(configParam))
+      // searchParams is already URL-decoded by Next.js
+      const shortConfig = JSON.parse(configParam)
+
+      // Map short keys back to full config
+      config = {
+        ...(shortConfig.a === 0 && {showAttributes: false}),
+        ...(shortConfig.e === 1 && {defaultExpanded: true}),
+        ...(shortConfig.c === 0 && {showSectionContent: false}),
+        ...(shortConfig.t === 1 && {darkMode: true}),
+        ...(shortConfig.n && {customAppName: shortConfig.n}),
+      }
+
+      // Parse disabled sections
+      if (shortConfig.d) {
+        const disabled = shortConfig.d.split(',')
+        config.sections = {
+          hardware: !disabled.includes('hw'),
+          sourceCode: !disabled.includes('sc'),
+          zeroTrust: !disabled.includes('zt'),
+          os: !disabled.includes('os'),
+          authority: !disabled.includes('au'),
+        }
+      }
     } catch (e) {
       console.error('Failed to parse config:', e)
     }
@@ -51,7 +73,7 @@ export default async function WidgetTaskPage({params, searchParams}: WidgetTaskP
       task={task}
       appId={appId}
       taskId={taskId}
-      config={config}
+      config={{embedded: true, ...config}}
     />
   )
 }

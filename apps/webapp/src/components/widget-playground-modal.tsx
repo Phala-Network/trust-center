@@ -1,7 +1,7 @@
 'use client'
 
 import {useState} from 'react'
-import {Copy} from 'lucide-react'
+import {Copy, ExternalLink} from 'lucide-react'
 
 import {Button} from '@/components/ui/button'
 import {
@@ -29,13 +29,11 @@ interface WidgetPlaygroundModalProps {
 type WidgetConfig = Required<CompactReportWidgetConfig>
 
 const defaultConfig: WidgetConfig = {
-  showHeader: true,
   showAttributes: true,
-  showVerificationStatus: true,
   defaultExpanded: false,
   showSectionContent: true,
+  darkMode: false,
   customAppName: undefined,
-  customAppUser: undefined,
   sections: {
     hardware: true,
     sourceCode: true,
@@ -51,11 +49,9 @@ export default function WidgetPlaygroundModal({
   widgetUrl,
 }: WidgetPlaygroundModalProps) {
   const [config, setConfig] = useState<WidgetConfig>(defaultConfig)
-  const [isDarkMode, setIsDarkMode] = useState(false)
-  const [showDemo, setShowDemo] = useState(false)
   const {attestationData} = useAttestationData()
 
-  const updateConfig = (key: keyof WidgetConfig, value: boolean) => {
+  const updateConfig = (key: keyof Omit<WidgetConfig, 'sections' | 'customAppName'>, value: boolean) => {
     setConfig((prev) => ({...prev, [key]: value}))
   }
 
@@ -69,31 +65,34 @@ export default function WidgetPlaygroundModal({
     }))
   }
 
-  const updateCustomText = (key: 'customAppName' | 'customAppUser', value: string) => {
+  const updateCustomText = (key: 'customAppName', value: string) => {
     setConfig((prev) => ({
       ...prev,
       [key]: value || undefined,
     }))
   }
 
-  // Generate optimized config (only include non-default values)
+  // Generate optimized config (only include non-default values, use short keys)
   const getOptimizedConfig = () => {
-    const optimized: Partial<WidgetConfig> = {}
+    const optimized: Record<string, any> = {}
 
-    if (!config.showHeader) optimized.showHeader = false
-    if (!config.showAttributes) optimized.showAttributes = false
-    if (!config.showVerificationStatus) optimized.showVerificationStatus = false
-    if (config.defaultExpanded) optimized.defaultExpanded = true
-    if (!config.showSectionContent) optimized.showSectionContent = false
-    if (config.customAppName) optimized.customAppName = config.customAppName
-    if (config.customAppUser) optimized.customAppUser = config.customAppUser
+    // Use single-letter keys to minimize URL length
+    if (!config.showAttributes) optimized.a = 0
+    if (config.defaultExpanded) optimized.e = 1
+    if (!config.showSectionContent) optimized.c = 0
+    if (config.darkMode) optimized.t = 1
+    if (config.customAppName) optimized.n = config.customAppName
 
-    // Only include sections if any are disabled
-    const anySectionDisabled = Object.values(config.sections).some(v => !v)
-    if (anySectionDisabled) {
-      optimized.sections = Object.entries(config.sections)
-        .filter(([_, enabled]) => !enabled)
-        .reduce((acc, [key, _]) => ({...acc, [key]: false}), {})
+    // Only include disabled sections with short keys
+    const disabledSections: string[] = []
+    if (!config.sections.hardware) disabledSections.push('hw')
+    if (!config.sections.sourceCode) disabledSections.push('sc')
+    if (!config.sections.zeroTrust) disabledSections.push('zt')
+    if (!config.sections.os) disabledSections.push('os')
+    if (!config.sections.authority) disabledSections.push('au')
+
+    if (disabledSections.length > 0) {
+      optimized.d = disabledSections.join(',')
     }
 
     return optimized
@@ -104,13 +103,11 @@ export default function WidgetPlaygroundModal({
     ? `?config=${encodeURIComponent(JSON.stringify(optimizedConfig))}`
     : ''
 
-  // Generate embed code
-  const embedCode = `<iframe
-  src="${typeof window !== 'undefined' ? window.location.origin : ''}${widgetUrl}${configParam}"
-  width="100%"
-  height="800"
-  frameborder="0"
-></iframe>`
+  // Generate embed code (single line)
+  const embedCode = `<iframe src="${typeof window !== 'undefined' ? window.location.origin : ''}${widgetUrl}${configParam}" width="100%" height="800" frameborder="0"></iframe>`
+
+  // Generate demo page URL
+  const demoUrl = `${widgetUrl}/demo${configParam}`
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -122,37 +119,14 @@ export default function WidgetPlaygroundModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 overflow-y-auto flex-1 min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 flex-1 min-h-0">
           {/* Control Panel - Left Side */}
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto pr-2">
             <div>
               <h3 className="text-sm font-semibold mb-4">
                 Widget Configuration
               </h3>
-              <Separator />
             </div>
-
-            {/* Card Display Controls */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Card Display
-              </h4>
-
-              <div className="flex items-center justify-between">
-                <Label htmlFor="default-expanded" className="text-sm">
-                  Always Expand Cards
-                </Label>
-                <Switch
-                  id="default-expanded"
-                  checked={config.defaultExpanded}
-                  onCheckedChange={(checked) =>
-                    updateConfig('defaultExpanded', checked)
-                  }
-                />
-              </div>
-            </div>
-
-            <Separator />
 
             {/* Theme Controls */}
             <div className="space-y-3">
@@ -166,19 +140,8 @@ export default function WidgetPlaygroundModal({
                 </Label>
                 <Switch
                   id="dark-mode"
-                  checked={isDarkMode}
-                  onCheckedChange={setIsDarkMode}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-demo" className="text-sm">
-                  Show Demo Page
-                </Label>
-                <Switch
-                  id="show-demo"
-                  checked={showDemo}
-                  onCheckedChange={setShowDemo}
+                  checked={config.darkMode}
+                  onCheckedChange={(checked) => updateConfig('darkMode', checked)}
                 />
               </div>
             </div>
@@ -223,20 +186,6 @@ export default function WidgetPlaygroundModal({
                   placeholder="Leave empty to use original"
                   value={config.customAppName || ''}
                   onChange={(e) => updateCustomText('customAppName', e.target.value)}
-                  className="text-sm"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="custom-app-user" className="text-sm">
-                  Custom App User
-                </Label>
-                <Input
-                  id="custom-app-user"
-                  type="text"
-                  placeholder="Leave empty to use original"
-                  value={config.customAppUser || ''}
-                  onChange={(e) => updateCustomText('customAppUser', e.target.value)}
                   className="text-sm"
                 />
               </div>
@@ -313,7 +262,15 @@ export default function WidgetPlaygroundModal({
                 />
               </div>
 
-              <Separator className="my-3" />
+            </div>
+
+            <Separator />
+
+            {/* Card Display Controls */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Card Display
+              </h4>
 
               <div className="flex items-center justify-between">
                 <Label htmlFor="show-section-content" className="text-sm">
@@ -322,8 +279,29 @@ export default function WidgetPlaygroundModal({
                 <Switch
                   id="show-section-content"
                   checked={config.showSectionContent}
-                  onCheckedChange={(checked) =>
+                  onCheckedChange={(checked) => {
                     updateConfig('showSectionContent', checked)
+                    // If hiding details, also disable expand
+                    if (!checked && config.defaultExpanded) {
+                      updateConfig('defaultExpanded', false)
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="default-expanded"
+                  className={`text-sm ${!config.showSectionContent ? 'opacity-50' : ''}`}
+                >
+                  Always Expand Cards
+                </Label>
+                <Switch
+                  id="default-expanded"
+                  checked={config.defaultExpanded}
+                  disabled={!config.showSectionContent}
+                  onCheckedChange={(checked) =>
+                    updateConfig('defaultExpanded', checked)
                   }
                 />
               </div>
@@ -344,18 +322,29 @@ export default function WidgetPlaygroundModal({
           </div>
 
           {/* Preview Panel - Right Side */}
-          <div className="flex flex-col lg:col-span-2">
-            <div className="mb-4">
-              <h3 className="text-sm font-semibold">Widget Preview</h3>
-              <p className="text-xs text-muted-foreground">
-                Live preview of your customized report widget
-              </p>
+          <div className="flex flex-col lg:col-span-2 min-h-0">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold">Widget Preview</h3>
+                <p className="text-xs text-muted-foreground">
+                  Live preview of your customized report widget
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(demoUrl, '_blank')}
+                className="gap-1.5"
+              >
+                Preview in App
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Button>
             </div>
 
             <Separator className="mb-4" />
 
-            <div className={isDarkMode ? 'dark' : ''}>
-              {showDemo ? (
+            <div className={`${config.darkMode ? 'dark' : ''} flex-1 min-h-0 overflow-y-auto`}>
+              {false ? (
                 <div className="border border-border rounded-lg bg-background overflow-hidden h-[600px] flex flex-col">
                   {/* AI Chat App Header */}
                   <div className="border-b bg-card px-4 py-3 flex items-center gap-3">
@@ -427,7 +416,7 @@ export default function WidgetPlaygroundModal({
                   </div>
                 </div>
               ) : (
-                <div className="border border-border rounded-lg bg-card shadow-sm overflow-auto flex-1 p-4">
+                <div className="rounded-lg overflow-auto flex-1">
                   {attestationData && attestationData.length > 0 ? (
                     <CompactReportWidget config={config} />
                   ) : (
@@ -450,7 +439,7 @@ export default function WidgetPlaygroundModal({
             </pre>
             <Button
               size="sm"
-              variant="ghost"
+              variant="secondary"
               className="absolute top-2 right-2 h-7 w-7 p-0"
               onClick={() => {
                 navigator.clipboard.writeText(embedCode)
