@@ -4,22 +4,22 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Allow /widget routes to be embedded in iframes
+        // Allow /widget routes to be embedded in any iframe
         source: '/widget/:path*',
         headers: [
           {
-            key: 'X-Frame-Options',
-            value: 'ALLOWALL',
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors *",
           },
         ],
       },
       {
-        // Deny all other routes from being embedded
+        // Allow all other routes to be embedded only by *.phala.com and *.phala.network
         source: '/((?!widget).*)',
         headers: [
           {
-            key: 'X-Frame-Options',
-            value: 'DENY',
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'self' https://*.phala.com https://*.phala.network",
           },
         ],
       },
