@@ -116,27 +116,27 @@ export const CollapsibleReportItemCard: React.FC<{
         onClick={() => !defaultExpanded && setIsExpanded(!isExpanded)}
         disabled={defaultExpanded}
       >
-        <h4 className="font-medium text-sm truncate text-foreground flex-1 min-w-0">
-          {item.title}
-        </h4>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <h4 className="font-medium text-sm truncate text-foreground">
+            {item.title}
+          </h4>
           {item.vendorIcon && (
             // biome-ignore lint/performance/noImgElement: size is not fixed
             <img
               src={item.vendorIcon}
               alt="Vendor"
-              className="block h-3.5 w-auto"
-            />
-          )}
-          {!defaultExpanded && (
-            <ChevronDown
-              className={cn(
-                'h-4 w-4 text-muted-foreground transition-transform duration-200',
-                isExpanded && 'rotate-180',
-              )}
+              className="block h-3.5 w-auto flex-shrink-0"
             />
           )}
         </div>
+        {!defaultExpanded && (
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 text-muted-foreground transition-transform duration-200 flex-shrink-0',
+              isExpanded && 'rotate-180',
+            )}
+          />
+        )}
       </button>
 
       <div className="px-3 pb-2">

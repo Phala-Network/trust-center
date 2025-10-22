@@ -114,7 +114,7 @@ export default function WidgetPlaygroundModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Widget Playground</DialogTitle>
           <DialogDescription>
@@ -203,19 +203,6 @@ export default function WidgetPlaygroundModal({
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Header Components
               </h4>
-
-              <div className="flex items-center justify-between">
-                <Label htmlFor="show-header" className="text-sm">
-                  Show Header
-                </Label>
-                <Switch
-                  id="show-header"
-                  checked={config.showHeader}
-                  onCheckedChange={(checked) =>
-                    updateConfig('showHeader', checked)
-                  }
-                />
-              </div>
 
               <div className="flex items-center justify-between">
                 <Label htmlFor="show-attributes" className="text-sm">
@@ -367,41 +354,73 @@ export default function WidgetPlaygroundModal({
 
             <div className={isDarkMode ? 'dark' : ''}>
               {showDemo ? (
-                <div className="border border-border rounded-lg bg-background p-6 space-y-6">
-                  {/* Demo Page Header */}
-                  <div className="space-y-2">
-                    <div className="h-8 w-48 bg-muted rounded animate-pulse" />
-                    <div className="h-4 w-full max-w-md bg-muted/60 rounded animate-pulse" />
+                <div className="border border-border rounded-lg bg-background overflow-hidden h-[600px] flex flex-col">
+                  {/* AI Chat App Header */}
+                  <div className="border-b bg-card px-4 py-3 flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <div className="h-4 w-4 rounded-full bg-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                    </div>
+                    <div className="h-8 w-20 bg-muted rounded animate-pulse" />
                   </div>
 
-                  {/* Demo Content Grid */}
-                  <div className="grid grid-cols-3 gap-4">
-                    {/* Left Column - Skeleton Content */}
-                    <div className="col-span-2 space-y-4">
-                      <div className="h-6 w-32 bg-muted rounded animate-pulse" />
-                      <div className="space-y-2">
-                        <div className="h-4 w-full bg-muted/60 rounded animate-pulse" />
-                        <div className="h-4 w-5/6 bg-muted/60 rounded animate-pulse" />
-                        <div className="h-4 w-4/6 bg-muted/60 rounded animate-pulse" />
+                  {/* Main Content Area */}
+                  <div className="flex-1 flex overflow-hidden">
+                    {/* Chat Messages - Left Side */}
+                    <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+                      {/* User Message */}
+                      <div className="flex justify-end">
+                        <div className="max-w-[80%] bg-primary text-primary-foreground rounded-lg px-4 py-2">
+                          <div className="h-4 w-48 bg-primary-foreground/20 rounded animate-pulse" />
+                        </div>
                       </div>
-                      <div className="h-6 w-40 bg-muted rounded animate-pulse mt-6" />
-                      <div className="space-y-2">
-                        <div className="h-4 w-full bg-muted/60 rounded animate-pulse" />
-                        <div className="h-4 w-3/4 bg-muted/60 rounded animate-pulse" />
+
+                      {/* AI Response */}
+                      <div className="flex justify-start">
+                        <div className="max-w-[80%] bg-muted rounded-lg px-4 py-3 space-y-2">
+                          <div className="h-3 w-full bg-muted-foreground/20 rounded animate-pulse" />
+                          <div className="h-3 w-5/6 bg-muted-foreground/20 rounded animate-pulse" />
+                          <div className="h-3 w-4/6 bg-muted-foreground/20 rounded animate-pulse" />
+                        </div>
+                      </div>
+
+                      {/* User Message */}
+                      <div className="flex justify-end">
+                        <div className="max-w-[80%] bg-primary text-primary-foreground rounded-lg px-4 py-2">
+                          <div className="h-4 w-36 bg-primary-foreground/20 rounded animate-pulse" />
+                        </div>
+                      </div>
+
+                      {/* AI Response */}
+                      <div className="flex justify-start">
+                        <div className="max-w-[80%] bg-muted rounded-lg px-4 py-3 space-y-2">
+                          <div className="h-3 w-full bg-muted-foreground/20 rounded animate-pulse" />
+                          <div className="h-3 w-4/5 bg-muted-foreground/20 rounded animate-pulse" />
+                          <div className="h-3 w-3/5 bg-muted-foreground/20 rounded animate-pulse" />
+                          <div className="h-3 w-5/6 bg-muted-foreground/20 rounded animate-pulse" />
+                        </div>
                       </div>
                     </div>
 
-                    {/* Right Column - Widget */}
-                    <div className="col-span-1">
-                      <div className="sticky top-4">
-                        {attestationData && attestationData.length > 0 ? (
-                          <CompactReportWidget config={config} />
-                        ) : (
-                          <div className="p-8 text-center text-muted-foreground">
-                            <p>Loading...</p>
-                          </div>
-                        )}
-                      </div>
+                    {/* Widget Sidebar - Right Side */}
+                    <div className="w-80 border-l bg-card/50 p-4 overflow-y-auto">
+                      {attestationData && attestationData.length > 0 ? (
+                        <CompactReportWidget config={config} />
+                      ) : (
+                        <div className="p-8 text-center text-muted-foreground">
+                          <p>Loading...</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Chat Input - Bottom */}
+                  <div className="border-t bg-card p-4">
+                    <div className="flex gap-2">
+                      <div className="flex-1 h-10 bg-muted rounded-lg animate-pulse" />
+                      <div className="h-10 w-10 bg-primary/20 rounded-lg animate-pulse" />
                     </div>
                   </div>
                 </div>

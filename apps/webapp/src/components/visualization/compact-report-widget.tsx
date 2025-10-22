@@ -282,7 +282,7 @@ const CompactReportWidget: React.FC<{
   })
 
   return (
-    <div className="space-y-3 text-foreground">
+    <div className="space-y-3 text-foreground max-w-md">
       {finalConfig.showHeader && (
         <div className="rounded-lg overflow-hidden bg-card">
           <CompactReportHeader
