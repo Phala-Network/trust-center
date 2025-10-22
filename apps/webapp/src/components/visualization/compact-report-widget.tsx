@@ -39,12 +39,20 @@ export interface CompactReportWidgetConfig {
   }
 }
 
-const DEFAULT_CONFIG: Required<CompactReportWidgetConfig> = {
+const DEFAULT_CONFIG: CompactReportWidgetConfig & {
+  showAttributes: boolean
+  defaultExpanded: boolean
+  showSectionContent: boolean
+  darkMode: boolean
+  embedded: boolean
+  sections: Required<NonNullable<CompactReportWidgetConfig['sections']>>
+} = {
   showAttributes: true,
   defaultExpanded: false,
   showSectionContent: true,
   darkMode: false,
   embedded: false,
+  customAppName: undefined,
   sections: {
     hardware: true,
     sourceCode: true,
@@ -86,7 +94,7 @@ const ALL_TRUST_SECTIONS: TrustSection[] = [
 // Map section IDs to config keys
 const SECTION_CONFIG_MAP: Record<
   string,
-  keyof CompactReportWidgetConfig['sections']
+  keyof NonNullable<CompactReportWidgetConfig['sections']>
 > = {
   hardware: 'hardware',
   source_code: 'sourceCode',

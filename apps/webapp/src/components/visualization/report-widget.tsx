@@ -79,7 +79,7 @@ const ALL_TRUST_SECTIONS: TrustSection[] = [
 ]
 
 // Map section IDs to config keys
-const SECTION_CONFIG_MAP: Record<string, keyof ReportWidgetConfig['sections']> = {
+const SECTION_CONFIG_MAP: Record<string, keyof NonNullable<ReportWidgetConfig['sections']>> = {
   hardware: 'hardware',
   source_code: 'sourceCode',
   zero_trust: 'zeroTrust',

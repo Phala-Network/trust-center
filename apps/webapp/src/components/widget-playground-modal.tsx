@@ -26,13 +26,16 @@ interface WidgetPlaygroundModalProps {
   widgetUrl: string
 }
 
-type WidgetConfig = Required<CompactReportWidgetConfig>
+type WidgetConfig = Omit<Required<CompactReportWidgetConfig>, 'customAppName'> & {
+  customAppName?: string
+}
 
 const defaultConfig: WidgetConfig = {
   showAttributes: true,
   defaultExpanded: false,
   showSectionContent: true,
   darkMode: false,
+  embedded: false,
   customAppName: undefined,
   sections: {
     hardware: true,
