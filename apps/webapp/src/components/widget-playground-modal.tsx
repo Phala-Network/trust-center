@@ -139,19 +139,6 @@ export default function WidgetPlaygroundModal({
               </h4>
 
               <div className="flex items-center justify-between">
-                <Label htmlFor="show-section-content" className="text-sm">
-                  Show Section Content
-                </Label>
-                <Switch
-                  id="show-section-content"
-                  checked={config.showSectionContent}
-                  onCheckedChange={(checked) =>
-                    updateConfig('showSectionContent', checked)
-                  }
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
                 <Label htmlFor="default-expanded" className="text-sm">
                   Always Expand Cards
                 </Label>
@@ -322,6 +309,21 @@ export default function WidgetPlaygroundModal({
                   checked={config.sections.authority}
                   onCheckedChange={(checked) =>
                     updateSection('authority', checked)
+                  }
+                />
+              </div>
+
+              <Separator className="my-3" />
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-section-content" className="text-sm">
+                  Show Card Details
+                </Label>
+                <Switch
+                  id="show-section-content"
+                  checked={config.showSectionContent}
+                  onCheckedChange={(checked) =>
+                    updateConfig('showSectionContent', checked)
                   }
                 />
               </div>

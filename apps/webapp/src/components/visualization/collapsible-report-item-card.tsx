@@ -100,21 +100,22 @@ const CollapsibleContent: React.FC<{
 export const CollapsibleReportItemCard: React.FC<{
   item: ReportItem
   defaultExpanded?: boolean
-}> = ({item, defaultExpanded = false}) => {
+  showContent?: boolean
+}> = ({item, defaultExpanded = false, showContent = true}) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
   return (
     <div
       className={cn(
         'w-full rounded-md border bg-card transition-all duration-200',
-        !defaultExpanded && 'hover:border-primary/20',
+        !defaultExpanded && showContent && 'hover:border-primary/20',
       )}
     >
       <button
         type="button"
         className="w-full px-3 py-2 text-left flex items-center justify-between gap-2"
-        onClick={() => !defaultExpanded && setIsExpanded(!isExpanded)}
-        disabled={defaultExpanded}
+        onClick={() => !defaultExpanded && showContent && setIsExpanded(!isExpanded)}
+        disabled={defaultExpanded || !showContent}
       >
         <h4 className="font-medium text-sm truncate text-foreground flex-1 min-w-0">
           {item.title}
@@ -128,7 +129,7 @@ export const CollapsibleReportItemCard: React.FC<{
               className="block h-3.5 w-auto"
             />
           )}
-          {!defaultExpanded && (
+          {!defaultExpanded && showContent && (
             <ChevronDown
               className={cn(
                 'h-4 w-4 text-muted-foreground transition-transform duration-200',
@@ -139,9 +140,11 @@ export const CollapsibleReportItemCard: React.FC<{
         </div>
       </button>
 
-      <div className="px-3 pb-2">
-        <CollapsibleContent item={item} isExpanded={defaultExpanded || isExpanded} />
-      </div>
+      {showContent && (
+        <div className="px-3 pb-2">
+          <CollapsibleContent item={item} isExpanded={defaultExpanded || isExpanded} />
+        </div>
+      )}
     </div>
   )
 }

@@ -236,7 +236,7 @@ const TrustSection: React.FC<{
   }
 
   return (
-    <div className="rounded-lg p-3.5 bg-card border border-border shadow-sm">
+    <div className="rounded-lg p-3.5">
       <div className="flex items-center gap-2 mb-3">
         <div className="rounded-full bg-primary text-primary-foreground p-1 flex-shrink-0">
           <Check className="h-3.5 w-3.5" />
@@ -246,17 +246,16 @@ const TrustSection: React.FC<{
         </h3>
       </div>
 
-      {showContent && (
-        <div className="space-y-2">
-          {filteredItems.map((item) => (
-            <CollapsibleReportItemCard
-              key={item.id}
-              item={item}
-              defaultExpanded={defaultExpanded}
-            />
-          ))}
-        </div>
-      )}
+      <div className="space-y-2">
+        {filteredItems.map((item) => (
+          <CollapsibleReportItemCard
+            key={item.id}
+            item={item}
+            defaultExpanded={defaultExpanded}
+            showContent={showContent}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -295,7 +294,7 @@ const CompactReportWidget: React.FC<{
       {/* Widget content */}
       <div className="space-y-3 text-foreground max-w-sm relative mx-auto">
         {finalConfig.showHeader && (
-          <div className="rounded-lg overflow-hidden bg-card border border-border shadow-sm">
+          <div className="rounded-lg overflow-hidden">
             <CompactReportHeader
               showAttributes={finalConfig.showAttributes}
               showVerificationStatus={finalConfig.showVerificationStatus}
