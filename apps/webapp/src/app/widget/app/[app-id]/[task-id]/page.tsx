@@ -8,6 +8,9 @@ interface WidgetTaskPageProps {
     'app-id': string
     'task-id': string
   }>
+  searchParams: Promise<{
+    config?: string
+  }>
 }
 
 export const generateMetadata = async ({params}: WidgetTaskPageProps) => {
@@ -22,8 +25,19 @@ export const generateMetadata = async ({params}: WidgetTaskPageProps) => {
   }
 }
 
-export default async function WidgetTaskPage({params}: WidgetTaskPageProps) {
+export default async function WidgetTaskPage({params, searchParams}: WidgetTaskPageProps) {
   const {['app-id']: appId, ['task-id']: taskId} = await params
+  const {config: configParam} = await searchParams
+
+  // Parse config from URL
+  let config
+  if (configParam) {
+    try {
+      config = JSON.parse(decodeURIComponent(configParam))
+    } catch (e) {
+      console.error('Failed to parse config:', e)
+    }
+  }
 
   // Get task data from database
   const task = await getTask(appId, taskId)
@@ -37,6 +51,7 @@ export default async function WidgetTaskPage({params}: WidgetTaskPageProps) {
       task={task}
       appId={appId}
       taskId={taskId}
+      config={config}
     />
   )
 }

@@ -4,18 +4,22 @@ import type {Task} from '@phala/trust-center-db'
 
 import {AttestationDataProvider} from '@/components/attestation-data-provider'
 import {HydrateProvider} from '@/components/hydrate-provider'
-import CompactReportWidget from '@/components/visualization/compact-report-widget'
+import CompactReportWidget, {
+  type CompactReportWidgetConfig,
+} from '@/components/visualization/compact-report-widget'
 
 interface WidgetClientProps {
   task: Task
   appId: string
   taskId: string
+  config?: Partial<CompactReportWidgetConfig>
 }
 
 export default function WidgetClient({
   task,
   appId,
   taskId,
+  config,
 }: WidgetClientProps) {
   const appInfo = {
     id: task.appId,
@@ -40,6 +44,7 @@ export default function WidgetClient({
               showAttributes: true,
               showVerificationStatus: true,
               defaultExpanded: true,
+              showSectionContent: true,
               sections: {
                 hardware: true,
                 sourceCode: true,
@@ -47,6 +52,7 @@ export default function WidgetClient({
                 os: true,
                 authority: true,
               },
+              ...config,
             }}
           />
         </div>

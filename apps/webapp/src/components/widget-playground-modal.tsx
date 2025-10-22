@@ -52,6 +52,7 @@ export default function WidgetPlaygroundModal({
 }: WidgetPlaygroundModalProps) {
   const [config, setConfig] = useState<WidgetConfig>(defaultConfig)
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [showDemo, setShowDemo] = useState(false)
   const {attestationData} = useAttestationData()
 
   const updateConfig = (key: keyof WidgetConfig, value: boolean) => {
@@ -75,9 +76,37 @@ export default function WidgetPlaygroundModal({
     }))
   }
 
+  // Generate optimized config (only include non-default values)
+  const getOptimizedConfig = () => {
+    const optimized: Partial<WidgetConfig> = {}
+
+    if (!config.showHeader) optimized.showHeader = false
+    if (!config.showAttributes) optimized.showAttributes = false
+    if (!config.showVerificationStatus) optimized.showVerificationStatus = false
+    if (config.defaultExpanded) optimized.defaultExpanded = true
+    if (!config.showSectionContent) optimized.showSectionContent = false
+    if (config.customAppName) optimized.customAppName = config.customAppName
+    if (config.customAppUser) optimized.customAppUser = config.customAppUser
+
+    // Only include sections if any are disabled
+    const anySectionDisabled = Object.values(config.sections).some(v => !v)
+    if (anySectionDisabled) {
+      optimized.sections = Object.entries(config.sections)
+        .filter(([_, enabled]) => !enabled)
+        .reduce((acc, [key, _]) => ({...acc, [key]: false}), {})
+    }
+
+    return optimized
+  }
+
+  const optimizedConfig = getOptimizedConfig()
+  const configParam = Object.keys(optimizedConfig).length > 0
+    ? `?config=${encodeURIComponent(JSON.stringify(optimizedConfig))}`
+    : ''
+
   // Generate embed code
   const embedCode = `<iframe
-  src="${typeof window !== 'undefined' ? window.location.origin : ''}${widgetUrl}?config=${encodeURIComponent(JSON.stringify(config))}"
+  src="${typeof window !== 'undefined' ? window.location.origin : ''}${widgetUrl}${configParam}"
   width="100%"
   height="800"
   frameborder="0"
@@ -93,7 +122,7 @@ export default function WidgetPlaygroundModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4 overflow-y-auto flex-1 min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 overflow-y-auto flex-1 min-h-0">
           {/* Control Panel - Left Side */}
           <div className="space-y-4">
             <div>
@@ -152,6 +181,17 @@ export default function WidgetPlaygroundModal({
                   id="dark-mode"
                   checked={isDarkMode}
                   onCheckedChange={setIsDarkMode}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-demo" className="text-sm">
+                  Show Demo Page
+                </Label>
+                <Switch
+                  id="show-demo"
+                  checked={showDemo}
+                  onCheckedChange={setShowDemo}
                 />
               </div>
             </div>
@@ -312,30 +352,10 @@ export default function WidgetPlaygroundModal({
                 Reset to Default
               </Button>
             </div>
-
-            {/* Embed Code */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Embed Code</Label>
-              <div className="relative">
-                <pre className="text-xs bg-secondary text-secondary-foreground p-3 rounded-md overflow-x-auto max-h-32">
-                  <code>{embedCode}</code>
-                </pre>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="absolute top-2 right-2 h-7 w-7 p-0"
-                  onClick={() => {
-                    navigator.clipboard.writeText(embedCode)
-                  }}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
           </div>
 
           {/* Preview Panel - Right Side */}
-          <div className="flex flex-col">
+          <div className="flex flex-col lg:col-span-2">
             <div className="mb-4">
               <h3 className="text-sm font-semibold">Widget Preview</h3>
               <p className="text-xs text-muted-foreground">
@@ -346,16 +366,77 @@ export default function WidgetPlaygroundModal({
             <Separator className="mb-4" />
 
             <div className={isDarkMode ? 'dark' : ''}>
-              <div className="border border-border rounded-lg bg-card shadow-sm overflow-auto flex-1 p-4">
-                {attestationData && attestationData.length > 0 ? (
-                  <CompactReportWidget config={config} />
+              {showDemo ? (
+                <div className="border border-border rounded-lg bg-background p-6 space-y-6">
+                  {/* Demo Page Header */}
+                  <div className="space-y-2">
+                    <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+                    <div className="h-4 w-full max-w-md bg-muted/60 rounded animate-pulse" />
+                  </div>
+
+                  {/* Demo Content Grid */}
+                  <div className="grid grid-cols-3 gap-4">
+                    {/* Left Column - Skeleton Content */}
+                    <div className="col-span-2 space-y-4">
+                      <div className="h-6 w-32 bg-muted rounded animate-pulse" />
+                      <div className="space-y-2">
+                        <div className="h-4 w-full bg-muted/60 rounded animate-pulse" />
+                        <div className="h-4 w-5/6 bg-muted/60 rounded animate-pulse" />
+                        <div className="h-4 w-4/6 bg-muted/60 rounded animate-pulse" />
+                      </div>
+                      <div className="h-6 w-40 bg-muted rounded animate-pulse mt-6" />
+                      <div className="space-y-2">
+                        <div className="h-4 w-full bg-muted/60 rounded animate-pulse" />
+                        <div className="h-4 w-3/4 bg-muted/60 rounded animate-pulse" />
+                      </div>
+                    </div>
+
+                    {/* Right Column - Widget */}
+                    <div className="col-span-1">
+                      <div className="sticky top-4">
+                        {attestationData && attestationData.length > 0 ? (
+                          <CompactReportWidget config={config} />
+                        ) : (
+                          <div className="p-8 text-center text-muted-foreground">
+                            <p>Loading...</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <div className="p-8 text-center text-muted-foreground">
-                  <p>Loading attestation data...</p>
+                <div className="border border-border rounded-lg bg-card shadow-sm overflow-auto flex-1 p-4">
+                  {attestationData && attestationData.length > 0 ? (
+                    <CompactReportWidget config={config} />
+                  ) : (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <p>Loading attestation data...</p>
+                    </div>
+                  )}
                 </div>
               )}
-              </div>
             </div>
+          </div>
+        </div>
+
+        {/* Embed Code - Bottom Fixed Section */}
+        <div className="border-t pt-4 mt-4">
+          <Label className="text-sm font-semibold">Embed Code</Label>
+          <div className="relative mt-2">
+            <pre className="text-xs bg-secondary text-secondary-foreground p-3 rounded-md overflow-x-auto max-h-24">
+              <code>{embedCode}</code>
+            </pre>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="absolute top-2 right-2 h-7 w-7 p-0"
+              onClick={() => {
+                navigator.clipboard.writeText(embedCode)
+              }}
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
           </div>
         </div>
       </DialogContent>

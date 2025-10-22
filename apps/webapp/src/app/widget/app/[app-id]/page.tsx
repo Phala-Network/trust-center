@@ -7,6 +7,9 @@ interface WidgetAppPageProps {
   params: Promise<{
     'app-id': string
   }>
+  searchParams: Promise<{
+    config?: string
+  }>
 }
 
 export const generateMetadata = async ({params}: WidgetAppPageProps) => {
@@ -21,8 +24,19 @@ export const generateMetadata = async ({params}: WidgetAppPageProps) => {
   }
 }
 
-export default async function WidgetAppPage({params}: WidgetAppPageProps) {
+export default async function WidgetAppPage({params, searchParams}: WidgetAppPageProps) {
   const {['app-id']: appId} = await params
+  const {config: configParam} = await searchParams
+
+  // Parse config from URL
+  let config
+  if (configParam) {
+    try {
+      config = JSON.parse(decodeURIComponent(configParam))
+    } catch (e) {
+      console.error('Failed to parse config:', e)
+    }
+  }
 
   // Get the app directly from database
   const app = await getApp(appId)
@@ -58,6 +72,7 @@ export default async function WidgetAppPage({params}: WidgetAppPageProps) {
       task={task}
       appId={appId}
       taskId={app.id}
+      config={config}
     />
   )
 }
