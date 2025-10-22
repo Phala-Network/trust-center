@@ -13,7 +13,7 @@ export function Hero() {
           <div className="mb-4">
             <Image
               src="/logo.svg"
-              alt="Phala Network"
+              alt="Phala"
               width={160}
               height={40}
               className="h-8 w-auto sm:h-10"
@@ -72,9 +72,15 @@ export function Hero() {
 
             {/* Verification sections */}
             {[
-              {title: 'TEE Hardware Verified', items: ['Intel TDX', 'NVIDIA H100']},
+              {
+                title: 'TEE Hardware Verified',
+                items: ['Intel TDX', 'NVIDIA H100'],
+              },
               {title: 'Source Code Verified', items: ['Docker Compose Hash']},
-              {title: 'Operating System Verified', items: ['Measurement Registers']},
+              {
+                title: 'Operating System Verified',
+                items: ['Measurement Registers'],
+              },
             ].map((section, i) => (
               <div key={i} className="space-y-2">
                 <div className="flex items-center gap-2 px-1">
