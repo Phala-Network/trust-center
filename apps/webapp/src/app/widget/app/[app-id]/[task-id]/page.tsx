@@ -43,6 +43,7 @@ export default async function WidgetTaskPage({params, searchParams}: WidgetTaskP
         ...(shortConfig.c === 0 && {showSectionContent: false}),
         ...(shortConfig.t === 1 && {darkMode: true}),
         ...(shortConfig.n && {customAppName: shortConfig.n}),
+        ...(shortConfig.dm && {customDomain: shortConfig.dm}),
       }
 
       // Parse disabled sections

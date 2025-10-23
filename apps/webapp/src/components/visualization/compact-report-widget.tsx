@@ -28,6 +28,7 @@ export interface CompactReportWidgetConfig {
   defaultExpanded?: boolean
   showSectionContent?: boolean
   customAppName?: string
+  customDomain?: string
   darkMode?: boolean
   embedded?: boolean
   sections?: {
@@ -193,6 +194,7 @@ const CompactReportWidget: React.FC<{
           showAttributes={finalConfig.showAttributes}
           showVerificationStatus={true}
           customAppName={config.customAppName}
+          customDomain={config.customDomain}
           showBranding={true}
         />
 

@@ -13,17 +13,20 @@ export const ReportHeader: React.FC<{
   showAttributes?: boolean
   showVerificationStatus?: boolean
   customAppName?: string
+  customDomain?: string
   showBranding?: boolean
 }> = ({
   task,
   showAttributes = true,
   showVerificationStatus = true,
   customAppName,
+  customDomain,
   showBranding = false,
 }) => {
   const badges = getAppBadges(task?.dstackVersion, task?.dataObjects)
   const displayName = customAppName || task.appName
   const displayUser = task.user
+  const displayDomain = customDomain || task.modelOrDomain
 
   return (
     <div className="space-y-2">
@@ -95,7 +98,7 @@ export const ReportHeader: React.FC<{
               Domain
             </span>
             <span className="flex-1 truncate text-foreground">
-              {task.modelOrDomain}
+              {displayDomain}
             </span>
           </div>
 
@@ -110,7 +113,7 @@ export const ReportHeader: React.FC<{
 
           <div className="flex items-center gap-3 text-sm pt-3 mt-3 border-t border-border/50">
             <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
-              Created
+              Attestation Time
             </span>
             <div className="flex items-center gap-2 flex-1">
               <Activity className="h-3.5 w-3.5 text-muted-foreground/50" />

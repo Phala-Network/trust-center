@@ -26,8 +26,9 @@ interface WidgetPlaygroundModalProps {
   widgetUrl: string
 }
 
-type WidgetConfig = Omit<Required<CompactReportWidgetConfig>, 'customAppName'> & {
+type WidgetConfig = Omit<Required<CompactReportWidgetConfig>, 'customAppName' | 'customDomain'> & {
   customAppName?: string
+  customDomain?: string
 }
 
 const defaultConfig: WidgetConfig = {
@@ -37,6 +38,7 @@ const defaultConfig: WidgetConfig = {
   darkMode: false,
   embedded: false,
   customAppName: undefined,
+  customDomain: undefined,
   sections: {
     hardware: true,
     sourceCode: true,
@@ -68,7 +70,7 @@ export default function WidgetPlaygroundModal({
     }))
   }
 
-  const updateCustomText = (key: 'customAppName', value: string) => {
+  const updateCustomText = (key: 'customAppName' | 'customDomain', value: string) => {
     setConfig((prev) => ({
       ...prev,
       [key]: value || undefined,
@@ -85,6 +87,7 @@ export default function WidgetPlaygroundModal({
     if (!config.showSectionContent) optimized.c = 0
     if (config.darkMode) optimized.t = 1
     if (config.customAppName) optimized.n = config.customAppName
+    if (config.customDomain) optimized.dm = config.customDomain
 
     // Only include disabled sections with short keys
     const disabledSections: string[] = []
@@ -189,6 +192,20 @@ export default function WidgetPlaygroundModal({
                   placeholder="Leave empty to use original"
                   value={config.customAppName || ''}
                   onChange={(e) => updateCustomText('customAppName', e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="custom-domain" className="text-sm">
+                  Custom Domain
+                </Label>
+                <Input
+                  id="custom-domain"
+                  type="text"
+                  placeholder="Leave empty to use original"
+                  value={config.customDomain || ''}
+                  onChange={(e) => updateCustomText('customDomain', e.target.value)}
                   className="text-sm"
                 />
               </div>
