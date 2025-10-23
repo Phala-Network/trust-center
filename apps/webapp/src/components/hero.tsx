@@ -1,8 +1,46 @@
-import {ArrowRight, Check} from 'lucide-react'
+'use client'
+
+import {ArrowRight} from 'lucide-react'
 import Image from 'next/image'
 
+import {AttestationDataProvider} from '@/components/attestation-data-context'
 import {Button} from '@/components/ui/button'
-import {SectionHeader} from '@/components/visualization/report-components'
+import {HydrateProvider} from '@/components/hydrate-provider'
+import CompactReportWidget from '@/components/visualization/compact-report-widget'
+
+// Mock task data for hero preview
+const mockTask = {
+  id: 'mock-task-id',
+  appId: 'mock-app-id',
+  appName: 'AI Assistant',
+  user: 'example-user',
+  appConfigType: 'redpill' as const,
+  contractAddress: '0x1234567890abcdef1234567890abcdef12345678',
+  modelOrDomain: 'app.example.com',
+  verificationFlags: null,
+  status: 'completed' as const,
+  result: {},
+  bullJobId: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  dstackVersion: 'v0.5.3',
+  dataObjects: ['app-cpu', 'app-gpu', 'app-code', 'gateway-main', 'app-os', 'kms-main'],
+}
+
+// Mock attestation data objects
+const mockAttestationData = [
+  {id: 'app-cpu' as const, name: 'App CPU', fields: {}, kind: 'app' as const},
+  {id: 'app-gpu' as const, name: 'App GPU', fields: {}, kind: 'app' as const},
+  {id: 'app-code' as const, name: 'App Code', fields: {}, kind: 'app' as const},
+  {id: 'gateway-main' as const, name: 'Gateway', fields: {}, kind: 'gateway' as const},
+  {id: 'app-os' as const, name: 'App OS', fields: {}, kind: 'app' as const},
+  {id: 'kms-main' as const, name: 'KMS', fields: {}, kind: 'kms' as const},
+]
+
+const mockAppInfo = {
+  appId: 'mock-app-id',
+  appName: 'AI Assistant',
+}
 
 export function Hero() {
   return (
@@ -43,120 +81,29 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Right: Widget Preview - matching compact-report-widget style */}
+        {/* Right: Widget Preview - using actual CompactReportWidget */}
         <div className="flex flex-col items-center justify-center px-4 sm:px-8 lg:px-0">
-          <div className="relative p-4 w-full max-w-sm">
-            {/* Dotted background layer */}
-            <div
-              className="absolute inset-0 pointer-events-none opacity-15"
-              style={{
-                backgroundImage:
-                  'radial-gradient(circle, currentColor 1px, transparent 1px)',
-                backgroundSize: '16px 16px',
-              }}
-            />
-
-            {/* Widget card */}
-            <div className="text-foreground relative mx-auto rounded-lg overflow-hidden bg-card border border-border shadow-sm">
-              {/* Phala Trust Certificate Header */}
-              <div className="bg-gradient-to-br from-muted/40 to-muted/20 px-5 py-3 border-b border-border/50">
-                <div className="flex items-center justify-center gap-2">
-                  <Image src="/logo.svg" alt="Phala" width={60} height={20} />
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    Trust Certificate
-                  </span>
-                </div>
-              </div>
-
-              {/* Header section */}
-              <div className="p-5">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm rounded-full bg-gradient-to-br from-blue-500 to-purple-500" />
-                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
-                      example-user
-                    </p>
-                    <h1 className="text-lg font-semibold tracking-tight truncate leading-tight text-foreground">
-                      AI Assistant
-                    </h1>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className="flex items-center gap-1.5 text-xs h-5 px-2 bg-secondary rounded">
-                        <Image
-                          src="/dstack.svg"
-                          alt="DStack"
-                          width={48}
-                          height={12}
-                          className="opacity-70"
-                        />
-                        <span className="font-semibold">v0.5.3</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Attributes Section */}
-              <div className="px-5 space-y-3">
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
-                    Type
-                  </span>
-                  <span className="flex-1 font-medium text-foreground">
-                    redpill
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
-                    Domain
-                  </span>
-                  <span className="flex-1 truncate text-foreground">
-                    app.example.com
-                  </span>
-                </div>
-              </div>
-
-              {/* Verification Status */}
-              <div className="border-t px-4 py-3 mt-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground mx-auto mb-2">
-                  <Check className="h-5 w-5" />
-                </div>
-                <h2 className="font-semibold text-sm text-center text-foreground">
-                  Verified & Trusted
-                </h2>
-                <p className="mt-1 text-xs text-muted-foreground text-center leading-relaxed">
-                  Complete chain of trust verification including hardware, OS,
-                  source code, and network infrastructure.
-                </p>
-              </div>
-
-              {/* Trust Sections - using same component as widget */}
-              <div className="px-5 py-4">
-                <SectionHeader title="TEE Hardware Verified" />
-              </div>
-
-              <div className="px-5 py-4">
-                <SectionHeader title="Source Code Verified" />
-              </div>
-
-              <div className="px-5 py-4">
-                <SectionHeader title="Network End-to-End Encrypted" />
-              </div>
-
-              {/* Powered by Phala footer */}
-              <div className="border-t border-border/50 px-5 py-3 bg-muted/20">
-                <a
-                  href="https://phala.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <span>Powered by</span>
-                  <span className="font-semibold">Phala</span>
-                </a>
-              </div>
-            </div>
-          </div>
+          <HydrateProvider
+            task={mockTask}
+            appId={mockAppInfo.appId}
+            taskId={mockTask.id}
+          >
+            <AttestationDataProvider
+              attestationData={mockAttestationData}
+              loading={false}
+              error={null}
+            >
+              <CompactReportWidget
+                config={{
+                  showAttributes: true,
+                  defaultExpanded: false,
+                  showSectionContent: false,
+                  darkMode: false,
+                  embedded: false,
+                }}
+              />
+            </AttestationDataProvider>
+          </HydrateProvider>
         </div>
       </div>
     </div>
