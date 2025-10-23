@@ -83,27 +83,35 @@ export function Hero() {
 
         {/* Right: Widget Preview - using actual CompactReportWidget */}
         <div className="flex flex-col items-center justify-center px-4 sm:px-8 lg:px-0">
-          <HydrateProvider
-            task={mockTask}
-            appId={mockAppInfo.appId}
-            taskId={mockTask.id}
-          >
-            <AttestationDataProvider
-              attestationData={mockAttestationData}
-              loading={false}
-              error={null}
-            >
-              <CompactReportWidget
-                config={{
-                  showAttributes: true,
-                  defaultExpanded: false,
-                  showSectionContent: false,
-                  darkMode: false,
-                  embedded: false,
-                }}
-              />
-            </AttestationDataProvider>
-          </HydrateProvider>
+          <div className="relative w-full max-w-md h-[700px] overflow-hidden">
+            {/* Fade out gradient at bottom */}
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
+
+            {/* Widget container with scroll */}
+            <div className="h-full overflow-y-auto">
+              <HydrateProvider
+                task={mockTask}
+                appId={mockAppInfo.appId}
+                taskId={mockTask.id}
+              >
+                <AttestationDataProvider
+                  attestationData={mockAttestationData}
+                  loading={false}
+                  error={null}
+                >
+                  <CompactReportWidget
+                    config={{
+                      showAttributes: true,
+                      defaultExpanded: false,
+                      showSectionContent: false,
+                      darkMode: false,
+                      embedded: true,
+                    }}
+                  />
+                </AttestationDataProvider>
+              </HydrateProvider>
+            </div>
+          </div>
         </div>
       </div>
     </div>
