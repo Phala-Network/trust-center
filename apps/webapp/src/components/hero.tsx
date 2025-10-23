@@ -1,7 +1,74 @@
-import {ArrowRight, Check} from 'lucide-react'
+'use client'
+
+import {ArrowRight} from 'lucide-react'
 import Image from 'next/image'
 
+import {AttestationDataProvider} from '@/components/attestation-data-context'
 import {Button} from '@/components/ui/button'
+import CompactReportWidget from '@/components/visualization/compact-report-widget'
+
+// Mock task data for hero preview
+const mockTask = {
+  id: 'mock-task-id',
+  appId: 'mock-app-id',
+  appName: 'AI Assistant',
+  user: 'example-user',
+  appConfigType: 'redpill' as const,
+  contractAddress: '0x1234567890abcdef1234567890abcdef12345678',
+  modelOrDomain: 'app.example.com',
+  verificationFlags: null,
+  status: 'completed' as const,
+  result: {},
+  bullJobId: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  dstackVersion: 'v0.5.3',
+  dataObjects: [
+    'app-cpu',
+    'app-gpu',
+    'app-code',
+    'gateway-main',
+    'app-os',
+    'kms-main',
+  ],
+}
+
+// Mock attestation data objects
+const mockAttestationData = [
+  {id: 'app-cpu' as const, name: 'App CPU', fields: {}, kind: 'app' as const},
+  {id: 'app-gpu' as const, name: 'App GPU', fields: {}, kind: 'app' as const},
+  {id: 'app-code' as const, name: 'App Code', fields: {}, kind: 'app' as const},
+  {
+    id: 'gateway-main' as const,
+    name: 'Gateway',
+    fields: {},
+    kind: 'gateway' as const,
+  },
+  {id: 'app-os' as const, name: 'App OS', fields: {}, kind: 'app' as const},
+  {id: 'kms-main' as const, name: 'KMS', fields: {}, kind: 'kms' as const},
+]
+
+// Widget preview component - directly passing data via props
+function WidgetPreview() {
+  return (
+    <AttestationDataProvider
+      attestationData={mockAttestationData}
+      loading={false}
+      error={null}
+    >
+      <CompactReportWidget
+        task={mockTask}
+        config={{
+          showAttributes: true,
+          defaultExpanded: false,
+          showSectionContent: false,
+          darkMode: false,
+          embedded: true,
+        }}
+      />
+    </AttestationDataProvider>
+  )
+}
 
 export function Hero() {
   return (
@@ -13,7 +80,7 @@ export function Hero() {
           <div className="mb-4">
             <Image
               src="/logo.svg"
-              alt="Phala Network"
+              alt="Phala"
               width={160}
               height={40}
               className="h-8 w-auto sm:h-10"
@@ -42,63 +109,22 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Right: Report View Preview */}
-        <div className="flex flex-col items-center justify-center px-4 sm:px-8 lg:px-0">
-          <div className="w-full max-w-md space-y-3">
-            {/* Header */}
-            <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500" />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm truncate">
-                    Example Application
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    TEE-verified deployment
-                  </p>
+        {/* Right: Widget Preview - using actual CompactReportWidget */}
+        <div className="flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center px-4 sm:px-8 lg:px-0">
+            {/* Height-limited container with fade - matching Hero29 structure */}
+            <div className="relative w-full h-[700px] overflow-hidden">
+              {/* Fade out gradient at bottom - covers border too */}
+              <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
+
+              {/* Border container matching Hero29 style exactly */}
+              <div className="h-full border bg-muted rounded-xl p-4">
+                {/* Inner container with rounded border like img in Hero29 */}
+                <div className="h-full overflow-y-auto rounded-md border border-border/30 bg-background/50">
+                  <WidgetPreview />
                 </div>
               </div>
             </div>
-
-            {/* Success banner */}
-            <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-green-600" />
-                <span className="text-xs font-medium text-green-900">
-                  This App Has Been Verified
-                </span>
-              </div>
-            </div>
-
-            {/* Verification sections */}
-            {[
-              {title: 'TEE Hardware Verified', items: ['Intel TDX', 'NVIDIA H100']},
-              {title: 'Source Code Verified', items: ['Docker Compose Hash']},
-              {title: 'Operating System Verified', items: ['Measurement Registers']},
-            ].map((section, i) => (
-              <div key={i} className="space-y-2">
-                <div className="flex items-center gap-2 px-1">
-                  <div className="flex-shrink-0 rounded-full bg-green-100 p-1">
-                    <Check className="h-3 w-3 text-green-600" />
-                  </div>
-                  <h4 className="text-xs font-medium text-foreground">
-                    {section.title}
-                  </h4>
-                </div>
-                <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
-                  <div className="space-y-1.5">
-                    {section.items.map((item, j) => (
-                      <div key={j} className="flex items-center gap-2">
-                        <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                        <span className="text-xs text-muted-foreground">
-                          {item}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </div>

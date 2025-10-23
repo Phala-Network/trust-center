@@ -1,15 +1,18 @@
 'use client'
 
-import {FileText, Network, RotateCcw} from 'lucide-react'
+import {FileText, Network, RotateCcw, Settings} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import type React from 'react'
-import {useMemo} from 'react'
+import {useMemo, useState} from 'react'
+import {useAtom} from 'jotai'
 
 import {useAttestationData} from '@/components/attestation-data-context'
 import {Input} from '@/components/ui/input'
 import {useLayout} from '@/hooks/use-layout'
+import {appIdAtom, taskIdAtom} from '@/stores/app'
 import {Button} from './ui/button'
+import WidgetPlaygroundModal from './widget-playground-modal'
 
 export default function Header() {
   const {
@@ -25,6 +28,13 @@ export default function Header() {
 
   // Use the layout hook
   const {isClient, showModeSwitch, showResetButton, resetLayout} = useLayout()
+
+  // Get app and task IDs from atoms
+  const [appId] = useAtom(appIdAtom)
+  const [taskId] = useAtom(taskIdAtom)
+
+  // Widget playground modal state
+  const [showWidgetModal, setShowWidgetModal] = useState(false)
 
   // Filter objects based on search term
   const filteredObjects = useMemo(() => {
@@ -54,6 +64,15 @@ export default function Header() {
     const newMode = compactMode === 'report' ? 'nodes' : 'report'
     setCompactMode(newMode)
   }
+
+  // Generate widget URL
+  const widgetUrl = useMemo(() => {
+    if (!appId) return null
+    if (taskId) {
+      return `/widget/app/${appId}/${taskId}`
+    }
+    return `/widget/app/${appId}`
+  }, [appId, taskId])
 
   return (
     <header className="flex items-center gap-6 border-b px-4 py-2">
@@ -93,6 +112,16 @@ export default function Header() {
         )}
       </div>
       <div className="ml-auto flex items-center gap-2">
+        {isClient && widgetUrl && (
+          <Button
+            variant="outline"
+            onClick={() => setShowWidgetModal(true)}
+            title="Customize widget"
+          >
+            <Settings className="size-4" />
+            Widget
+          </Button>
+        )}
         {isClient && showModeSwitch && (
           <Button
             variant="outline"
@@ -123,6 +152,15 @@ export default function Header() {
           </Button>
         )}
       </div>
+
+      {/* Widget Playground Modal */}
+      {widgetUrl && (
+        <WidgetPlaygroundModal
+          open={showWidgetModal}
+          onOpenChange={setShowWidgetModal}
+          widgetUrl={widgetUrl}
+        />
+      )}
     </header>
   )
 }

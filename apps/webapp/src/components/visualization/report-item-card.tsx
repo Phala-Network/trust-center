@@ -4,6 +4,19 @@ import {useAttestationData} from '@/components/attestation-data-context'
 import type {DataObjectId} from '@/data/schema'
 import {cn} from '@/lib/utils'
 
+// Helper to get dark mode version of vendor icon
+const getVendorIconSrc = (icon: string) => {
+  const darkIcons: Record<string, string> = {
+    '/nvidia.svg': '/nvidia_dark.svg',
+    '/dstack.svg': '/dstack_dark.svg',
+    '/logo.svg': '/logo_dark.svg',
+  }
+  return {
+    light: icon,
+    dark: darkIcons[icon] || icon,
+  }
+}
+
 export interface ReportItem {
   id: string
   title: string
@@ -27,18 +40,19 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
   return (
     <div className="flex h-full flex-col justify-start space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <h4 className="font-medium text-gray-900 text-sm">{item.title}</h4>
-        {item.vendorIcon && (
-          // biome-ignore lint/performance/noImgElement: size is not fixed
-          <img
-            src={item.vendorIcon}
-            alt="Vendor"
-            className="block h-4 w-auto"
-          />
-        )}
+        <h4 className="font-medium text-foreground text-sm">{item.title}</h4>
+        {item.vendorIcon && (() => {
+          const icons = getVendorIconSrc(item.vendorIcon)
+          return (
+            <>
+              <img src={icons.light} alt="Vendor" className="block h-4 w-auto dark:hidden" />
+              <img src={icons.dark} alt="Vendor" className="hidden dark:block h-4 w-auto" />
+            </>
+          )
+        })()}
       </div>
 
-      <p className="text-gray-600 text-xs">{item.intro}</p>
+      <p className="text-muted-foreground text-xs">{item.intro}</p>
 
       {/* Dynamic field rendering */}
       {item.fields && item.fields.length > 0 && (
@@ -82,7 +96,7 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-500 text-xs underline hover:text-blue-600 hover:underline"
+              className="text-primary text-xs underline hover:opacity-80"
               onClick={(e) => {
                 e.stopPropagation()
               }}
@@ -114,10 +128,10 @@ export const ReportItemCard: React.FC<{item: ReportItem}> = ({item}) => {
     <button
       type="button"
       className={cn(
-        'w-full rounded-lg border bg-white p-3 text-left transition-all duration-200 cursor-pointer',
+        'w-full rounded-lg border bg-card p-3 text-left transition-all duration-200 cursor-pointer',
         isSelected
-          ? 'border-yellow-300 ring-2 ring-yellow-300'
-          : 'border-muted',
+          ? 'border-yellow-500 ring-2 ring-yellow-500/50'
+          : 'border-border',
         'hover:border-muted-foreground',
       )}
       onClick={handleSelect}
