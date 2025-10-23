@@ -6,6 +6,7 @@ import {
 import {Suspense} from 'react'
 
 import {Hero} from '@/components/hero'
+import {PhalaNavbar} from '@/components/navbar'
 import {getApps, getDstackVersions} from '@/lib/db'
 import {HomeClient} from './_components/home-client'
 
@@ -25,7 +26,8 @@ export default async function HomePage() {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <div className="min-h-screen">
+      <PhalaNavbar />
+      <div className="min-h-screen pt-[72px]">
         {/* Hero Section - Background (lighter) */}
         <section className="relative bg-background">
           <Hero />
