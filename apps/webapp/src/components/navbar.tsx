@@ -49,21 +49,21 @@ const coreProducts = [
     id: 'product-1',
     title: 'Confidential VM',
     description: 'Secure virtual machines with hardware-level encryption.',
-    href: '/confidential-vm',
+    href: 'https://phala.com/confidential-vm',
     icon: Server,
   },
   {
     id: 'product-2',
     title: 'Confidential AI Models',
     description: 'Run AI models with complete privacy and security.',
-    href: '/confidential-ai-models',
+    href: 'https://phala.com/confidential-ai-models',
     icon: Brain,
   },
   {
     id: 'product-3',
     title: 'GPU TEE',
     description: 'Hardware-enforced confidential computing on GPUs.',
-    href: '/gpu-tee',
+    href: 'https://phala.com/gpu-tee',
     icon: Gpu,
   },
 ]
@@ -73,7 +73,7 @@ const zeroTrustSDK = [
     id: 'product-4',
     title: 'dStack',
     description: 'Decentralized infrastructure for secure computing.',
-    href: '/dstack',
+    href: 'https://phala.com/dstack',
     icon: Layers,
   },
 ]
@@ -91,21 +91,21 @@ const nvidiaProducts = [
     id: 'gpu-1',
     title: 'H100',
     description: 'NVIDIA H100 with confidential computing.',
-    href: '/gpu-tee/h100',
+    href: 'https://phala.com/gpu-tee/h100',
     icon: Gpu,
   },
   {
     id: 'gpu-2',
     title: 'H200',
     description: 'NVIDIA H200 with confidential computing.',
-    href: '/gpu-tee/h200',
+    href: 'https://phala.com/gpu-tee/h200',
     icon: Gpu,
   },
   {
     id: 'gpu-3',
     title: 'B200',
     description: 'NVIDIA B200 with confidential computing.',
-    href: '/gpu-tee/b200',
+    href: 'https://phala.com/gpu-tee/b200',
     icon: Gpu,
   },
 ]
@@ -115,21 +115,21 @@ const comparisons = [
     id: 'compare-1',
     title: 'vs AWS Nitro',
     description: 'Compare Phala with AWS Nitro Enclaves.',
-    href: '/compare/phala-vs-aws-nitro',
+    href: 'https://phala.com/compare/phala-vs-aws-nitro',
     icon: ChartBar,
   },
   {
     id: 'compare-2',
     title: 'vs GCP',
     description: 'Compare Phala with Google Cloud Platform.',
-    href: '/compare/phala-vs-gcp',
+    href: 'https://phala.com/compare/phala-vs-gcp',
     icon: ChartBar,
   },
   {
     id: 'compare-3',
     title: 'vs Tinfoil',
     description: 'Compare Phala with Tinfoil.',
-    href: '/compare/phala-vs-tinfoil',
+    href: 'https://phala.com/compare/phala-vs-tinfoil',
     icon: ChartBar,
   },
 ]
@@ -143,35 +143,35 @@ const solutionCategories = [
         id: 'solution-1',
         title: 'Private AI Data',
         description: 'Keep your AI data private and secure.',
-        href: '/solutions/private-ai-data',
+        href: 'https://phala.com/solutions/private-ai-data',
         icon: Lock,
       },
       {
         id: 'solution-2',
         title: 'Private AI Inference',
         description: 'Run AI inference with complete privacy.',
-        href: '/solutions/private-ai-inference',
+        href: 'https://phala.com/solutions/private-ai-inference',
         icon: Brain,
       },
       {
         id: 'solution-3',
         title: 'Fine-Tuned Models',
         description: 'Train and deploy custom AI models securely.',
-        href: '/solutions/fine-tuned-models',
+        href: 'https://phala.com/solutions/fine-tuned-models',
         icon: Sparkles,
       },
       {
         id: 'solution-4',
         title: 'Confidential Training',
         description: 'Train AI models with confidential data.',
-        href: '/solutions/confidential-training',
+        href: 'https://phala.com/solutions/confidential-training',
         icon: Database,
       },
       {
         id: 'solution-5',
         title: 'AI Agents',
         description: 'Build intelligent agents with privacy guarantees.',
-        href: '/solutions/ai-agents',
+        href: 'https://phala.com/solutions/ai-agents',
         icon: Bot,
       },
       {
@@ -190,7 +190,7 @@ const solutionCategories = [
         id: 'usecase-1',
         title: 'Financial AI',
         description: 'Confidential AI for financial services.',
-        href: '/success-stories/financial-services',
+        href: 'https://phala.com/success-stories/financial-services',
         icon: ChartBar,
       },
       {
@@ -204,21 +204,21 @@ const solutionCategories = [
         id: 'usecase-3',
         title: 'Healthcare AI',
         description: 'Secure AI for healthcare applications.',
-        href: '/success-stories/healthcare-research',
+        href: 'https://phala.com/success-stories/healthcare-research',
         icon: ShieldCheck,
       },
       {
         id: 'usecase-4',
         title: 'AI SaaS',
         description: 'Build privacy-first AI SaaS products.',
-        href: '/success-stories/ai-saas-platform',
+        href: 'https://phala.com/success-stories/ai-saas-platform',
         icon: Zap,
       },
       {
         id: 'usecase-5',
         title: 'Decentralized AI',
         description: 'Decentralized AI infrastructure.',
-        href: '/success-stories/decentralized-ai',
+        href: 'https://phala.com/success-stories/decentralized-ai',
         icon: Globe,
       },
     ],
@@ -238,7 +238,7 @@ const developers = [
     id: 'dev-2',
     title: 'Guides',
     description: 'Step-by-step tutorials for developers.',
-    href: '/tags/Developers',
+    href: 'https://phala.com/tags/Developers',
     icon: BookOpen,
   },
   {
@@ -259,7 +259,7 @@ const developers = [
     id: 'dev-5',
     title: 'Startup Program',
     description: 'Get support for your startup.',
-    href: '/startup-program',
+    href: 'https://phala.com/startup-program',
     icon: Rocket,
   },
 ]
@@ -270,14 +270,14 @@ const resourcesCommunity = [
     id: 'resource-1',
     title: 'Blog',
     description: 'Latest updates and insights from Phala.',
-    href: '/blog',
+    href: 'https://phala.com/blog',
     icon: Newspaper,
   },
   {
     id: 'resource-2',
     title: 'Ecosystem/Partnerships',
     description: 'Explore our partner network.',
-    href: '/partnerships',
+    href: 'https://phala.com/partnerships',
     icon: Users,
   },
   {
@@ -291,7 +291,7 @@ const resourcesCommunity = [
     id: 'resource-4',
     title: 'Changelog',
     description: 'Track product updates and releases.',
-    href: '/changelog',
+    href: 'https://phala.com/changelog',
     icon: GitBranch,
   },
   {
@@ -664,7 +664,7 @@ const PhalaNavbar = () => {
       <nav className="sr-only" aria-label="Main navigation">
         <ul>
           <li>
-            <a href="/">Products</a>
+            <a href="https://phala.com">Products</a>
             <ul>
               {coreProducts.map((item) => (
                 <li key={item.id}>
@@ -692,7 +692,7 @@ const PhalaNavbar = () => {
             </ul>
           </li>
           <li>
-            <a href="/">Solutions</a>
+            <a href="https://phala.com">Solutions</a>
             <ul>
               {solutionCategories.flatMap((category) =>
                 category.solutions.map((item) => (
@@ -704,7 +704,7 @@ const PhalaNavbar = () => {
             </ul>
           </li>
           <li>
-            <a href="/">Developers</a>
+            <a href="https://phala.com">Developers</a>
             <ul>
               {developers.map((item) => (
                 <li key={item.id}>
@@ -714,7 +714,7 @@ const PhalaNavbar = () => {
             </ul>
           </li>
           <li>
-            <a href="/">Resources</a>
+            <a href="https://phala.com">Resources</a>
             <ul>
               {resourcesCommunity.map((item) => (
                 <li key={item.id}>
@@ -729,13 +729,13 @@ const PhalaNavbar = () => {
             </ul>
           </li>
           <li>
-            <a href="/pricing">Pricing</a>
+            <a href="https://phala.com/pricing">Pricing</a>
           </li>
           <li>
-            <a href="/about">About Us</a>
+            <a href="https://phala.com/about">About Us</a>
           </li>
           <li>
-            <a href="/contact">Contact</a>
+            <a href="https://phala.com/contact">Contact</a>
           </li>
           <li>
             <a href="https://cloud.phala.network/login">Sign in</a>
@@ -749,7 +749,7 @@ const PhalaNavbar = () => {
       <div className="container">
         <NavigationMenu className="min-w-full [&>div:last-child]:left-auto">
           <div className="flex w-full justify-between gap-2 py-4">
-            <a href="/" className="flex items-center gap-2">
+            <a href="https://phala.com" className="flex items-center gap-2">
               <img
                 src="/logo.svg"
                 className="max-h-8"
@@ -770,7 +770,7 @@ const PhalaNavbar = () => {
                 ))}
                 <NavigationMenuItem>
                   <NavigationMenuLink
-                    href="/pricing"
+                    href="https://phala.com/pricing"
                     className="group inline-flex h-9 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50 xl:text-sm"
                   >
                     Pricing
@@ -778,7 +778,7 @@ const PhalaNavbar = () => {
                 </NavigationMenuItem>
                 <NavigationMenuItem>
                   <NavigationMenuLink
-                    href="/about"
+                    href="https://phala.com/about"
                     className="group inline-flex h-9 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50 xl:text-sm"
                   >
                     About Us
@@ -788,7 +788,7 @@ const PhalaNavbar = () => {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" className="hidden md:block" asChild>
-                <a href="/contact">Contact</a>
+                <a href="https://phala.com/contact">Contact</a>
               </Button>
               <Button variant="ghost" className="hidden md:block" asChild>
                 <a href="https://cloud.phala.network/login">Sign in</a>
@@ -849,19 +849,19 @@ const PhalaNavbar = () => {
                     </button>
                   ))}
                   <a
-                    href="/pricing"
+                    href="https://phala.com/pricing"
                     className="border-border flex w-full items-center border-b py-6 text-left"
                   >
                     <span className="flex-1 text-sm font-medium">Pricing</span>
                   </a>
                   <a
-                    href="/about"
+                    href="https://phala.com/about"
                     className="border-border flex w-full items-center border-b py-6 text-left"
                   >
                     <span className="flex-1 text-sm font-medium">About Us</span>
                   </a>
                   <a
-                    href="/contact"
+                    href="https://phala.com/contact"
                     className="border-border flex w-full items-center border-b py-6 text-left"
                   >
                     <span className="flex-1 text-sm font-medium">Contact</span>
