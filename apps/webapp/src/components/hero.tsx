@@ -2,6 +2,7 @@ import {ArrowRight, Check} from 'lucide-react'
 import Image from 'next/image'
 
 import {Button} from '@/components/ui/button'
+import {SectionHeader} from '@/components/visualization/report-components'
 
 export function Hero() {
   return (
@@ -129,38 +130,17 @@ export function Hero() {
                 </p>
               </div>
 
-              {/* Trust Sections */}
-              <div className="space-y-4 px-5 py-4">
-                <div className="flex items-center gap-2">
-                  <div className="rounded-full bg-primary text-primary-foreground p-1 flex-shrink-0">
-                    <Check className="h-3.5 w-3.5" />
-                  </div>
-                  <h3 className="font-semibold text-sm text-foreground">
-                    TEE Hardware Verified
-                  </h3>
-                </div>
+              {/* Trust Sections - using same component as widget */}
+              <div className="px-5 py-4">
+                <SectionHeader title="TEE Hardware Verified" />
               </div>
 
-              <div className="space-y-4 px-5 py-4">
-                <div className="flex items-center gap-2">
-                  <div className="rounded-full bg-primary text-primary-foreground p-1 flex-shrink-0">
-                    <Check className="h-3.5 w-3.5" />
-                  </div>
-                  <h3 className="font-semibold text-sm text-foreground">
-                    Source Code Verified
-                  </h3>
-                </div>
+              <div className="px-5 py-4">
+                <SectionHeader title="Source Code Verified" />
               </div>
 
-              <div className="space-y-4 px-5 py-4">
-                <div className="flex items-center gap-2">
-                  <div className="rounded-full bg-primary text-primary-foreground p-1 flex-shrink-0">
-                    <Check className="h-3.5 w-3.5" />
-                  </div>
-                  <h3 className="font-semibold text-sm text-foreground">
-                    Network End-to-End Encrypted
-                  </h3>
-                </div>
+              <div className="px-5 py-4">
+                <SectionHeader title="Network End-to-End Encrypted" />
               </div>
 
               {/* Powered by Phala footer */}
