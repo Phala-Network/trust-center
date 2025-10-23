@@ -83,75 +83,15 @@ export function Hero() {
 
         {/* Right: Widget Preview - using actual CompactReportWidget */}
         <div className="flex flex-col items-center justify-center px-4 sm:px-8 lg:px-0">
-          {/* SVG Grid Background - behind everything */}
-          <div className="absolute inset-0 overflow-hidden opacity-50">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 1400 900"
-              className="h-full w-full"
-            >
-              <defs>
-                <filter id="blur1" x="-20%" y="-20%" width="140%" height="140%">
-                  <feFlood floodOpacity="0" result="BackgroundImageFix" />
-                  <feBlend
-                    mode="normal"
-                    in="SourceGraphic"
-                    in2="BackgroundImageFix"
-                    result="shape"
-                  />
-                  <feGaussianBlur
-                    stdDeviation="100"
-                    result="effect1_foregroundBlur"
-                  />
-                </filter>
-                <pattern
-                  id="innerGrid"
-                  width="40"
-                  height="40"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path
-                    d="M 40 0 L 0 0 0 40"
-                    fill="none"
-                    stroke="hsl(var(--muted-foreground))"
-                    strokeWidth="0.5"
-                    strokeOpacity={0.1}
-                  />
-                </pattern>
-                <pattern
-                  id="grid"
-                  width="160"
-                  height="160"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <rect width="160" height="160" fill="url(#innerGrid)" />
-                  <path
-                    d="M 70 80 H 90 M 80 70 V 90"
-                    fill="none"
-                    stroke="hsl(var(--muted-foreground))"
-                    strokeWidth="1"
-                    strokeOpacity={0.05}
-                  />
-                </pattern>
-              </defs>
-              <g filter="url(#blur1)">
-                <rect width="1400" height="900" fill="hsl(var(--muted))" fillOpacity="0.2" />
-                <circle cx="800" cy="600" fill="hsl(var(--primary))" fillOpacity="0.15" r="200" />
-                <circle cx="1100" cy="400" fill="hsl(var(--primary))" fillOpacity="0.1" r="150" />
-              </g>
-              <rect width="1400" height="900" fill="url(#grid)" />
-            </svg>
-          </div>
-
-          {/* Height-limited container with fade */}
+          {/* Height-limited container with fade - matching Hero29 structure */}
           <div className="relative w-full max-w-md h-[700px] overflow-hidden">
             {/* Fade out gradient at bottom - covers border too */}
             <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
 
-            {/* Border container matching Hero29 style */}
-            <div className="h-full border border-background/40 bg-background/20 rounded-xl p-4 overflow-hidden">
-              {/* Widget container with scroll */}
-              <div className="h-full overflow-y-auto rounded-md">
+            {/* Border container matching Hero29 style exactly */}
+            <div className="h-full border-background/40 bg-background/20 mx-auto rounded-xl border p-4">
+              {/* Inner container with rounded border like img in Hero29 */}
+              <div className="h-full overflow-y-auto rounded-md border border-border/30 bg-background/50">
                 <HydrateProvider
                   task={mockTask}
                   appId={mockAppInfo.appId}
