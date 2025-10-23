@@ -141,8 +141,10 @@ const TrustSection: React.FC<{
 // Main Compact Report Widget Component
 const CompactReportWidget: React.FC<{
   config?: CompactReportWidgetConfig
-}> = ({config = {}}) => {
-  const [task] = useAtom(taskAtom)
+  task?: any
+}> = ({config = {}, task: taskProp}) => {
+  const [taskFromAtom] = useAtom(taskAtom)
+  const task = taskProp || taskFromAtom
 
   if (!task) {
     return null
@@ -165,8 +167,8 @@ const CompactReportWidget: React.FC<{
   })
 
   const cardClassName = finalConfig.embedded
-    ? 'text-foreground max-w-sm relative mx-auto overflow-hidden bg-card'
-    : 'text-foreground max-w-sm relative mx-auto rounded-lg overflow-hidden bg-card border border-border shadow-sm'
+    ? 'text-foreground max-w-sm relative overflow-hidden bg-card'
+    : 'text-foreground max-w-sm relative rounded-lg overflow-hidden bg-card border border-border shadow-sm'
 
   return (
     <div

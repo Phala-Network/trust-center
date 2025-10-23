@@ -5,7 +5,6 @@ import Image from 'next/image'
 
 import {AttestationDataProvider} from '@/components/attestation-data-context'
 import {Button} from '@/components/ui/button'
-import {HydrateProvider} from '@/components/hydrate-provider'
 import CompactReportWidget from '@/components/visualization/compact-report-widget'
 
 // Mock task data for hero preview
@@ -24,7 +23,14 @@ const mockTask = {
   createdAt: new Date(),
   updatedAt: new Date(),
   dstackVersion: 'v0.5.3',
-  dataObjects: ['app-cpu', 'app-gpu', 'app-code', 'gateway-main', 'app-os', 'kms-main'],
+  dataObjects: [
+    'app-cpu',
+    'app-gpu',
+    'app-code',
+    'gateway-main',
+    'app-os',
+    'kms-main',
+  ],
 }
 
 // Mock attestation data objects
@@ -32,14 +38,36 @@ const mockAttestationData = [
   {id: 'app-cpu' as const, name: 'App CPU', fields: {}, kind: 'app' as const},
   {id: 'app-gpu' as const, name: 'App GPU', fields: {}, kind: 'app' as const},
   {id: 'app-code' as const, name: 'App Code', fields: {}, kind: 'app' as const},
-  {id: 'gateway-main' as const, name: 'Gateway', fields: {}, kind: 'gateway' as const},
+  {
+    id: 'gateway-main' as const,
+    name: 'Gateway',
+    fields: {},
+    kind: 'gateway' as const,
+  },
   {id: 'app-os' as const, name: 'App OS', fields: {}, kind: 'app' as const},
   {id: 'kms-main' as const, name: 'KMS', fields: {}, kind: 'kms' as const},
 ]
 
-const mockAppInfo = {
-  appId: 'mock-app-id',
-  appName: 'AI Assistant',
+// Widget preview component - directly passing data via props
+function WidgetPreview() {
+  return (
+    <AttestationDataProvider
+      attestationData={mockAttestationData}
+      loading={false}
+      error={null}
+    >
+      <CompactReportWidget
+        task={mockTask}
+        config={{
+          showAttributes: true,
+          defaultExpanded: false,
+          showSectionContent: false,
+          darkMode: false,
+          embedded: true,
+        }}
+      />
+    </AttestationDataProvider>
+  )
 }
 
 export function Hero() {
@@ -82,37 +110,19 @@ export function Hero() {
         </div>
 
         {/* Right: Widget Preview - using actual CompactReportWidget */}
-        <div className="flex flex-col items-center justify-center px-4 sm:px-8 lg:px-0">
-          {/* Height-limited container with fade - matching Hero29 structure */}
-          <div className="relative w-full max-w-md h-[700px] overflow-hidden">
-            {/* Fade out gradient at bottom - covers border too */}
-            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
+        <div className="flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center px-4 sm:px-8 lg:px-0">
+            {/* Height-limited container with fade - matching Hero29 structure */}
+            <div className="relative w-full h-[700px] overflow-hidden">
+              {/* Fade out gradient at bottom - covers border too */}
+              <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
 
-            {/* Border container matching Hero29 style exactly */}
-            <div className="h-full border-background/40 bg-background/20 mx-auto rounded-xl border p-4">
-              {/* Inner container with rounded border like img in Hero29 */}
-              <div className="h-full overflow-y-auto rounded-md border border-border/30 bg-background/50">
-                <HydrateProvider
-                  task={mockTask}
-                  appId={mockAppInfo.appId}
-                  taskId={mockTask.id}
-                >
-                  <AttestationDataProvider
-                    attestationData={mockAttestationData}
-                    loading={false}
-                    error={null}
-                  >
-                    <CompactReportWidget
-                      config={{
-                        showAttributes: true,
-                        defaultExpanded: false,
-                        showSectionContent: false,
-                        darkMode: false,
-                        embedded: true,
-                      }}
-                    />
-                  </AttestationDataProvider>
-                </HydrateProvider>
+              {/* Border container matching Hero29 style exactly */}
+              <div className="h-full border bg-muted rounded-xl p-4">
+                {/* Inner container with rounded border like img in Hero29 */}
+                <div className="h-full overflow-y-auto rounded-md border border-border/30 bg-background/50">
+                  <WidgetPreview />
+                </div>
               </div>
             </div>
           </div>
