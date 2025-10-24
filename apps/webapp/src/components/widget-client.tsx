@@ -29,6 +29,13 @@ export default function WidgetClient({
     user: task.user,
   }
 
+  const widgetConfig = {
+    ...config,
+    showTrustCenterButton: true,
+    appId,
+    taskId,
+  }
+
   return (
     <HydrateProvider
       appId={appId}
@@ -37,7 +44,7 @@ export default function WidgetClient({
       appInfo={appInfo}
     >
       <AttestationDataProvider>
-        <CompactReportWidget config={config} />
+        <CompactReportWidget config={widgetConfig} />
       </AttestationDataProvider>
     </HydrateProvider>
   )

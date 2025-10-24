@@ -1,9 +1,10 @@
-import {Activity, Check} from 'lucide-react'
+import {Activity, Check, ExternalLink} from 'lucide-react'
 import Image from 'next/image'
 import type React from 'react'
 
 import {AppLogo} from '@/components/app-logo'
 import {Badge} from '@/components/ui/badge'
+import {Button} from '@/components/ui/button'
 import type {Task} from '@phala/trust-center-db'
 import {getAppBadges} from '@/lib/app-badges'
 
@@ -15,6 +16,9 @@ export const ReportHeader: React.FC<{
   customAppName?: string
   customDomain?: string
   showBranding?: boolean
+  showTrustCenterButton?: boolean
+  appId?: string
+  taskId?: string
 }> = ({
   task,
   showAttributes = true,
@@ -22,6 +26,9 @@ export const ReportHeader: React.FC<{
   customAppName,
   customDomain,
   showBranding = false,
+  showTrustCenterButton = false,
+  appId,
+  taskId,
 }) => {
   const badges = getAppBadges(task?.dstackVersion, task?.dataObjects)
   const displayName = customAppName || task.appName
@@ -126,6 +133,27 @@ export const ReportHeader: React.FC<{
               </span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* View in Trust Center button - above verification status */}
+      {showTrustCenterButton && appId && taskId && (
+        <div className="px-5 pb-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2"
+            asChild
+          >
+            <a
+              href={`/app/${appId}/${taskId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View in Trust Center
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </Button>
         </div>
       )}
 

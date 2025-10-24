@@ -24,11 +24,16 @@ interface WidgetPlaygroundModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   widgetUrl: string
+  appId?: string | null
+  taskId?: string | null
 }
 
-type WidgetConfig = Omit<Required<CompactReportWidgetConfig>, 'customAppName' | 'customDomain'> & {
+type WidgetConfig = Omit<Required<CompactReportWidgetConfig>, 'customAppName' | 'customDomain' | 'appId' | 'taskId' | 'showTrustCenterButton'> & {
   customAppName?: string
   customDomain?: string
+  appId?: string
+  taskId?: string
+  showTrustCenterButton?: boolean
 }
 
 const defaultConfig: WidgetConfig = {
@@ -39,6 +44,9 @@ const defaultConfig: WidgetConfig = {
   embedded: false,
   customAppName: undefined,
   customDomain: undefined,
+  appId: undefined,
+  taskId: undefined,
+  showTrustCenterButton: true,
   sections: {
     hardware: true,
     sourceCode: true,
@@ -52,8 +60,14 @@ export default function WidgetPlaygroundModal({
   open,
   onOpenChange,
   widgetUrl,
+  appId,
+  taskId,
 }: WidgetPlaygroundModalProps) {
-  const [config, setConfig] = useState<WidgetConfig>(defaultConfig)
+  const [config, setConfig] = useState<WidgetConfig>({
+    ...defaultConfig,
+    appId: appId || undefined,
+    taskId: taskId || undefined,
+  })
   const {attestationData} = useAttestationData()
 
   const updateConfig = (key: keyof Omit<WidgetConfig, 'sections' | 'customAppName'>, value: boolean) => {
@@ -110,7 +124,7 @@ export default function WidgetPlaygroundModal({
     : ''
 
   // Generate embed code (single line)
-  const embedCode = `<iframe src="${typeof window !== 'undefined' ? window.location.origin : ''}${widgetUrl}${configParam}" width="100%" height="800" frameborder="0"></iframe>`
+  const embedCode = `<iframe src="${typeof window !== 'undefined' ? window.location.origin : ''}${widgetUrl}${configParam}" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" width="100%" height="800" frameborder="0"></iframe>`
 
   // Generate demo page URL
   const demoUrl = `${widgetUrl}/demo${configParam}`

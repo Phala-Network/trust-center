@@ -1,6 +1,6 @@
 'use client'
 
-import {FileText, Network, RotateCcw, Settings} from 'lucide-react'
+import {FileText, Network, RotateCcw, Palette} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import type React from 'react'
@@ -118,7 +118,7 @@ export default function Header() {
             onClick={() => setShowWidgetModal(true)}
             title="Customize widget"
           >
-            <Settings className="size-4" />
+            <Palette className="size-4" />
             Widget
           </Button>
         )}
@@ -159,6 +159,8 @@ export default function Header() {
           open={showWidgetModal}
           onOpenChange={setShowWidgetModal}
           widgetUrl={widgetUrl}
+          appId={appId}
+          taskId={taskId}
         />
       )}
     </header>
