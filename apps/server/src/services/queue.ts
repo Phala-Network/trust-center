@@ -4,6 +4,7 @@ import type {
   RedpillConfig,
   VerificationResponse,
 } from '@phala/dstack-verifier'
+import {and, eq, gte, verificationTasksTable} from '@phala/trust-center-db'
 import {type Job, Queue, Worker} from 'bullmq'
 import IORedis from 'ioredis'
 import {isAddress} from 'viem'
@@ -91,6 +92,34 @@ export const createQueueService = (
         )
         if (!isAddress(contractAddress)) {
           throw new Error('Invalid contract address')
+        }
+
+        // Check if app has a recent completed report (within last 24 hours)
+        const oneDayAgo = new Date()
+        oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+
+        const db = verificationTaskService.getDb()
+        const recentReports = await db
+          .select({id: verificationTasksTable.id})
+          .from(verificationTasksTable)
+          .where(
+            and(
+              eq(verificationTasksTable.appId, appId),
+              eq(verificationTasksTable.status, 'completed'),
+              gte(verificationTasksTable.createdAt, oneDayAgo),
+            ),
+          )
+          .limit(1)
+
+        if (recentReports.length > 0) {
+          console.log(
+            `[QUEUE] Skipping task ${postgresTaskId} - app ${appId} has a report within last 24 hours`,
+          )
+          return {
+            postgresTaskId,
+            success: true,
+            processingTimeMs: Date.now() - startTime,
+          }
         }
 
         // Create task in database when starting processing

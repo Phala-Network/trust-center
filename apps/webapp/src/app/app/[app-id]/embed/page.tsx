@@ -1,16 +1,16 @@
-import AppLayout from '@/components/app-layout'
 import {getApp} from '@/lib/db'
+import EmbedLayout from '@/components/embed-layout'
 
-interface AppPageProps {
+interface EmbedPageProps {
   params: Promise<{
     'app-id': string
   }>
   searchParams: Promise<{selected?: string}>
 }
 
-export const generateMetadata = async ({params}: AppPageProps) => {
+export const generateMetadata = async ({params}: EmbedPageProps) => {
   const {['app-id']: appId} = await params
-  const app = await getApp(appId, true) // Only show public apps
+  const app = await getApp(appId) // No isPublic check for embed
 
   // Return default metadata if app not found or not completed
   if (!app || app.status !== 'completed') {
@@ -21,16 +21,19 @@ export const generateMetadata = async ({params}: AppPageProps) => {
   }
 
   return {
-    title: `${app.appName}`,
+    title: `${app.appName} - Embedded Report`,
     description: `Trust report for ${app.appName} by Phala`,
   }
 }
 
-export default async function AppPage({params, searchParams}: AppPageProps) {
+export default async function EmbedPage({
+  params,
+  searchParams,
+}: EmbedPageProps) {
   const {['app-id']: appId} = await params
 
-  // Get the app directly from database (only public apps)
-  const app = await getApp(appId, true)
+  // Get the app directly from database (no isPublic check, protected by iframe restriction)
+  const app = await getApp(appId)
 
   // Show "check back later" message if app not found or report not completed
   if (!app || app.status !== 'completed') {
@@ -47,7 +50,7 @@ export default async function AppPage({params, searchParams}: AppPageProps) {
     )
   }
 
-  // Convert App to Task format for AppLayout compatibility
+  // Convert App to Task format for EmbedLayout compatibility
   const task = {
     id: app.id,
     appId: app.appId,
@@ -70,7 +73,7 @@ export default async function AppPage({params, searchParams}: AppPageProps) {
   }
 
   return (
-    <AppLayout
+    <EmbedLayout
       searchParams={searchParams}
       appId={appId}
       taskId={app.id}

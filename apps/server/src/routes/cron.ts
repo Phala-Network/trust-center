@@ -9,7 +9,7 @@ export const cronRoutes = new Elysia()
   .use(
     cron({
       name: 'sync-tasks',
-      pattern: '0 0 * * *', // Every day at midnight
+      pattern: '*/5 * * * *', // Every 5 minutes
       run: async () => {
         console.log('[CRON] Running scheduled sync...')
         try {
@@ -92,7 +92,7 @@ export const cronRoutes = new Elysia()
                 return {
                   success: true,
                   name: 'sync-tasks',
-                  pattern: '0 */1 * * *',
+                  pattern: '*/5 * * * *',
                   running: syncCron.running,
                 }
               }

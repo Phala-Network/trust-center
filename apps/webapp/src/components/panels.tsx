@@ -49,7 +49,10 @@ export default function Panels({defaultLayout}: PanelsProps) {
       params.delete('selected')
     }
 
-    history.replaceState(null, '', `?${params.toString()}`)
+    // Only add '?' if there are params
+    const queryString = params.toString()
+    const newUrl = queryString ? `?${queryString}` : window.location.pathname
+    history.replaceState(null, '', newUrl)
   }, [selectedObjectId, searchParams, router])
 
   // Handle back button for compact small mode

@@ -235,12 +235,22 @@ export async function getUsers(params?: {
 }
 
 // Get a single app by ID (latest task for this app)
-// Note: No isPublic check - allows direct access via URL even if not listed publicly
-export async function getApp(appId: string): Promise<App | null> {
+// checkPublic: if true, only return public apps (for app/[app-id] and embed routes)
+export async function getApp(
+  appId: string,
+  checkPublic = false,
+): Promise<App | null> {
+  const whereConditions = [eq(verificationTasksTable.appId, appId)]
+
+  // Add public check if required
+  if (checkPublic) {
+    whereConditions.push(eq(verificationTasksTable.isPublic, true))
+  }
+
   const results = await db
     .select()
     .from(verificationTasksTable)
-    .where(eq(verificationTasksTable.appId, appId))
+    .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
     .orderBy(desc(verificationTasksTable.createdAt))
     .limit(1)
 
