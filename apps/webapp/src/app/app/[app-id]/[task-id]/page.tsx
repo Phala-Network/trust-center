@@ -20,6 +20,10 @@ export const generateMetadata = async ({params}: TaskPageProps) => {
   return {
     title: `${task.appName}`,
     description: `Trust report for ${task.appName} by Phala`,
+    robots: {
+      index: false,
+      follow: false,
+    },
   }
 }
 

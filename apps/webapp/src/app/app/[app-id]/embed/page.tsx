@@ -17,12 +17,20 @@ export const generateMetadata = async ({params}: EmbedPageProps) => {
     return {
       title: 'Report Not Found',
       description: 'Trust report not yet generated',
+      robots: {
+        index: false,
+        follow: false,
+      },
     }
   }
 
   return {
     title: `${app.appName} - Embedded Report`,
     description: `Trust report for ${app.appName} by Phala`,
+    robots: {
+      index: false,
+      follow: false,
+    },
   }
 }
 
