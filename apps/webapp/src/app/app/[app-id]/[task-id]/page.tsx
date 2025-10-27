@@ -17,13 +17,17 @@ export const generateMetadata = async ({params}: TaskPageProps) => {
   if (task == null) {
     notFound()
   }
+
+  // Only allow indexing for public apps
+  const robots = task.isPublic ? undefined : {
+    index: false,
+    follow: false,
+  }
+
   return {
     title: `${task.appName}`,
     description: `Trust report for ${task.appName} by Phala`,
-    robots: {
-      index: false,
-      follow: false,
-    },
+    ...(robots && { robots }),
   }
 }
 
