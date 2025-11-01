@@ -35,13 +35,13 @@ export async function getApps(params?: {
   page?: number
   perPage?: number
 }): Promise<App[]> {
-  // Build where conditions - only show public apps from last 3 days
-  const threeDaysAgo = subDays(new Date(), 3)
+  // Build where conditions - only show public apps from last 2 days
+  const twoDaysAgo = subDays(new Date(), 2)
 
   const whereConditions = [
     eq(verificationTasksTable.status, 'completed'),
     eq(verificationTasksTable.isPublic, true),
-    gte(verificationTasksTable.createdAt, threeDaysAgo),
+    gte(verificationTasksTable.createdAt, twoDaysAgo),
   ]
 
   if (params?.keyword) {
