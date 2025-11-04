@@ -86,12 +86,39 @@ export const createQueueService = (
         user,
       } = job.data
 
+      // Create task in database first (before any validation)
+      // This ensures we have a record even if validation fails
+      try {
+        await verificationTaskService.createTask({
+          id: postgresTaskId,
+          appId,
+          appName,
+          appConfigType,
+          contractAddress,
+          modelOrDomain,
+          dstackVersion: dstackVersion || null,
+          isPublic: isPublic ?? false,
+          user: user || null,
+          status: 'pending' as const,
+          bullJobId: job.id,
+          createdAt: new Date(),
+          startedAt: null,
+        })
+        console.log(`[QUEUE] Created DB record for task ${postgresTaskId}`)
+      } catch (createError) {
+        console.error(
+          `[QUEUE] Failed to create DB record for task ${postgresTaskId}:`,
+          createError,
+        )
+        throw createError
+      }
+
       try {
         console.log(
           `[QUEUE] Processing verification task ${postgresTaskId} for app ${appId}/${appName}`,
         )
         if (!isAddress(contractAddress)) {
-          throw new Error('Invalid contract address')
+          throw new Error(`Invalid contract address: ${contractAddress}`)
         }
 
         // Check if app has a recent completed report (within last 24 hours)
@@ -115,6 +142,12 @@ export const createQueueService = (
           console.log(
             `[QUEUE] Skipping task ${postgresTaskId} - app ${appId} has a report within last 24 hours`,
           )
+          // Mark task as cancelled since we're skipping it
+          await verificationTaskService.updateVerificationTask(postgresTaskId, {
+            status: 'cancelled',
+            errorMessage: 'Skipped - recent report exists within 24 hours',
+            finishedAt: new Date(),
+          })
           return {
             postgresTaskId,
             success: true,
@@ -122,24 +155,13 @@ export const createQueueService = (
           }
         }
 
-        // Create task in database when starting processing
-        await verificationTaskService.createTask({
-          id: postgresTaskId,
-          appId,
-          appName,
-          appConfigType,
-          contractAddress,
-          modelOrDomain,
-          dstackVersion: dstackVersion || null,
-          isPublic: isPublic ?? false,
-          user: user || null,
-          status: 'active' as const,
-          bullJobId: job.id,
-          createdAt: new Date(),
+        // Update task status to active now that we're actually processing
+        await verificationTaskService.updateVerificationTask(postgresTaskId, {
+          status: 'active',
           startedAt: new Date(),
         })
 
-        console.log(`[QUEUE] Created DB record for task ${postgresTaskId}`)
+        console.log(`[QUEUE] Started processing task ${postgresTaskId}`)
 
         console.log(
           `[QUEUE] Processing verification for ${appConfigType} config:`,
