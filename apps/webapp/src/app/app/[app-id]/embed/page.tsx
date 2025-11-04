@@ -78,6 +78,7 @@ export default async function EmbedPage({
     user: app.user,
     dstackVersion: app.dstackVersion,
     dataObjects: app.dataObjects,
+    isPublic: app.isPublic,
   }
 
   return (

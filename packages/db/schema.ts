@@ -73,6 +73,7 @@ export const TaskSchema = z.object({
   user: z.string().optional(),
   dstackVersion: z.string().optional(),
   dataObjects: z.array(z.string()).optional(),
+  isPublic: z.boolean(),
 })
 
 // Verification tasks table - stores VerificationService execution data

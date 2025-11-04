@@ -65,6 +65,7 @@ export default async function WidgetAppPage({params, searchParams}: WidgetAppPag
     user: app.user,
     dstackVersion: app.dstackVersion,
     dataObjects: app.dataObjects,
+    isPublic: app.isPublic,
   }
 
   return (

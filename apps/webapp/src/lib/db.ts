@@ -126,6 +126,7 @@ export async function getApps(params?: {
     dataObjects: Array.isArray(r.verification_tasks.dataObjects)
       ? (r.verification_tasks.dataObjects as string[])
       : undefined,
+    isPublic: r.verification_tasks.isPublic,
   }))
 }
 
@@ -279,6 +280,7 @@ export async function getApp(
     dataObjects: Array.isArray(task.dataObjects)
       ? (task.dataObjects as string[])
       : undefined,
+    isPublic: task.isPublic,
   }
 }
 
@@ -322,6 +324,7 @@ export async function getAppTasks(
     dataObjects: Array.isArray(task.dataObjects)
       ? (task.dataObjects as string[])
       : undefined,
+    isPublic: task.isPublic,
   }))
 }
 
@@ -358,6 +361,7 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
     dataObjects: Array.isArray(task.dataObjects)
       ? (task.dataObjects as string[])
       : undefined,
+    isPublic: task.isPublic,
   }
 }
 
@@ -403,5 +407,6 @@ export async function getTask(
     dataObjects: Array.isArray(task.dataObjects)
       ? (task.dataObjects as string[])
       : undefined,
+    isPublic: task.isPublic,
   }
 }

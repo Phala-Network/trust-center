@@ -67,6 +67,7 @@ export default async function AppPage({params, searchParams}: AppPageProps) {
     user: app.user,
     dstackVersion: app.dstackVersion,
     dataObjects: app.dataObjects,
+    isPublic: app.isPublic,
   }
 
   return (
