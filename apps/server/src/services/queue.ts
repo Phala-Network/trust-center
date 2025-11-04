@@ -65,6 +65,15 @@ export const createQueueService = (
         type: 'exponential',
         delay: config.backoffDelay,
       },
+      // Auto-remove jobs from Redis after completion
+      removeOnComplete: {
+        age: 3600, // Keep completed jobs for 1 hour (3600 seconds)
+        count: 100, // Keep last 100 completed jobs
+      },
+      removeOnFail: {
+        age: 86400, // Keep failed jobs for 24 hours (86400 seconds)
+        count: 1000, // Keep last 1000 failed jobs
+      },
     },
   })
 
