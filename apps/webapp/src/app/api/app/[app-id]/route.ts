@@ -1,4 +1,5 @@
 import {NextRequest, NextResponse} from 'next/server'
+
 import {getApp} from '@/lib/db'
 
 interface RouteParams {
@@ -14,6 +15,7 @@ function isAllowedOrigin(origin: string | null): boolean {
   const allowedPatterns = [
     /^https?:\/\/[a-zA-Z0-9-]+\.phala\.network$/,
     /^https?:\/\/[a-zA-Z0-9-]+\.phala\.com$/,
+    /^https?:\/\/.*\.?localhost(:\d+)?$/,
   ]
 
   return allowedPatterns.some((pattern) => pattern.test(origin))
