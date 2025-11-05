@@ -53,7 +53,7 @@ export function middleware(request: NextRequest) {
     const response = NextResponse.next()
     response.headers.set(
       'Content-Security-Policy',
-      "frame-ancestors 'self' https://*.phala.com https://*.phala.network http://localhost:*",
+      "frame-ancestors 'self' https://*.phala.com https://*.phala.network http://localhost:* https://localhost:* http://*.localhost:* https://*.localhost:*",
     )
     return response
   }

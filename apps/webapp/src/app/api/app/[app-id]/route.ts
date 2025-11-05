@@ -28,6 +28,19 @@ function addCorsHeaders(response: NextResponse, origin: string | null) {
     response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type')
   }
+
+  // Set frame-ancestors CSP policy
+  const frameAncestors = [
+    '*.phala.network',
+    '*.phala.com',
+    '*.localhost:*',
+    'localhost:*',
+  ]
+  response.headers.set(
+    'Content-Security-Policy',
+    `frame-ancestors ${frameAncestors.join(' ')}`,
+  )
+
   return response
 }
 
