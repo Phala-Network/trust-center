@@ -65,10 +65,9 @@ export function createVerifiers(
         new LegacyKmsStubVerifier(systemInfo, collector),
         new LegacyGatewayStubVerifier(systemInfo, collector),
         new PhalaCloudVerifier(
-          appConfig.contractAddress,
+          systemInfo,
           appConfig.domain,
           appMetadata,
-          systemInfo,
           collector,
         ),
       )
@@ -77,10 +76,9 @@ export function createVerifiers(
         new PhalaCloudKmsVerifier(kmsMetadata, systemInfo.kms_info, collector),
         new GatewayVerifier(gatewayMetadata, systemInfo, collector),
         new PhalaCloudVerifier(
-          appConfig.contractAddress,
+          systemInfo,
           appConfig.domain,
           appMetadata,
-          systemInfo,
           collector,
         ),
       )

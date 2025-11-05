@@ -4,17 +4,15 @@ import type {
   AppInfo,
   AttestationBundle,
   CompleteAppMetadata,
+  ContractAddress,
   EventLog,
   QuoteData,
   SystemInfo,
 } from '../types'
-import { parseAttestationBundle } from '../types'
+import { parseAttestationBundle, toAppId, toContractAddress } from '../types'
 import type { DataObjectCollector } from '../utils/dataObjectCollector'
 import { DstackApp } from '../utils/dstackContract'
-import {
-  createImageVersion,
-  createKmsVersion,
-} from '../utils/metadataUtils'
+import { createImageVersion, createKmsVersion } from '../utils/metadataUtils'
 import {
   isUpToDate,
   verifyTeeQuote,
@@ -112,7 +110,7 @@ export class RedpillVerifier extends Verifier {
    * Static method to fetch system info from Redpill API without instantiating the verifier
    */
   public static async getSystemInfo(
-    contractAddress: string,
+    contractAddress: ContractAddress,
     model: string,
   ): Promise<SystemInfo> {
     const rpcEndpoint = `${BASE_URL}?model=${model}`
@@ -138,19 +136,18 @@ export class RedpillVerifier extends Verifier {
         eventlog: EventLog
       }
 
+      const kmsContractAddress = toContractAddress('0xbfd2d557118fc650ea25a0e7d85355d335f259d8')
+      const gatewayAppId = toAppId('39F2f3373CEcFf85BD8BBd985adeeF32547a302c')
+
       const systemInfo: SystemInfo = {
-        app_id: contractAddress.startsWith('0x')
-          ? contractAddress.slice(2)
-          : contractAddress,
-        contract_address: contractAddress.startsWith('0x')
-          ? (contractAddress as `0x${string}`)
-          : (`0x${contractAddress}` as `0x${string}`),
+        app_id: toAppId(contractAddress),
+        contract_address: toContractAddress(contractAddress),
         kms_info: {
-          contract_address: '0xbfd2d557118fc650ea25a0e7d85355d335f259d8',
+          contract_address: kmsContractAddress,
           chain_id: 8453,
           version: createKmsVersion('v0.5.3 (git:c06e524bd460fd9c9add)'),
           url: '',
-          gateway_app_id: '0x39F2f3373CEcFf85BD8BBd985adeeF32547a302c',
+          gateway_app_id: gatewayAppId,
           gateway_app_url: 'https://gateway.llm-04.phala.network:9204',
         },
         instances: [

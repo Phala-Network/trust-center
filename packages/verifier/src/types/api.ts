@@ -10,13 +10,14 @@ import { z } from 'zod'
 import type { VerificationFlags } from '../config'
 import type { DataObject } from './index'
 import type { AppMetadata } from './metadata'
+import type { AppId, ContractAddress } from './utils'
 
 /**
  * Verification request payload for Redpill verifier
  */
 export interface RedpillVerificationRequest {
   app: {
-    contractAddress: `0x${string}`
+    contractAddress: ContractAddress
     model: string
     metadata?: AppMetadata
   }
@@ -29,7 +30,7 @@ export interface RedpillVerificationRequest {
  */
 export interface PhalaCloudVerificationRequest {
   app: {
-    contractAddress: `0x${string}`
+    appId: AppId
     domain: string
     metadata?: AppMetadata
   }
@@ -72,6 +73,17 @@ export interface VerificationResponse {
 const HexStringSchema = z
   .string()
   .regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string')
+
+/**
+ * Zod schema for app ID (without 0x prefix, defensive - strips if present)
+ */
+const AppIdInputSchema = z
+  .string()
+  .min(40)
+  .transform((val) => {
+    const cleaned = val.toLowerCase().startsWith('0x') ? val.slice(2) : val
+    return cleaned as AppId
+  })
 
 /**
  * Zod schema for OS source metadata (API input - all fields optional)
@@ -161,7 +173,7 @@ const RedpillVerificationRequestSchema = z.object({
  */
 const PhalaCloudVerificationRequestSchema = z.object({
   app: z.object({
-    contractAddress: HexStringSchema,
+    appId: AppIdInputSchema,
     domain: z.string(),
     metadata: StructuredMetadataInputSchema,
   }),

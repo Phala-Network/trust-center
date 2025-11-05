@@ -179,7 +179,7 @@ export class VerificationService {
       )
     } else {
       // PhalaCloudConfig
-      return await PhalaCloudVerifier.getSystemInfo(appConfig.contractAddress)
+      return await PhalaCloudVerifier.getSystemInfo(appConfig.appId)
     }
   }
 

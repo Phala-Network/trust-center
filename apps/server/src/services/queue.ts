@@ -160,17 +160,18 @@ export const createQueueService = (
         // Create app config for VerificationService
         // Note: VerificationService will generate complete metadata from systemInfo
         // if the provided metadata is incomplete
-        let appConfig: RedpillConfig | PhalaCloudConfig
+        let appConfig: any
         if (appConfigType === 'redpill') {
+          // Redpill uses contractAddress
           appConfig = {
             contractAddress: contractAddress,
             model: modelOrDomain,
             metadata,
           }
         } else {
-          // phala_cloud config
+          // PhalaCloud uses appId (without 0x prefix)
           appConfig = {
-            contractAddress: contractAddress,
+            appId: appId,
             domain: modelOrDomain,
             metadata,
           }

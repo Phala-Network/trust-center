@@ -12,21 +12,35 @@ import {
   GatewayMetadataSchema,
   KmsMetadataSchema,
 } from './types/metadata'
+import {
+  toAppId,
+  toContractAddress,
+} from './types/utils'
 
 /**
- * Ethereum address schema
+ * App ID schema (without 0x prefix)
+ * Handles both formats defensively - strips 0x if present
  */
-const EthereumAddressSchema = z
+const AppIdSchema = z
   .string()
-  .regex(/^0x[a-fA-F0-9]{40}$/, 'Must be a valid Ethereum address')
-  .transform((addr) => addr as `0x${string}`)
+  .min(40)
+  .transform((val) => toAppId(val))
+
+/**
+ * Contract Address schema (with 0x prefix)
+ * Handles both formats defensively - adds 0x if missing
+ */
+const ContractAddressSchema = z
+  .string()
+  .min(40)
+  .transform((val) => toContractAddress(val))
 
 /**
  * Configuration for KMS verifier
  */
 export const KmsConfigSchema = z.object({
   /** KMS smart contract address */
-  contractAddress: EthereumAddressSchema,
+  contractAddress: ContractAddressSchema,
   /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
   metadata: KmsMetadataSchema.optional(),
 })
@@ -35,8 +49,8 @@ export const KmsConfigSchema = z.object({
  * Configuration for Gateway verifier
  */
 export const GatewayConfigSchema = z.object({
-  /** Gateway smart contract address */
-  contractAddress: EthereumAddressSchema,
+  /** Gateway app ID (without 0x prefix) - used for API calls */
+  appId: AppIdSchema,
   /** Gateway RPC endpoint URL */
   rpcEndpoint: z.string().url(),
   /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
@@ -48,7 +62,7 @@ export const GatewayConfigSchema = z.object({
  */
 export const RedpillConfigSchema = z.object({
   /** Redpill smart contract address */
-  contractAddress: EthereumAddressSchema,
+  contractAddress: ContractAddressSchema,
   /** Model identifier */
   model: z.string().min(1),
   /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
@@ -59,8 +73,8 @@ export const RedpillConfigSchema = z.object({
  * Configuration for PhalaCloud verifier
  */
 export const PhalaCloudConfigSchema = z.object({
-  /** PhalaCloud smart contract address */
-  contractAddress: EthereumAddressSchema,
+  /** PhalaCloud app ID (without 0x prefix) - used for API calls */
+  appId: AppIdSchema,
   /** Domain identifier */
   domain: z.string().min(1),
   /** Verifier metadata (optional - will be generated from systemInfo if not provided) */

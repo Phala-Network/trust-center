@@ -7,6 +7,7 @@ import {
   VmConfigSchema,
 } from '../schemas'
 import {
+  type AppId,
   type AppInfo,
   type AttestationBundle,
   type CompleteAppMetadata,
@@ -36,33 +37,36 @@ import { Verifier } from '../verifier'
 
 export class PhalaCloudVerifier extends Verifier {
   public registrySmartContract?: DstackApp
-  public appId: string
+  public appId: AppId
   private rpcEndpoint: string
   private dataObjectGenerator: AppDataObjectGenerator
   private appMetadata: CompleteAppMetadata
   private systemInfo: SystemInfo
 
   constructor(
-    contractAddress: `0x${string}`,
+    systemInfo: SystemInfo,
     domain: string,
     metadata: CompleteAppMetadata,
-    systemInfo: SystemInfo,
     collector: DataObjectCollector,
   ) {
     super(metadata, 'app', collector)
+    this.appId = systemInfo.app_id
+    this.appMetadata = metadata
+    this.systemInfo = systemInfo
+
     // Only create smart contract if governance is OnChain
+    // Get contract_address from systemInfo instead of deriving it from appId
     if (metadata.governance?.type === 'OnChain') {
+      const contractAddress = systemInfo.contract_address
+      if (!contractAddress) {
+        throw new Error('Contract address is required for OnChain governance')
+      }
       this.registrySmartContract = new DstackApp(
         contractAddress,
         metadata.governance.chainId,
       )
     }
-    this.appMetadata = metadata
-    this.systemInfo = systemInfo
 
-    this.appId = contractAddress.startsWith('0x')
-      ? contractAddress.slice(2)
-      : contractAddress
     this.rpcEndpoint = `https://${this.appId}-8090.${domain}`
     this.dataObjectGenerator = new AppDataObjectGenerator(metadata)
   }
@@ -196,11 +200,10 @@ export class PhalaCloudVerifier extends Verifier {
   /**
    * Static method to fetch system info from Phala Cloud API without instantiating the verifier
    */
-  public static async getSystemInfo(appId: string): Promise<SystemInfo> {
-    // Remove 0x prefix if present for the API call
-    const cleanAppId = appId.startsWith('0x') ? appId.slice(2) : appId
-
-    const apiUrl = `https://cloud-api.phala.network/api/v1/apps/${cleanAppId}/attestations`
+  public static async getSystemInfo(
+    appId: AppId,
+  ): Promise<SystemInfo> {
+    const apiUrl = `https://cloud-api.phala.network/api/v1/apps/${appId}/attestations`
 
     try {
       const response = await fetch(apiUrl)

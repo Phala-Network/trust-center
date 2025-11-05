@@ -1,5 +1,6 @@
 import type { EventLog, Quote } from './core'
 import type { ImageVersionString, KmsVersionString } from './metadata'
+import type { AppId, ContractAddress } from './utils'
 
 /**
  * Types related to application configuration and deployment.
@@ -183,8 +184,8 @@ export interface AppInfo {
  * Information about KMS (Key Management Service) for a DStack application.
  */
 export interface KmsInfo {
-  /** Contract address of the KMS */
-  contract_address: string
+  /** Contract address of the KMS, null if not deployed on-chain */
+  contract_address: ContractAddress | null
   /** Chain ID where the contract is deployed, null for legacy versions without governance contracts */
   chain_id: number | null
   /** Version of the KMS software, like "v0.5.3 (git:ca4af023e974427e4153)" */
@@ -192,7 +193,7 @@ export interface KmsInfo {
   /** URL endpoint for the KMS service */
   url: string
   /** Gateway application ID associated with this KMS */
-  gateway_app_id: string
+  gateway_app_id: AppId
   /** URL endpoint for the associated Gateway service */
   gateway_app_url: string
 }
@@ -213,10 +214,10 @@ export interface DstackInstance {
  * Complete system information including KMS details and attestation instances.
  */
 export interface SystemInfo {
-  /** Application ID (contract address without 0x prefix) */
-  app_id: string
-  /** Contract address with 0x prefix */
-  contract_address: string
+  /** Application ID */
+  app_id: AppId
+  /** Contract address with 0x prefix, null if not deployed on-chain */
+  contract_address: ContractAddress | null
   /** KMS configuration and endpoints */
   kms_info: KmsInfo
   /** Array of attestation instances */

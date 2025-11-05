@@ -14,6 +14,42 @@ import type { AttestationBundle } from './attestation'
  */
 
 /**
+ * Branded type for App ID (contract address WITHOUT 0x prefix)
+ * This ensures type safety and prevents mixing app_id and contract_address
+ */
+export type AppId = string & { readonly __brand: 'AppId' }
+
+/**
+ * Branded type for Contract Address (Ethereum address WITH 0x prefix)
+ * This ensures type safety and prevents mixing app_id and contract_address
+ */
+export type ContractAddress = `0x${string}` & { readonly __brand: 'ContractAddress' }
+
+/**
+ * Converts a string to AppId format (strips 0x prefix if present)
+ * This is defensive against APIs that might inconsistently include/exclude the prefix
+ *
+ * @param value - String that might be an app_id or contract_address
+ * @returns AppId without 0x prefix
+ */
+export function toAppId(value: string): AppId {
+  const cleaned = value.toLowerCase().startsWith('0x') ? value.slice(2) : value
+  return cleaned as AppId
+}
+
+/**
+ * Converts a string to ContractAddress format (ensures 0x prefix)
+ * This is defensive against APIs that might inconsistently include/exclude the prefix
+ *
+ * @param value - String that might be an app_id or contract_address
+ * @returns ContractAddress with 0x prefix
+ */
+export function toContractAddress(value: string): ContractAddress {
+  const withPrefix = value.toLowerCase().startsWith('0x') ? value : `0x${value}`
+  return withPrefix as ContractAddress
+}
+
+/**
  * Parses JSON fields in an object based on configuration using Zod validation.
  *
  * @template T - The expected return type after parsing
