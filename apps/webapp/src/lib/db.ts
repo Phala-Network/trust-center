@@ -24,6 +24,30 @@ export interface App extends Task {
   dataObjects?: string[]
 }
 
+// Common filter parameters
+interface BaseFilterParams {
+  keyword?: string
+}
+
+// Build base where conditions for public completed tasks from last 2 days
+function buildBaseWhereConditions(params?: BaseFilterParams) {
+  const twoDaysAgo = subDays(new Date(), 2)
+
+  const conditions = [
+    eq(verificationTasksTable.status, 'completed'),
+    eq(verificationTasksTable.isPublic, true),
+    gte(verificationTasksTable.createdAt, twoDaysAgo),
+  ]
+
+  if (params?.keyword) {
+    conditions.push(
+      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`,
+    )
+  }
+
+  return conditions
+}
+
 // Get all unique apps (latest task per app)
 export async function getApps(params?: {
   keyword?: string
@@ -35,20 +59,8 @@ export async function getApps(params?: {
   page?: number
   perPage?: number
 }): Promise<App[]> {
-  // Build where conditions - only show public apps from last 2 days
-  const twoDaysAgo = subDays(new Date(), 2)
-
-  const whereConditions = [
-    eq(verificationTasksTable.status, 'completed'),
-    eq(verificationTasksTable.isPublic, true),
-    gte(verificationTasksTable.createdAt, twoDaysAgo),
-  ]
-
-  if (params?.keyword) {
-    whereConditions.push(
-      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`,
-    )
-  }
+  // Build base where conditions (status, isPublic, time filter, keyword)
+  const whereConditions = buildBaseWhereConditions(params)
 
   if (params?.dstackVersions && params.dstackVersions.length > 0) {
     whereConditions.push(
@@ -134,17 +146,8 @@ export async function getApps(params?: {
 export async function getDstackVersions(params?: {
   keyword?: string
 }): Promise<Array<{version: string; count: number}>> {
-  // Build where conditions for completed public tasks
-  const whereConditions = [
-    eq(verificationTasksTable.status, 'completed'),
-    eq(verificationTasksTable.isPublic, true),
-  ]
-
-  if (params?.keyword) {
-    whereConditions.push(
-      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`,
-    )
-  }
+  // Build base where conditions (status, isPublic, time filter, keyword)
+  const whereConditions = buildBaseWhereConditions(params)
 
   // Get latest task for each unique appId
   const latestTasks = db.$with('latest_tasks').as(
@@ -188,17 +191,8 @@ export async function getDstackVersions(params?: {
 export async function getUsers(params?: {
   keyword?: string
 }): Promise<Array<{user: string; count: number}>> {
-  // Build where conditions for completed public tasks
-  const whereConditions = [
-    eq(verificationTasksTable.status, 'completed'),
-    eq(verificationTasksTable.isPublic, true),
-  ]
-
-  if (params?.keyword) {
-    whereConditions.push(
-      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`,
-    )
-  }
+  // Build base where conditions (status, isPublic, time filter, keyword)
+  const whereConditions = buildBaseWhereConditions(params)
 
   // Get latest task for each unique appId
   const latestTasks = db.$with('latest_tasks').as(
