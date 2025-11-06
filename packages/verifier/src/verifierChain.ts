@@ -13,7 +13,7 @@ import {
   completeAppMetadata,
   createGatewayMetadata,
   createKmsMetadata,
-  isLegacyVersion,
+  supportsOnchainKms,
 } from './utils/metadataUtils'
 import type { Verifier } from './verifier'
 import { GatewayVerifier } from './verifiers/gatewayVerifier'
@@ -59,7 +59,8 @@ export function createVerifiers(
       ),
     )
   } else {
-    if (isLegacyVersion(systemInfo.kms_info.version)) {
+    if (!supportsOnchainKms(systemInfo.kms_info.version)) {
+      console.log("[VerifierChain] Detected legacy KMS version (< 0.5.3), using stub verifiers")
       // Legacy Phala Cloud app: use stub verifiers + PhalaApp verifier
       verifiers.push(
         new LegacyKmsStubVerifier(systemInfo, collector),
@@ -98,21 +99,69 @@ export async function executeVerifiers(
   const errors: string[] = []
 
   for (const verifier of verifiers) {
+    const verifierName = verifier.constructor.name
+    console.log(`[VerifierChain] Executing ${verifierName}`)
+
     try {
       // Run standard verification steps
-      if (flags.hardware) await verifier.verifyHardware()
-      if (flags.os) await verifier.verifyOperatingSystem()
-      if (flags.sourceCode) await verifier.verifySourceCode()
+      if (flags.hardware) {
+        const result = await verifier.verifyHardware()
+        console.log(
+          `[VerifierChain] ${verifierName}.verifyHardware() returned:`,
+          result,
+        )
+      }
+      if (flags.os) {
+        const result = await verifier.verifyOperatingSystem()
+        console.log(
+          `[VerifierChain] ${verifierName}.verifyOperatingSystem() returned:`,
+          result,
+        )
+      }
+      if (flags.sourceCode) {
+        const result = await verifier.verifySourceCode()
+        console.log(
+          `[VerifierChain] ${verifierName}.verifySourceCode() returned:`,
+          result,
+        )
+      }
 
       // Run domain verification for Gateway verifier
       if (verifier instanceof GatewayVerifier) {
-        if (flags.teeControlledKey) await verifier.verifyTeeControlledKey()
-        if (flags.certificateKey) await verifier.verifyCertificateKey()
-        if (flags.dnsCAA) await verifier.verifyDnsCAA()
-        if (flags.ctLog) await verifier.verifyCTLog()
+        if (flags.teeControlledKey) {
+          const result = await verifier.verifyTeeControlledKey()
+          console.log(
+            `[VerifierChain] ${verifierName}.verifyTeeControlledKey() returned:`,
+            result,
+          )
+        }
+        if (flags.certificateKey) {
+          const result = await verifier.verifyCertificateKey()
+          console.log(
+            `[VerifierChain] ${verifierName}.verifyCertificateKey() returned:`,
+            result,
+          )
+        }
+        if (flags.dnsCAA) {
+          const result = await verifier.verifyDnsCAA()
+          console.log(
+            `[VerifierChain] ${verifierName}.verifyDnsCAA() returned:`,
+            result,
+          )
+        }
+        if (flags.ctLog) {
+          const result = await verifier.verifyCTLog()
+          console.log(
+            `[VerifierChain] ${verifierName}.verifyCTLog() returned:`,
+            result,
+          )
+        }
       }
+
+      console.log(`[VerifierChain] ${verifierName} completed successfully`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
+      console.error(`[VerifierChain] ${verifierName} failed:`, message)
       errors.push(message)
     }
   }

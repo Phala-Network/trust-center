@@ -210,19 +210,69 @@ export function parseImageVersion(
 }
 
 /**
- * Check if a version represents a legacy version (0.3.x) that requires data object generation only
+ * Compare two semantic version strings
+ * @returns negative if a < b, positive if a > b, 0 if equal
+ */
+function compareVersions(a: string, b: string): number {
+  const aParts = a.replace(/^v/, '').split('.').map(Number)
+  const bParts = b.replace(/^v/, '').split('.').map(Number)
+
+  for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+    const aVal = aParts[i] || 0
+    const bVal = bParts[i] || 0
+    if (aVal !== bVal) {
+      return aVal - bVal
+    }
+  }
+  return 0
+}
+
+/**
+ * Check if version supports onchain KMS feature.
+ *
+ * Onchain KMS support was introduced in dstack 0.5.3 and includes:
+ * - Real KMS and Gateway verifiers (not stub verifiers)
+ * - Rust-based dstack-mr-cli for OS measurement calculation
  *
  * @param version - KMS version string from SystemInfo.kms_info.version
- * @returns true if version is 0.3.x series
+ * @returns true if version >= 0.5.3 (supports onchain KMS)
  */
-export function isLegacyVersion(version: KmsVersionString): boolean {
+export function supportsOnchainKms(version: KmsVersionString): boolean {
   try {
     const { version: versionWithPrefix } = parseKmsVersion(version)
-    // Remove 'v' prefix and check if it starts with '0.3.'
-    return versionWithPrefix.slice(1).startsWith('0.3.')
+    return compareVersions(versionWithPrefix, '0.5.3') >= 0
   } catch {
-    // If parsing fails, try simple string matching
-    return version.includes('0.3.')
+    // Fallback: try to extract version directly
+    const match = version.match(/(\d+\.\d+\.\d+)/)
+    if (match?.[1]) {
+      return compareVersions(match[1], '0.5.3') >= 0
+    }
+    // If parsing fails completely, assume legacy (no onchain KMS support) for safety
+    return false
+  }
+}
+
+/**
+ * Check if version supports modern Info RPC endpoint.
+ *
+ * The /prpc/Info endpoint was introduced in dstack 0.5.0, replacing the legacy
+ * /prpc/Worker.Info endpoint with a more comprehensive response format.
+ *
+ * @param version - KMS version string from SystemInfo.kms_info.version
+ * @returns true if version >= 0.5.0 (supports /prpc/Info endpoint)
+ */
+export function supportsInfoRpcEndpoint(version: KmsVersionString): boolean {
+  try {
+    const { version: versionWithPrefix } = parseKmsVersion(version)
+    return compareVersions(versionWithPrefix, '0.5.0') >= 0
+  } catch {
+    // Fallback: try to extract version directly
+    const match = version.match(/(\d+\.\d+\.\d+)/)
+    if (match?.[1]) {
+      return compareVersions(match[1], '0.5.0') >= 0
+    }
+    // If parsing fails completely, assume legacy (use Worker.Info) for safety
+    return false
   }
 }
 

@@ -86,6 +86,12 @@ export const AppComposeSchema = z.object({
   launch_token_hash: z.string(),
 })
 
+export const BasicVmConfigSchema = z.object({
+  os_image_hash: z.string(),
+  cpu_count: z.number(),
+  memory_size: z.number(),
+})
+
 export const VmConfigSchema = z.object({
   spec_version: z.number(),
   os_image_hash: z.string(),
@@ -141,7 +147,7 @@ export const AppInfoSchema = z.object({
   os_image_hash: z.string(),
   key_provider_info: KeyProviderSchema,
   compose_hash: z.string(),
-  vm_config: VmConfigSchema,
+  vm_config: z.union([BasicVmConfigSchema, VmConfigSchema]),
 })
 
 export const LegacyAppInfoSchema = z.object({

@@ -21,7 +21,7 @@ import { DataObjectCollector } from './utils/dataObjectCollector'
 import { maskSensitiveDataObjects } from './utils/maskSensitiveData'
 import {
   getGitCommitFromImageVersion,
-  isLegacyVersion,
+  supportsOnchainKms,
 } from './utils/metadataUtils'
 import { createVerifiers, executeVerifiers } from './verifierChain'
 import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
@@ -125,40 +125,40 @@ export class VerificationService {
    * Configure relationships between verifiers
    */
   private configureVerifierRelationships(systemInfo: SystemInfo): void {
-    const isLegacy = isLegacyVersion(systemInfo.kms_info.version)
+    const hasOnchainKms = supportsOnchainKms(systemInfo.kms_info.version)
 
     const relationships: ObjectRelationship[] = [
       // KMS -> Gateway relationships
       {
         sourceObjectId: 'kms-main',
         targetObjectId: 'gateway-main',
-        ...(isLegacy
-          ? {}
-          : {
+        ...(hasOnchainKms
+          ? {
               sourceField: 'gateway_app_id',
               targetField: 'app_id',
-            }),
+            }
+          : {}),
       },
       {
         sourceObjectId: 'kms-main',
         targetObjectId: 'gateway-main',
-        ...(isLegacy
-          ? {}
-          : {
+        ...(hasOnchainKms
+          ? {
               sourceField: 'cert_pubkey',
               targetField: 'app_cert',
-            }),
+            }
+          : {}),
       },
       // KMS -> App relationships
       {
         sourceObjectId: 'kms-main',
         targetObjectId: 'app-main',
-        ...(isLegacy
-          ? {}
-          : {
+        ...(hasOnchainKms
+          ? {
               sourceField: 'cert_pubkey',
               targetField: 'app_cert',
-            }),
+            }
+          : {}),
       },
     ]
 

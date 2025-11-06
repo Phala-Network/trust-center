@@ -1,5 +1,8 @@
+import { z } from 'zod'
+
 import { AppDataObjectGenerator } from '../dataObjects/appDataObjectGenerator'
 import {
+  BasicVmConfigSchema,
   KeyProviderSchema,
   LegacyTcbInfoSchema,
   SystemInfoSchema,
@@ -22,7 +25,8 @@ import { DstackApp } from '../utils/dstackContract'
 import {
   createImageVersion,
   createKmsVersion,
-  isLegacyVersion,
+  supportsInfoRpcEndpoint,
+  supportsOnchainKms,
 } from '../utils/metadataUtils'
 import {
   isUpToDate,
@@ -75,7 +79,9 @@ export class PhalaCloudVerifier extends Verifier {
    * Determines if an application has NVIDIA GPU support based on VM configuration
    */
   private hasNvidiaSupport(appInfo: AppInfo): boolean {
-    return appInfo.vm_config ? appInfo.vm_config.num_gpus > 0 : false
+    return appInfo.vm_config && 'num_gpus' in appInfo.vm_config
+      ? appInfo.vm_config.num_gpus > 0
+      : false
   }
 
   protected async getQuote(): Promise<QuoteData> {
@@ -112,7 +118,7 @@ export class PhalaCloudVerifier extends Verifier {
   }
 
   protected async getAppInfo(): Promise<AppInfo> {
-    if (!isLegacyVersion(this.systemInfo.kms_info.version)) {
+    if (supportsInfoRpcEndpoint(this.systemInfo.kms_info.version)) {
       const infoUrl = `${this.rpcEndpoint}/prpc/Info`
       try {
         const response = await fetch(infoUrl)
@@ -127,7 +133,7 @@ export class PhalaCloudVerifier extends Verifier {
           {
             tcb_info: TcbInfoSchema,
             key_provider_info: KeyProviderSchema,
-            vm_config: VmConfigSchema,
+            vm_config: z.union([BasicVmConfigSchema, VmConfigSchema]),
           },
         ) as AppInfo
 
@@ -303,9 +309,9 @@ export class PhalaCloudVerifier extends Verifier {
     const { ensureDstackImage } = await import('../utils/imageDownloader')
     await ensureDstackImage(imageFolderName)
 
-    const isValid = isLegacyVersion(this.systemInfo.kms_info.version)
-      ? await verifyOSIntegrityLegacy(appInfo, imageFolderName)
-      : await verifyOSIntegrity(appInfo, imageFolderName)
+    const isValid = supportsOnchainKms(this.systemInfo.kms_info.version)
+      ? await verifyOSIntegrity(appInfo, imageFolderName)
+      : await verifyOSIntegrityLegacy(appInfo, imageFolderName)
 
     // Generate DataObjects for App OS verification
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(

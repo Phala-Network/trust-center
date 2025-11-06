@@ -110,15 +110,15 @@ export async function measureDstackImages(
  * @returns Promise resolving to measurement results containing MRTD and RTMR values
  * @throws Error if the measurement process fails or tool is not installed
  */
-export async function measureDstackImagesLegacy(
-  measurementOptions: DstackMrOptions,
-): Promise<{
+export async function measureDstackImagesLegacy(options: {
+  image_folder: string
+}): Promise<{
   mrtd: string
   rtmr0: string
   rtmr1: string
   rtmr2: string
 }> {
-  const absoluteImagePath = path.resolve(measurementOptions.image_folder)
+  const absoluteImagePath = path.resolve(options.image_folder)
   const metadataPath = path.join(absoluteImagePath, 'metadata.json')
 
   const dstackMrCommand = `${DSTACK_MR_PATH} -metadata "${metadataPath}" -json`

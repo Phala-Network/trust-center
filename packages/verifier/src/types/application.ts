@@ -104,7 +104,21 @@ export interface KeyProvider {
 }
 
 /**
- * Represents the virtual machine configuration for TEE deployment.
+ * Intermediate VM configuration format used in dstack 0.5.0 - 0.5.2.
+ * Contains only the core fields without extended configuration options.
+ */
+export interface BasicVmConfig {
+  /** Hash of the operating system image */
+  os_image_hash: string
+  /** Number of CPU cores allocated */
+  cpu_count: number
+  /** Memory size in bytes */
+  memory_size: number
+}
+
+/**
+ * Full VM configuration format used in dstack >= 0.5.3.
+ * Represents the complete virtual machine configuration for TEE deployment.
  */
 export interface VmConfig {
   /** Specification version for the VM configuration */
@@ -154,6 +168,7 @@ export interface LegacyAppInfo {
 
 /**
  * Represents comprehensive application information for TEE attestation.
+ * Supports both intermediate (0.5.0-0.5.2) and full (>=0.5.3) VM config formats.
  */
 export interface AppInfo {
   /** Unique application identifier */
@@ -176,8 +191,8 @@ export interface AppInfo {
   key_provider_info: KeyProvider
   /** Hash of the Docker Compose configuration */
   compose_hash: string
-  /** Virtual machine configuration */
-  vm_config: VmConfig
+  /** Virtual machine configuration (supports both intermediate and full formats) */
+  vm_config: BasicVmConfig | VmConfig
 }
 
 /**
