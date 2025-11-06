@@ -3,6 +3,15 @@ export { VerificationService } from './verificationService'
 
 // Utility exports
 export { maskSensitiveDataObjects } from './utils/maskSensitiveData'
+export {
+  AppIdSchema,
+  ContractAddressSchema,
+  isAppId,
+  isContractAddress,
+  toAppId,
+  toContractAddress,
+} from './types/utils'
+export type { AppId, ContractAddress } from './types/utils'
 
 // Config types
 export type {

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { toAppId, toContractAddress } from './types/utils'
+import { AppIdSchema, ContractAddressSchema } from './types/utils'
 
 // Zod schemas for JSON parsing validation
 
@@ -22,11 +22,15 @@ export const QuoteSchema = z
   )
 
 export const KmsInfoSchema = z.object({
-  contract_address: z.string().transform((val) => val === '' ? null : toContractAddress(val)),
+  contract_address: z
+    .string()
+    .transform((val) => (val === '' ? null : val))
+    .nullable()
+    .pipe(z.union([z.null(), ContractAddressSchema])),
   chain_id: z.number().nullable(),
   version: z.string(),
   url: z.string(),
-  gateway_app_id: z.string().transform((val) => toAppId(val)),
+  gateway_app_id: AppIdSchema,
   gateway_app_url: z.string(),
 })
 
@@ -62,8 +66,12 @@ export const DstackInstanceSchema = z.object({
 })
 
 export const SystemInfoSchema = z.object({
-  app_id: z.string().transform((val) => toAppId(val)),
-  contract_address: z.string().transform((val) => val === '' ? null : toContractAddress(val)),
+  app_id: AppIdSchema,
+  contract_address: z
+    .string()
+    .transform((val) => (val === '' ? null : val))
+    .nullable()
+    .pipe(z.union([z.null(), ContractAddressSchema])),
   kms_info: KmsInfoSchema,
   instances: z.array(DstackInstanceSchema),
 })

@@ -1,4 +1,5 @@
-import type { z } from 'zod'
+import { isAddress } from 'viem'
+import { z } from 'zod'
 
 import type {
   AppInfo,
@@ -23,30 +24,96 @@ export type AppId = string & { readonly __brand: 'AppId' }
  * Branded type for Contract Address (Ethereum address WITH 0x prefix)
  * This ensures type safety and prevents mixing app_id and contract_address
  */
-export type ContractAddress = `0x${string}` & { readonly __brand: 'ContractAddress' }
+export type ContractAddress = `0x${string}` & {
+  readonly __brand: 'ContractAddress'
+}
+
+/**
+ * Zod schema for AppId (hex string without 0x prefix)
+ * Automatically strips 0x prefix if present and validates format
+ */
+export const AppIdSchema = z
+  .string()
+  .min(1, 'AppId cannot be empty')
+  .transform((val) => {
+    // Strip 0x prefix if present
+    const cleaned = val.toLowerCase().startsWith('0x') ? val.slice(2) : val
+    return cleaned
+  })
+  .pipe(
+    z
+      .string()
+      .regex(
+        /^[a-f0-9]+$/i,
+        'AppId must contain only hexadecimal characters',
+      )
+      .transform((val) => val as AppId),
+  )
+
+/**
+ * Zod schema for ContractAddress (Ethereum address with 0x prefix)
+ * Automatically adds 0x prefix if missing and validates using viem's isAddress
+ */
+export const ContractAddressSchema = z
+  .string()
+  .min(1, 'ContractAddress cannot be empty')
+  .transform((val) => {
+    // Add 0x prefix if missing
+    const withPrefix = val.toLowerCase().startsWith('0x')
+      ? val
+      : `0x${val}`
+    return withPrefix
+  })
+  .pipe(
+    z
+      .string()
+      .refine(
+        (val) => isAddress(val),
+        'ContractAddress must be a valid Ethereum address (0x + 40 hex characters)',
+      )
+      .transform((val) => val as ContractAddress),
+  )
+
+/**
+ * Type guard to check if a value is a valid AppId
+ *
+ * @param value - Value to check
+ * @returns true if the value matches AppId format
+ */
+export function isAppId(value: unknown): value is AppId {
+  return AppIdSchema.safeParse(value).success
+}
+
+/**
+ * Type guard to check if a value is a valid ContractAddress
+ *
+ * @param value - Value to check
+ * @returns true if the value matches ContractAddress format
+ */
+export function isContractAddress(value: unknown): value is ContractAddress {
+  return ContractAddressSchema.safeParse(value).success
+}
 
 /**
  * Converts a string to AppId format (strips 0x prefix if present)
- * This is defensive against APIs that might inconsistently include/exclude the prefix
  *
  * @param value - String that might be an app_id or contract_address
  * @returns AppId without 0x prefix
+ * @throws ZodError if the value is not a valid AppId format
  */
 export function toAppId(value: string): AppId {
-  const cleaned = value.toLowerCase().startsWith('0x') ? value.slice(2) : value
-  return cleaned as AppId
+  return AppIdSchema.parse(value)
 }
 
 /**
  * Converts a string to ContractAddress format (ensures 0x prefix)
- * This is defensive against APIs that might inconsistently include/exclude the prefix
  *
  * @param value - String that might be an app_id or contract_address
  * @returns ContractAddress with 0x prefix
+ * @throws ZodError if the value is not a valid ContractAddress format
  */
 export function toContractAddress(value: string): ContractAddress {
-  const withPrefix = value.toLowerCase().startsWith('0x') ? value : `0x${value}`
-  return withPrefix as ContractAddress
+  return ContractAddressSchema.parse(value)
 }
 
 /**

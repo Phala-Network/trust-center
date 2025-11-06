@@ -1,8 +1,12 @@
-import {VerificationService} from '@phala/dstack-verifier'
 import type {
   PhalaCloudConfig,
   RedpillConfig,
   VerificationResponse,
+} from '@phala/dstack-verifier'
+import {
+  toAppId,
+  toContractAddress,
+  VerificationService,
 } from '@phala/dstack-verifier'
 import {and, eq, gte, verificationTasksTable} from '@phala/trust-center-db'
 import {type Job, Queue, Worker} from 'bullmq'
@@ -35,8 +39,8 @@ export interface NewTaskData {
   modelOrDomain: string
   dstackVersion?: string
   isPublic?: boolean
-  metadata?: any
-  flags?: any
+  metadata?: Record<string, unknown>
+  flags?: Record<string, unknown>
   user?: string
 }
 
@@ -149,7 +153,9 @@ export const createQueueService = (
           startedAt: new Date(),
         })
 
-        console.log(`[QUEUE] Created DB record and started processing task ${postgresTaskId}`)
+        console.log(
+          `[QUEUE] Created DB record and started processing task ${postgresTaskId}`,
+        )
 
         console.log(
           `[QUEUE] Processing verification for ${appConfigType} config:`,
@@ -160,22 +166,18 @@ export const createQueueService = (
         // Create app config for VerificationService
         // Note: VerificationService will generate complete metadata from systemInfo
         // if the provided metadata is incomplete
-        let appConfig: any
-        if (appConfigType === 'redpill') {
-          // Redpill uses contractAddress
-          appConfig = {
-            contractAddress: contractAddress,
-            model: modelOrDomain,
-            metadata,
-          }
-        } else {
-          // PhalaCloud uses appId (without 0x prefix)
-          appConfig = {
-            appId: appId,
-            domain: modelOrDomain,
-            metadata,
-          }
-        }
+        const appConfig: RedpillConfig | PhalaCloudConfig =
+          appConfigType === 'redpill'
+            ? {
+                contractAddress: toContractAddress(contractAddress),
+                model: modelOrDomain,
+                metadata,
+              }
+            : {
+                appId: toAppId(appId),
+                domain: modelOrDomain,
+                metadata,
+              }
 
         // Create a new VerificationService instance for each task to avoid state pollution
         // This ensures complete isolation between concurrent verification tasks
@@ -260,9 +262,7 @@ export const createQueueService = (
         console.log(
           `[QUEUE] Uploaded verification result to S3: ${upload.s3Filename}`,
         )
-        console.log(
-          `[QUEUE] Extracted ${dataObjectIds.length} data object IDs`,
-        )
+        console.log(`[QUEUE] Extracted ${dataObjectIds.length} data object IDs`)
       }
 
       // Update PostgreSQL task status based on verification result

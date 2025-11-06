@@ -12,28 +12,7 @@ import {
   GatewayMetadataSchema,
   KmsMetadataSchema,
 } from './types/metadata'
-import {
-  toAppId,
-  toContractAddress,
-} from './types/utils'
-
-/**
- * App ID schema (without 0x prefix)
- * Handles both formats defensively - strips 0x if present
- */
-const AppIdSchema = z
-  .string()
-  .min(40)
-  .transform((val) => toAppId(val))
-
-/**
- * Contract Address schema (with 0x prefix)
- * Handles both formats defensively - adds 0x if missing
- */
-const ContractAddressSchema = z
-  .string()
-  .min(40)
-  .transform((val) => toContractAddress(val))
+import { AppIdSchema, ContractAddressSchema } from './types/utils'
 
 /**
  * Configuration for KMS verifier
