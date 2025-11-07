@@ -208,7 +208,7 @@ export interface KmsInfo {
   /** URL endpoint for the KMS service */
   url: string
   /** Gateway application ID associated with this KMS */
-  gateway_app_id: AppId
+  gateway_app_id: AppId | null
   /** URL endpoint for the associated Gateway service */
   gateway_app_url: string
 }

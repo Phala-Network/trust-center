@@ -30,7 +30,11 @@ export const KmsInfoSchema = z.object({
   chain_id: z.number().nullable(),
   version: z.string(),
   url: z.string(),
-  gateway_app_id: AppIdSchema,
+  gateway_app_id: z
+    .string()
+    .transform((val) => (val === '' ? null : val))
+    .nullable()
+    .pipe(z.union([z.null(), AppIdSchema])),
   gateway_app_url: z.string(),
 })
 

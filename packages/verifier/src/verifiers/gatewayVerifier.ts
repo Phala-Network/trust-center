@@ -15,6 +15,7 @@ import {
   parseJsonFields,
   type QuoteData,
   type SystemInfo,
+  toContractAddress,
 } from '../types'
 import type { DataObjectCollector } from '../utils/dataObjectCollector'
 import { DstackApp } from '../utils/dstackContract'
@@ -57,8 +58,13 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
 
     // Only create smart contract if governance is OnChain
     if (metadata.governance?.type === 'OnChain') {
+      if (!systemInfo.kms_info.gateway_app_id) {
+        throw new Error(
+          'Gateway application ID is required for on-chain governance',
+        )
+      }
       this.registrySmartContract = new DstackApp(
-        systemInfo.kms_info.gateway_app_id as `0x${string}`,
+        toContractAddress(systemInfo.kms_info.gateway_app_id),
         metadata.governance.chainId,
       )
     }

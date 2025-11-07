@@ -44,8 +44,13 @@ export abstract class KmsVerifier extends Verifier {
     super(metadata, 'kms', collector)
     // Only create smart contract if governance is OnChain
     if (metadata.governance?.type === 'OnChain') {
+      if (!kmsInfo.contract_address) {
+        throw new Error(
+          'KMS contract address is required for on-chain governance',
+        )
+      }
       this.registrySmartContract = new DstackKms(
-        kmsInfo.contract_address as `0x${string}`,
+        kmsInfo.contract_address,
         metadata.governance.chainId,
       )
     }
@@ -58,6 +63,9 @@ export abstract class KmsVerifier extends Verifier {
    * Retrieves the Gateway application identifier from the smart contract.
    */
   public async getGatewatyAppId(): Promise<string> {
+    if (!this.kmsInfo.gateway_app_id) {
+      throw new Error('Gateway application ID is not available in KMS info')
+    }
     return this.kmsInfo.gateway_app_id
   }
 
