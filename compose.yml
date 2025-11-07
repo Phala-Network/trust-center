@@ -5,12 +5,10 @@ services:
     image: redis:8-alpine
     container_name: dstack-verifier-redis
     restart: unless-stopped
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
 
   # DStack Verifier Server
   server:
+    platform: linux/amd64
     image: kdon1204/dstack-verifier:latest
     container_name: dstack-verifier-server
     restart: unless-stopped
@@ -60,5 +58,4 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"
 
 volumes:
-  redis_data:
   dstack_images:
