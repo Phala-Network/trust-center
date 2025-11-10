@@ -20,9 +20,12 @@ export const generateMetadata = async ({params}: AppPageProps) => {
     }
   }
 
+  // Use displayName if available, otherwise fallback to appName
+  const displayName = app.profile?.displayName || app.appName
+
   return {
-    title: `${app.appName}`,
-    description: `Trust report for ${app.appName} by Phala`,
+    title: displayName,
+    description: `Trust report for ${displayName} by Phala`,
   }
 }
 

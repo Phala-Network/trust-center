@@ -19,9 +19,11 @@ export const generateMetadata = async ({params}: WidgetDemoPageProps) => {
   if (task == null) {
     notFound()
   }
+  // Use displayName if available, otherwise fallback to appName
+  const displayName = task.profile?.displayName || task.appName
   return {
-    title: `${task.appName} - Widget Demo`,
-    description: `Widget demo for ${task.appName}`,
+    title: `${displayName} - Widget Demo`,
+    description: `Widget demo for ${displayName}`,
   }
 }
 

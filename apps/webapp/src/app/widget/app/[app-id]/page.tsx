@@ -19,9 +19,11 @@ export const generateMetadata = async ({params}: WidgetAppPageProps) => {
   if (app == null) {
     notFound()
   }
+  // Use displayName if available, otherwise fallback to appName
+  const displayName = app.profile?.displayName || app.appName
   return {
-    title: `${app.appName} - Trust Report Widget`,
-    description: `Trust report widget for ${app.appName}`,
+    title: `${displayName} - Trust Report Widget`,
+    description: `Trust report widget for ${displayName}`,
   }
 }
 
