@@ -226,7 +226,7 @@ export async function getApps(params?: {
       .groupBy(verificationTasksTable.appId),
   )
 
-  // Join with all three profile tables
+  // Join with all three profile tables and filter by isPublic at query level
   const results = await db
     .with(latestTasks)
     .select(profileSelection)
@@ -259,6 +259,11 @@ export async function getApps(params?: {
         eq(userProfileTable.entityId, verificationTasksTable.creatorId),
       ),
     )
+    .where(
+      // IMPORTANT: Filter by isPublic=true AFTER getting latest tasks
+      // This ensures we use the latest task to determine public status
+      eq(verificationTasksTable.isPublic, true),
+    )
     .orderBy(
       // Sort apps with user/owner first, then by creation time descending
       sql`CASE WHEN ${verificationTasksTable.user} IS NULL THEN 1 ELSE 0 END`,
@@ -267,11 +272,7 @@ export async function getApps(params?: {
 
   // Convert to AppTask and apply post-JOIN filters
   const appTasks = results.map(resultToAppTask)
-
-  // IMPORTANT: Filter by isPublic=true AFTER getting latest tasks
-  // This ensures we use the latest task to determine public status
-  // (not skip to an older public task)
-  let filteredTasks = appTasks.filter((task) => task.isPublic === true)
+  let filteredTasks = appTasks
 
   // Apply owner filter after JOIN (so we can match workspace/user displayNames)
   if (params?.users && params.users.length > 0) {
