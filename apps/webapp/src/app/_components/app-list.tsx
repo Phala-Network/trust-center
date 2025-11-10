@@ -1,4 +1,4 @@
-import {Activity, AlertCircle, ExternalLink, SearchX} from 'lucide-react'
+import {Activity, AlertCircle, SearchX} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {memo} from 'react'
@@ -18,6 +18,8 @@ const AppCard = memo(function AppCard({app}: {app: AppTask}) {
   const displayName = app.profile?.displayName || app.appName
   // Show workspace displayName if available, otherwise fallback to user field
   const displayOwner = app.workspaceProfile?.displayName || app.user
+  // Use customDomain if available, otherwise fallback to modelOrDomain
+  const displayDomain = app.profile?.customDomain || app.modelOrDomain
 
   // Avatar priority: app → workspace → user
   const avatarUrl =
@@ -85,15 +87,6 @@ const AppCard = memo(function AppCard({app}: {app: AppTask}) {
                   {badges.kmsBadge.text}
                 </Badge>
               )}
-              {app.profile?.customDomain && (
-                <Badge
-                  variant="outline"
-                  className="flex items-center gap-1 text-xs h-5 px-2 font-medium"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  {app.profile.customDomain}
-                </Badge>
-              )}
             </div>
           </div>
         </div>
@@ -115,7 +108,7 @@ const AppCard = memo(function AppCard({app}: {app: AppTask}) {
             Domain
           </span>
           <span className="flex-1 truncate text-foreground">
-            {app.modelOrDomain}
+            {displayDomain}
           </span>
         </div>
 

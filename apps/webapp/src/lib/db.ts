@@ -481,16 +481,37 @@ export async function getAppTasks(appId: string): Promise<Task[]> {
   return results.map(taskToPublic)
 }
 
-// Get task by ID
-export async function getTaskById(taskId: string): Promise<Task | null> {
+// Get task by ID with profile information
+export async function getTaskById(taskId: string): Promise<AppTask | null> {
   const results = await db
-    .select()
+    .select(profileSelection)
     .from(verificationTasksTable)
+    .leftJoin(
+      appProfileTable,
+      and(
+        eq(appProfileTable.entityType, 'app'),
+        eq(appProfileTable.entityId, verificationTasksTable.appProfileId),
+      ),
+    )
+    .leftJoin(
+      workspaceProfileTable,
+      and(
+        eq(workspaceProfileTable.entityType, 'workspace'),
+        eq(workspaceProfileTable.entityId, verificationTasksTable.workspaceId),
+      ),
+    )
+    .leftJoin(
+      userProfileTable,
+      and(
+        eq(userProfileTable.entityType, 'user'),
+        eq(userProfileTable.entityId, verificationTasksTable.creatorId),
+      ),
+    )
     .where(eq(verificationTasksTable.id, taskId))
     .limit(1)
 
-  const task = results[0]
-  return task ? taskToPublic(task) : null
+  const result = results[0]
+  return result ? resultToAppTask(result) : null
 }
 
 // Get task by app and task ID
