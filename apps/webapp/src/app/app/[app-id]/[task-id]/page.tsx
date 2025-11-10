@@ -18,6 +18,9 @@ export const generateMetadata = async ({params}: TaskPageProps) => {
     notFound()
   }
 
+  // Use displayName if available, otherwise fallback to appName
+  const displayName = app.profile?.displayName || app.appName
+
   // Only allow indexing for public apps
   const robots = app.isPublic ? undefined : {
     index: false,
@@ -25,8 +28,8 @@ export const generateMetadata = async ({params}: TaskPageProps) => {
   }
 
   return {
-    title: `${app.appName}`,
-    description: `Trust report for ${app.appName} by Phala`,
+    title: displayName,
+    description: `Trust report for ${displayName} by Phala`,
     ...(robots && { robots }),
   }
 }

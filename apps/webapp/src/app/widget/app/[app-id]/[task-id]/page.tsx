@@ -1,6 +1,7 @@
 import {notFound} from 'next/navigation'
 
 import WidgetClient from '@/components/widget-client'
+import {type CompactReportWidgetConfig} from '@/components/visualization/compact-report-widget'
 import {getTask} from '@/lib/db'
 
 interface WidgetTaskPageProps {
@@ -19,9 +20,11 @@ export const generateMetadata = async ({params}: WidgetTaskPageProps) => {
   if (task == null) {
     notFound()
   }
+  // Use displayName if available, otherwise fallback to appName
+  const displayName = task.profile?.displayName || task.appName
   return {
-    title: `${task.appName} - Trust Report Widget`,
-    description: `Trust report widget for ${task.appName}`,
+    title: `${displayName} - Trust Report Widget`,
+    description: `Trust report widget for ${displayName}`,
   }
 }
 
@@ -30,7 +33,7 @@ export default async function WidgetTaskPage({params, searchParams}: WidgetTaskP
   const {config: configParam} = await searchParams
 
   // Parse config from URL and expand short keys
-  let config
+  let config: CompactReportWidgetConfig | undefined
   if (configParam) {
     try {
       // searchParams is already URL-decoded by Next.js

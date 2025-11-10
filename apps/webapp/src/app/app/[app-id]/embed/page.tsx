@@ -24,9 +24,12 @@ export const generateMetadata = async ({params}: EmbedPageProps) => {
     }
   }
 
+  // Use displayName if available, otherwise fallback to appName
+  const displayName = app.profile?.displayName || app.appName
+
   return {
-    title: `${app.appName} - Embedded Report`,
-    description: `Trust report for ${app.appName} by Phala`,
+    title: `${displayName} - Embedded Report`,
+    description: `Trust report for ${displayName} by Phala`,
     robots: {
       index: false,
       follow: false,
