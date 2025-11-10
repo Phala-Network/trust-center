@@ -1,3 +1,0 @@
-ALTER TABLE "verification_tasks" ALTER COLUMN "app_profile_id" SET DATA TYPE integer USING NULLIF(app_profile_id, '')::integer;--> statement-breakpoint
-ALTER TABLE "verification_tasks" ALTER COLUMN "workspace_id" SET DATA TYPE integer USING NULLIF(workspace_id, '')::integer;--> statement-breakpoint
-ALTER TABLE "verification_tasks" ALTER COLUMN "creator_id" SET DATA TYPE integer USING NULLIF(creator_id, '')::integer;

@@ -11,9 +11,9 @@ CREATE TABLE "profiles" (
 	"updated_at" timestamp
 );
 --> statement-breakpoint
-ALTER TABLE "verification_tasks" ADD COLUMN "app_profile_id" text;--> statement-breakpoint
-ALTER TABLE "verification_tasks" ADD COLUMN "workspace_id" text;--> statement-breakpoint
-ALTER TABLE "verification_tasks" ADD COLUMN "creator_id" text;--> statement-breakpoint
+ALTER TABLE "verification_tasks" ADD COLUMN "app_profile_id" integer;--> statement-breakpoint
+ALTER TABLE "verification_tasks" ADD COLUMN "workspace_id" integer;--> statement-breakpoint
+ALTER TABLE "verification_tasks" ADD COLUMN "creator_id" integer;--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_unique_idx" ON "profiles" USING btree ("entity_type","entity_id");--> statement-breakpoint
 CREATE INDEX "profiles_entity_type_index" ON "profiles" USING btree ("entity_type");--> statement-breakpoint
 CREATE INDEX "profiles_entity_id_index" ON "profiles" USING btree ("entity_id");--> statement-breakpoint

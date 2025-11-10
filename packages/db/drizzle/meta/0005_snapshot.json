@@ -1,5 +1,5 @@
 {
-  "id": "7da3c1c3-1acc-40ae-aa3e-cb84edaf7c5d",
+  "id": "86ea1c7d-4f0d-4e7c-917e-7a845f83fd38",
   "prevId": "102ec2a7-5697-4f52-b232-684df3171411",
   "version": "7",
   "dialect": "postgresql",
@@ -186,7 +186,7 @@
         },
         "app_profile_id": {
           "name": "app_profile_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
@@ -286,13 +286,13 @@
         },
         "workspace_id": {
           "name": "workspace_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
         "creator_id": {
           "name": "creator_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
