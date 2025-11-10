@@ -48,6 +48,7 @@ interface BaseFilterParams {
 
 // Build base where conditions for public completed tasks (without keyword search)
 // By default includes 2-day filter for app list, but can be disabled for detail pages
+// Note: keyword and owner filtering are done after JOIN to enable profile displayName matching
 function buildBaseWhereConditions(params?: BaseFilterParams) {
   const conditions = [
     eq(verificationTasksTable.status, 'completed'),
@@ -60,17 +61,7 @@ function buildBaseWhereConditions(params?: BaseFilterParams) {
     conditions.push(gte(verificationTasksTable.createdAt, twoDaysAgo))
   }
 
-  // Note: keyword filtering is done after JOIN with profiles to enable profile displayName search
   return conditions
-}
-
-// Build keyword search condition (after JOIN with profiles)
-function buildKeywordCondition(keyword: string) {
-  return sql`(
-    ${verificationTasksTable.appName} ILIKE ${`%${keyword}%`} OR
-    ${verificationTasksTable.appId} ILIKE ${`%${keyword}%`} OR
-    ${appProfileTable.displayName} ILIKE ${`%${keyword}%`}
-  )`
 }
 
 // Create aliases for the three profile tables using Drizzle's alias()
@@ -219,15 +210,6 @@ export async function getApps(params?: {
     )
   }
 
-  if (params?.users && params.users.length > 0) {
-    whereConditions.push(
-      sql`${verificationTasksTable.user} IN (${sql.join(
-        params.users.map((u) => sql`${u}`),
-        sql`, `,
-      )})`,
-    )
-  }
-
   // Get latest task for each unique appId
   const latestTasks = db.$with('latest_tasks').as(
     db
@@ -242,7 +224,7 @@ export async function getApps(params?: {
       .groupBy(verificationTasksTable.appId),
   )
 
-  // Join with all three profile tables and apply keyword filter
+  // Join with all three profile tables
   const results = await db
     .with(latestTasks)
     .select(profileSelection)
@@ -275,14 +257,40 @@ export async function getApps(params?: {
         eq(userProfileTable.entityId, verificationTasksTable.creatorId),
       ),
     )
-    .where(params?.keyword ? buildKeywordCondition(params.keyword) : undefined)
     .orderBy(
       // Sort apps with user/owner first, then by creation time descending
       sql`CASE WHEN ${verificationTasksTable.user} IS NULL THEN 1 ELSE 0 END`,
       desc(verificationTasksTable.createdAt),
     )
 
-  return results.map(resultToAppTask)
+  // Convert to AppTask and apply post-JOIN filters
+  const appTasks = results.map(resultToAppTask)
+
+  // Apply owner filter after JOIN (so we can match workspace/user displayNames)
+  let filteredTasks = appTasks
+  if (params?.users && params.users.length > 0) {
+    filteredTasks = appTasks.filter((task) => {
+      // Owner priority: workspaceProfile.displayName > userProfile.displayName > task.user
+      const owner =
+        task.workspaceProfile?.displayName ||
+        task.userProfile?.displayName ||
+        task.user
+      return owner && params.users!.includes(owner)
+    })
+  }
+
+  // Apply keyword filter after JOIN (so we can match profile displayNames)
+  if (params?.keyword) {
+    const keyword = params.keyword.toLowerCase()
+    filteredTasks = filteredTasks.filter(
+      (task) =>
+        task.appName.toLowerCase().includes(keyword) ||
+        task.appId.toLowerCase().includes(keyword) ||
+        task.profile?.displayName?.toLowerCase().includes(keyword),
+    )
+  }
+
+  return filteredTasks
 }
 
 // Get all unique dstack versions from latest completed tasks (apps) with app counts
@@ -331,45 +339,82 @@ export async function getDstackVersions(params?: {
 }
 
 // Get all unique users from latest completed tasks (apps) with app counts
+// Get all owners (including user field and profiles with displayName)
+// Returns unique owners from both legacy user field and new profile system
 export async function getUsers(params?: {
   keyword?: string
 }): Promise<Array<{user: string; count: number}>> {
   // Build base where conditions (status, isPublic, time filter, keyword)
   const whereConditions = buildBaseWhereConditions(params)
 
-  // Get latest task for each unique appId
+  // Get latest task for each unique appId with profile information
   const latestTasks = db.$with('latest_tasks').as(
     db
       .select({
         appId: verificationTasksTable.appId,
         user: verificationTasksTable.user,
+        workspaceId: verificationTasksTable.workspaceId,
+        creatorId: verificationTasksTable.creatorId,
         maxCreatedAt: sql<string>`max(${verificationTasksTable.createdAt})`.as(
           'maxCreatedAt',
         ),
       })
       .from(verificationTasksTable)
       .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-      .groupBy(verificationTasksTable.appId, verificationTasksTable.user),
+      .groupBy(
+        verificationTasksTable.appId,
+        verificationTasksTable.user,
+        verificationTasksTable.workspaceId,
+        verificationTasksTable.creatorId,
+      ),
   )
 
-  // Count apps per user
+  // Join with workspace and user profiles to get displayNames
   const results = await db
     .with(latestTasks)
     .select({
-      user: latestTasks.user,
-      count: sql<number>`count(distinct ${latestTasks.appId})`.as('count'),
+      legacyUser: latestTasks.user,
+      workspaceDisplayName: workspaceProfileTable.displayName,
+      userDisplayName: userProfileTable.displayName,
+      appId: latestTasks.appId,
     })
     .from(latestTasks)
-    .where(sql`${latestTasks.user} IS NOT NULL`)
-    .groupBy(latestTasks.user)
-    .orderBy(latestTasks.user)
+    .leftJoin(
+      workspaceProfileTable,
+      and(
+        eq(workspaceProfileTable.entityType, 'workspace'),
+        eq(workspaceProfileTable.entityId, latestTasks.workspaceId),
+      ),
+    )
+    .leftJoin(
+      userProfileTable,
+      and(
+        eq(userProfileTable.entityType, 'user'),
+        eq(userProfileTable.entityId, latestTasks.creatorId),
+      ),
+    )
 
-  return results
-    .map((r) => ({
-      user: r.user as string,
-      count: r.count,
+  // Aggregate owners: priority is workspaceDisplayName > userDisplayName > legacyUser
+  const ownerMap = new Map<string, Set<string>>()
+
+  for (const row of results) {
+    const owner =
+      row.workspaceDisplayName || row.userDisplayName || row.legacyUser
+    if (owner) {
+      if (!ownerMap.has(owner)) {
+        ownerMap.set(owner, new Set())
+      }
+      ownerMap.get(owner)!.add(row.appId)
+    }
+  }
+
+  // Convert to array and sort
+  return Array.from(ownerMap.entries())
+    .map(([user, appIds]) => ({
+      user,
+      count: appIds.size,
     }))
-    .filter((u): u is {user: string; count: number} => u.user !== null)
+    .sort((a, b) => a.user.localeCompare(b.user))
 }
 
 // Get a single app by ID (latest task for this app)
