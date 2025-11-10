@@ -1,7 +1,10 @@
 import {
+  and,
   createDbConnection,
   type DbConnection,
   eq,
+  lt,
+  or,
   type VerificationTaskStatus,
   verificationTasksTable,
 } from '@phala/trust-center-db'
@@ -64,9 +67,30 @@ export const createVerificationTaskService = (
     await db.insert(verificationTasksTable).values(taskData)
   }
 
+  // Delete old failed/cancelled tasks (older than specified hours)
+  const cleanupFailedTasks = async (olderThanHours = 24): Promise<number> => {
+    const cutoffDate = new Date(Date.now() - olderThanHours * 60 * 60 * 1000)
+
+    const result = await db
+      .delete(verificationTasksTable)
+      .where(
+        and(
+          or(
+            eq(verificationTasksTable.status, 'failed'),
+            eq(verificationTasksTable.status, 'cancelled'),
+          ),
+          lt(verificationTasksTable.createdAt, cutoffDate),
+        ),
+      )
+      .returning({ id: verificationTasksTable.id })
+
+    return result.length
+  }
+
   return {
     updateVerificationTask,
     createTask,
+    cleanupFailedTasks,
     getDb: () => db,
   }
 }

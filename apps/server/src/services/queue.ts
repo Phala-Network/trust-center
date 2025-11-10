@@ -35,6 +35,7 @@ export interface TaskData extends TaskCreateRequest {
   postgresTaskId: string // PostgreSQL task ID for correlation
   dstackVersion?: string
   isPublic?: boolean
+  forceRefresh?: boolean // Skip 24h duplicate check if true
 }
 
 // NewTaskData for queue - uses Partial to make optional fields
@@ -54,7 +55,9 @@ export type NewTaskData = Pick<
       | 'workspaceId'
       | 'creatorId'
     >
-  >
+  > & {
+    forceRefresh?: boolean // Skip 24h duplicate check if true
+  }
 
 export interface TaskResult {
   postgresTaskId: string // Include this for correlation
@@ -112,43 +115,51 @@ export const createQueueService = (
         user,
         workspaceId,
         creatorId,
+        forceRefresh,
       } = job.data
 
       try {
         console.log(
-          `[QUEUE] Processing verification task ${postgresTaskId} for app ${appId}/${appName}`,
+          `[QUEUE] Processing verification task ${postgresTaskId} for app ${appId}/${appName}${forceRefresh ? ' (force refresh)' : ''}`,
         )
         if (!isAddress(contractAddress)) {
           throw new Error(`Invalid contract address: ${contractAddress}`)
         }
 
         // Check if app has a recent completed report (within last 24 hours)
-        const oneDayAgo = new Date()
-        oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+        // Skip this check if forceRefresh is true
+        if (!forceRefresh) {
+          const oneDayAgo = new Date()
+          oneDayAgo.setDate(oneDayAgo.getDate() - 1)
 
-        const db = verificationTaskService.getDb()
-        const recentReports = await db
-          .select({id: verificationTasksTable.id})
-          .from(verificationTasksTable)
-          .where(
-            and(
-              eq(verificationTasksTable.appId, appId),
-              eq(verificationTasksTable.status, 'completed'),
-              gte(verificationTasksTable.createdAt, oneDayAgo),
-            ),
-          )
-          .limit(1)
+          const db = verificationTaskService.getDb()
+          const recentReports = await db
+            .select({id: verificationTasksTable.id})
+            .from(verificationTasksTable)
+            .where(
+              and(
+                eq(verificationTasksTable.appId, appId),
+                eq(verificationTasksTable.status, 'completed'),
+                gte(verificationTasksTable.createdAt, oneDayAgo),
+              ),
+            )
+            .limit(1)
 
-        if (recentReports.length > 0) {
-          console.log(
-            `[QUEUE] Skipping task ${postgresTaskId} - app ${appId} has a report within last 24 hours`,
-          )
-          // Don't create DB record for skipped tasks
-          return {
-            postgresTaskId,
-            success: true,
-            processingTimeMs: Date.now() - startTime,
+          if (recentReports.length > 0) {
+            console.log(
+              `[QUEUE] Skipping task ${postgresTaskId} - app ${appId} has a report within last 24 hours`,
+            )
+            // Don't create DB record for skipped tasks
+            return {
+              postgresTaskId,
+              success: true,
+              processingTimeMs: Date.now() - startTime,
+            }
           }
+        } else {
+          console.log(
+            `[QUEUE] Force refresh enabled - skipping 24h duplicate check for app ${appId}`,
+          )
         }
 
         // Validate required IDs exist (should always be present for new tasks)
@@ -457,6 +468,7 @@ export const createQueueService = (
       user: taskData.user || undefined,
       workspaceId: taskData.workspaceId,
       creatorId: taskData.creatorId,
+      forceRefresh: taskData.forceRefresh,
     }
 
     const job = await queue.add('verification', queueData, {
