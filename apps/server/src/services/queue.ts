@@ -8,7 +8,13 @@ import {
   toContractAddress,
   VerificationService,
 } from '@phala/dstack-verifier'
-import {and, eq, gte, verificationTasksTable} from '@phala/trust-center-db'
+import {
+  and,
+  eq,
+  gte,
+  type NewVerificationTask,
+  verificationTasksTable,
+} from '@phala/trust-center-db'
 import {type Job, Queue, Worker} from 'bullmq'
 import IORedis from 'ioredis'
 import {isAddress} from 'viem'
@@ -31,19 +37,24 @@ export interface TaskData extends TaskCreateRequest {
   isPublic?: boolean
 }
 
-export interface NewTaskData {
-  appId: string
-  appProfileId: string
-  appName: string
-  appConfigType: 'phala_cloud' | 'redpill'
-  contractAddress: string
-  modelOrDomain: string
-  dstackVersion?: string
-  isPublic?: boolean
-  metadata?: Record<string, unknown>
-  flags?: Record<string, unknown>
-  user?: string
-}
+// NewTaskData for queue - uses Partial to make optional fields
+export type NewTaskData = Pick<
+  NewVerificationTask,
+  'appId' | 'appName' | 'appConfigType' | 'contractAddress' | 'modelOrDomain'
+> &
+  Partial<
+    Pick<
+      NewVerificationTask,
+      | 'appProfileId'
+      | 'dstackVersion'
+      | 'isPublic'
+      | 'appMetadata'
+      | 'verificationFlags'
+      | 'user'
+      | 'workspaceId'
+      | 'creatorId'
+    >
+  >
 
 export interface TaskResult {
   postgresTaskId: string // Include this for correlation
@@ -144,7 +155,7 @@ export const createQueueService = (
         await verificationTaskService.createTask({
           id: postgresTaskId,
           appId,
-          appProfileId, // Required field
+          appProfileId: appProfileId || '', // Default to empty string if undefined
           appName,
           appConfigType,
           contractAddress,
@@ -419,16 +430,16 @@ export const createQueueService = (
     const queueData: TaskData = {
       postgresTaskId: taskId,
       appId: taskData.appId,
-      appProfileId: taskData.appProfileId,
+      appProfileId: taskData.appProfileId || undefined,
       appName: taskData.appName,
       appConfigType: taskData.appConfigType,
       contractAddress: taskData.contractAddress,
       modelOrDomain: taskData.modelOrDomain,
-      dstackVersion: taskData.dstackVersion,
+      dstackVersion: taskData.dstackVersion || undefined,
       isPublic: taskData.isPublic,
-      metadata: taskData.metadata,
-      flags: taskData.flags,
-      user: taskData.user,
+      metadata: taskData.appMetadata,
+      flags: taskData.verificationFlags as any, // TaskCreateRequest uses 'flags', DB uses 'verificationFlags'
+      user: taskData.user || undefined,
     }
 
     const job = await queue.add('verification', queueData, {

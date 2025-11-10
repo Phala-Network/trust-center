@@ -55,7 +55,7 @@ export const VerificationFlagsSchema = z.object({
 
 export const TaskCreateRequestSchema = z.object({
   appId: z.string(),
-  appProfileId: z.string(),
+  appProfileId: z.string().optional(), // Optional for backward compatibility
   appName: z.string(),
   appConfigType: AppConfigTypeSchema,
   contractAddress: z.string(),
@@ -103,6 +103,18 @@ export const ProfileSchema = z.object({
   customDomain: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
+})
+
+// Upstream profile data schema (from Metabase) - for validation
+export const UpstreamProfileDataSchema = z.object({
+  entity_type: ProfileEntityTypeSchema,
+  entity_id: z.number(),
+  display_name: z.string().nullable(),
+  avatar_url: z.string().nullable(),
+  description: z.string().nullable(),
+  custom_domain: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string().nullable(),
 })
 
 // Verification tasks table - stores VerificationService execution data
@@ -218,11 +230,14 @@ export type VerificationFlags = z.infer<typeof VerificationFlagsSchema>
 export type TaskCreateRequest = z.infer<typeof TaskCreateRequestSchema>
 export type Task = z.infer<typeof TaskSchema>
 export type Profile = z.infer<typeof ProfileSchema>
+export type UpstreamProfileData = z.infer<typeof UpstreamProfileDataSchema>
 
 // Drizzle inferred types
 export type VerificationTask = typeof verificationTasksTable.$inferSelect
+export type NewVerificationTask = typeof verificationTasksTable.$inferInsert
 export type VerificationTaskStatus =
   (typeof verificationTaskStatusEnum.enumValues)[number]
 export type AppConfigType = (typeof appConfigTypeEnum.enumValues)[number]
 export type ProfileEntityType = (typeof profileEntityTypeEnum.enumValues)[number]
 export type ProfileRecord = typeof profilesTable.$inferSelect
+export type NewProfileRecord = typeof profilesTable.$inferInsert

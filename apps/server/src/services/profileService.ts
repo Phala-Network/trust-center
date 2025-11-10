@@ -1,27 +1,16 @@
 import {
-  and,
   createDbConnection,
   eq,
   inArray,
   profilesTable,
   sql,
   type DbConnection,
-  type ProfileEntityType,
+  type UpstreamProfileData,
+  UpstreamProfileDataSchema,
 } from '@phala/trust-center-db'
 
-export interface ProfileData {
-  entityType: ProfileEntityType
-  entityId: number
-  displayName: string | null
-  avatarUrl: string | null
-  description: string | null
-  customDomain: string | null
-  createdAt: string
-  updatedAt: string | null
-}
-
 export interface ProfileService {
-  syncProfiles: (profiles: ProfileData[]) => Promise<void>
+  syncProfiles: (profiles: UpstreamProfileData[]) => Promise<void>
 }
 
 export function createProfileService(
@@ -37,7 +26,9 @@ export function createProfileService(
    * Sync profiles using full sync strategy (upsert + delete stale records)
    * This ensures database is exactly in sync with upstream Metabase data
    */
-  const syncProfiles = async (profiles: ProfileData[]): Promise<void> => {
+  const syncProfiles = async (
+    profiles: UpstreamProfileData[],
+  ): Promise<void> => {
     if (profiles.length === 0) {
       console.warn('[PROFILE] No profiles to sync, skipping sync')
       return
@@ -45,10 +36,23 @@ export function createProfileService(
 
     console.log(`[PROFILE] Starting full sync for ${profiles.length} profiles`)
 
+    // Validate all profiles with Zod schema
+    const validatedProfiles = profiles.map((p, index) => {
+      const result = UpstreamProfileDataSchema.safeParse(p)
+      if (!result.success) {
+        console.error(
+          `[PROFILE] Invalid profile data at index ${index}:`,
+          result.error,
+        )
+        throw new Error(`Invalid profile data at index ${index}`)
+      }
+      return result.data
+    })
+
     // Build composite keys map for upstream profiles
-    const upstreamMap = new Map<string, ProfileData>()
-    for (const profile of profiles) {
-      const key = `${profile.entityType}:${profile.entityId}`
+    const upstreamMap = new Map<string, UpstreamProfileData>()
+    for (const profile of validatedProfiles) {
+      const key = `${profile.entity_type}:${profile.entity_id}`
       upstreamMap.set(key, profile)
     }
 
@@ -70,15 +74,16 @@ export function createProfileService(
     }
 
     // Prepare values for upsert (insert new + update existing)
+    // Map snake_case upstream data to camelCase database fields
     const values = Array.from(upstreamMap.values()).map((p) => ({
-      id: `${p.entityType}:${p.entityId}`,
-      entityType: p.entityType,
-      entityId: p.entityId,
-      displayName: p.displayName,
-      avatarUrl: p.avatarUrl,
+      id: `${p.entity_type}:${p.entity_id}`,
+      entityType: p.entity_type,
+      entityId: p.entity_id,
+      displayName: p.display_name,
+      avatarUrl: p.avatar_url,
       description: p.description,
-      customDomain: p.customDomain,
-      updatedAt: new Date(p.updatedAt),
+      customDomain: p.custom_domain,
+      updatedAt: p.updated_at ? new Date(p.updated_at) : null,
     }))
 
     // Upsert all profiles in one operation

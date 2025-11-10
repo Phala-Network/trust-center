@@ -492,7 +492,7 @@ export async function getTask(
 
 // Profile types for frontend
 export interface AppProfile {
-  displayName: string
+  displayName: string | null
   avatarUrl: string | null
   fullAvatarUrl: string | null // Full URL with CDN prefix
   description?: string
@@ -500,7 +500,7 @@ export interface AppProfile {
 }
 
 export interface WorkspaceProfile {
-  displayName: string
+  displayName: string | null
   avatarUrl: string | null
   fullAvatarUrl: string | null
 }

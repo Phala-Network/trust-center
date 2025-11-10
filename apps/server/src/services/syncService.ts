@@ -407,18 +407,8 @@ export function createSyncService(
       }
 
       // Sync profiles to database using profileService
-      await profileService.syncProfiles(
-        profiles.map((p) => ({
-          entityType: p.entity_type as ProfileEntityType,
-          entityId: p.entity_id,
-          displayName: p.display_name,
-          avatarUrl: p.avatar_url,
-          description: p.description,
-          customDomain: p.custom_domain,
-          createdAt: p.created_at,
-          updatedAt: p.updated_at,
-        })),
-      )
+      // Pass profiles directly - they already have snake_case format from Metabase
+      await profileService.syncProfiles(profiles)
 
       console.log(`[SYNC] Synced ${profiles.length} profiles successfully`)
       return {profilesSynced: profiles.length, profiles}
