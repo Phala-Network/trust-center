@@ -1,6 +1,7 @@
 'use server'
 
 import {
+  alias,
   and,
   createDbConnection,
   desc,
@@ -22,29 +23,20 @@ const db = createDbConnection(env.DATABASE_POSTGRES_URL)
 // Avatar base URL for Phala Cloud R2
 const AVATAR_BASE_URL = 'https://cloud-r2.phala.com'
 
-export interface App {
-  id: string
-  appId: string
-  appName: string
-  appConfigType: 'redpill' | 'phala_cloud'
-  contractAddress: string
-  modelOrDomain: string
-  verificationFlags: VerificationFlags | null
-  status: string
-  errorMessage?: string
-  s3Filename?: string
-  s3Key?: string
-  s3Bucket?: string
-  createdAt: string
-  startedAt?: string
-  finishedAt?: string
-  user?: string
-  dstackVersion?: string
+// User profile
+export interface UserProfile {
+  displayName: string | null
+  avatarUrl: string | null
+  fullAvatarUrl: string | null
+  description?: string
+}
+
+// Extended Task with profile information for frontend
+export interface AppTask extends Task {
   dataObjectsCount?: number
-  dataObjects?: string[]
-  isPublic: boolean
   profile?: AppProfile | null
   workspaceProfile?: WorkspaceProfile | null
+  userProfile?: UserProfile | null
 }
 
 // Common filter parameters
@@ -53,7 +45,7 @@ interface BaseFilterParams {
   includeDateFilter?: boolean // If false, no date restriction
 }
 
-// Build base where conditions for public completed tasks
+// Build base where conditions for public completed tasks (without keyword search)
 // By default includes 2-day filter for app list, but can be disabled for detail pages
 function buildBaseWhereConditions(params?: BaseFilterParams) {
   const conditions = [
@@ -67,13 +59,111 @@ function buildBaseWhereConditions(params?: BaseFilterParams) {
     conditions.push(gte(verificationTasksTable.createdAt, twoDaysAgo))
   }
 
-  if (params?.keyword) {
-    conditions.push(
-      sql`(${verificationTasksTable.appName} ILIKE ${`%${params.keyword}%`} OR ${verificationTasksTable.appId} ILIKE ${`%${params.keyword}%`})`,
-    )
+  // Note: keyword filtering is done after JOIN with profiles to enable profile displayName search
+  return conditions
+}
+
+// Build keyword search condition (after JOIN with profiles)
+function buildKeywordCondition(keyword: string) {
+  return sql`(
+    ${verificationTasksTable.appName} ILIKE ${`%${keyword}%`} OR
+    ${verificationTasksTable.appId} ILIKE ${`%${keyword}%`} OR
+    ${appProfileTable.displayName} ILIKE ${`%${keyword}%`}
+  )`
+}
+
+// Create aliases for the three profile tables using Drizzle's alias()
+const appProfileTable = alias(profilesTable, 'app_profile')
+const workspaceProfileTable = alias(profilesTable, 'workspace_profile')
+const userProfileTable = alias(profilesTable, 'user_profile')
+
+// Helper: Profile selection object with JOINs for all profiles
+const profileSelection = {
+  task: verificationTasksTable,
+  appProfile: appProfileTable,
+  workspaceProfile: workspaceProfileTable,
+  userProfile: userProfileTable,
+}
+
+// Helper: Convert query result to AppTask with profile data
+function resultToAppTask(result: {
+  task: typeof verificationTasksTable.$inferSelect
+  appProfile: typeof profilesTable.$inferSelect | null
+  workspaceProfile: typeof profilesTable.$inferSelect | null
+  userProfile: typeof profilesTable.$inferSelect | null
+}): AppTask {
+  const task = result.task
+  const appProfile = result.appProfile
+  const workspaceProfile = result.workspaceProfile
+  const userProfile = result.userProfile
+
+  // Avatar priority: app → workspace → user
+  let avatarUrl: string | null = null
+  if (appProfile?.avatarUrl) {
+    avatarUrl = appProfile.avatarUrl
+  } else if (workspaceProfile?.avatarUrl) {
+    avatarUrl = workspaceProfile.avatarUrl
+  } else if (userProfile?.avatarUrl) {
+    avatarUrl = userProfile.avatarUrl
   }
 
-  return conditions
+  const fullAvatarUrl = avatarUrl ? `${AVATAR_BASE_URL}/${avatarUrl}` : null
+
+  return {
+    id: task.id,
+    appId: task.appId,
+    appName: task.appName,
+    appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
+    contractAddress: task.contractAddress,
+    modelOrDomain: task.modelOrDomain,
+    verificationFlags: task.verificationFlags as VerificationFlags | null,
+    status: task.status,
+    errorMessage: task.errorMessage || undefined,
+    s3Filename: task.s3Filename || undefined,
+    s3Key: task.s3Key || undefined,
+    s3Bucket: task.s3Bucket || undefined,
+    createdAt: task.createdAt.toISOString(),
+    startedAt: task.startedAt?.toISOString(),
+    finishedAt: task.finishedAt?.toISOString(),
+    user: task.user || undefined,
+    dstackVersion: task.dstackVersion || undefined,
+    dataObjectsCount: Array.isArray(task.dataObjects)
+      ? task.dataObjects.length
+      : 0,
+    dataObjects: Array.isArray(task.dataObjects)
+      ? (task.dataObjects as string[])
+      : undefined,
+    isPublic: task.isPublic,
+    profile: appProfile
+      ? {
+          displayName: appProfile.displayName,
+          avatarUrl,
+          fullAvatarUrl,
+          description: appProfile.description || undefined,
+          customDomain: appProfile.customDomain || undefined,
+        }
+      : null,
+    workspaceProfile: workspaceProfile
+      ? {
+          displayName: workspaceProfile.displayName,
+          avatarUrl: workspaceProfile.avatarUrl,
+          fullAvatarUrl: workspaceProfile.avatarUrl
+            ? `${AVATAR_BASE_URL}/${workspaceProfile.avatarUrl}`
+            : null,
+          description: workspaceProfile.description || undefined,
+        }
+      : null,
+    userProfile: userProfile
+      ? {
+          displayName: userProfile.displayName,
+          avatarUrl: userProfile.avatarUrl,
+          fullAvatarUrl: userProfile.avatarUrl
+            ? `${AVATAR_BASE_URL}/${userProfile.avatarUrl}`
+            : null,
+          description: userProfile.description || undefined,
+        }
+      : null,
+  }
 }
 
 // Get all unique apps (latest task per app)
@@ -86,7 +176,7 @@ export async function getApps(params?: {
   sortOrder?: 'asc' | 'desc'
   page?: number
   perPage?: number
-}): Promise<App[]> {
+}): Promise<AppTask[]> {
   // Build base where conditions (status, isPublic, time filter, keyword)
   const whereConditions = buildBaseWhereConditions(params)
 
@@ -122,24 +212,10 @@ export async function getApps(params?: {
       .groupBy(verificationTasksTable.appId),
   )
 
-  // Join with profiles tables for app, workspace, and user avatars
+  // Join with all three profile tables and apply keyword filter
   const results = await db
     .with(latestTasks)
-    .select({
-      task: verificationTasksTable,
-      appProfile: profilesTable,
-      workspaceProfile: sql<{
-        display_name: string | null
-        avatar_url: string | null
-      }>`(SELECT display_name, avatar_url FROM ${profilesTable} WHERE entity_type = 'workspace' AND entity_id = ${verificationTasksTable.workspaceId} LIMIT 1)`.as(
-        'workspace_profile',
-      ),
-      userProfile: sql<{
-        avatar_url: string | null
-      }>`(SELECT avatar_url FROM ${profilesTable} WHERE entity_type = 'user' AND entity_id = ${verificationTasksTable.creatorId} LIMIT 1)`.as(
-        'user_profile',
-      ),
-    })
+    .select(profileSelection)
     .from(verificationTasksTable)
     .innerJoin(
       latestTasks,
@@ -149,89 +225,34 @@ export async function getApps(params?: {
       ),
     )
     .leftJoin(
-      profilesTable,
+      appProfileTable,
       and(
-        eq(profilesTable.entityType, 'app'),
-        eq(profilesTable.entityId, verificationTasksTable.appProfileId),
+        eq(appProfileTable.entityType, 'app'),
+        eq(appProfileTable.entityId, verificationTasksTable.appProfileId),
       ),
     )
+    .leftJoin(
+      workspaceProfileTable,
+      and(
+        eq(workspaceProfileTable.entityType, 'workspace'),
+        eq(workspaceProfileTable.entityId, verificationTasksTable.workspaceId),
+      ),
+    )
+    .leftJoin(
+      userProfileTable,
+      and(
+        eq(userProfileTable.entityType, 'user'),
+        eq(userProfileTable.entityId, verificationTasksTable.creatorId),
+      ),
+    )
+    .where(params?.keyword ? buildKeywordCondition(params.keyword) : undefined)
     .orderBy(
       // Sort apps with user/owner first, then by creation time descending
       sql`CASE WHEN ${verificationTasksTable.user} IS NULL THEN 1 ELSE 0 END`,
       desc(verificationTasksTable.createdAt),
     )
 
-  // Map results to App objects with profiles
-  const apps = results.map((r) => {
-    const task = r.task
-    const appProfile = r.appProfile
-    const workspaceProfile = r.workspaceProfile as unknown as {
-      display_name: string | null
-      avatar_url: string | null
-    } | null
-    const userProfile = r.userProfile as unknown as {
-      avatar_url: string | null
-    } | null
-
-    // Avatar priority: app → workspace → user
-    let avatarUrl: string | null = null
-    if (appProfile?.avatarUrl) {
-      avatarUrl = appProfile.avatarUrl
-    } else if (workspaceProfile?.avatar_url) {
-      avatarUrl = workspaceProfile.avatar_url
-    } else if (userProfile?.avatar_url) {
-      avatarUrl = userProfile.avatar_url
-    }
-
-    const fullAvatarUrl = avatarUrl ? `${AVATAR_BASE_URL}/${avatarUrl}` : null
-
-    return {
-      id: task.id,
-      appId: task.appId,
-      appName: task.appName,
-      appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
-      contractAddress: task.contractAddress,
-      modelOrDomain: task.modelOrDomain,
-      verificationFlags: task.verificationFlags as VerificationFlags | null,
-      status: task.status,
-      errorMessage: task.errorMessage || undefined,
-      s3Filename: task.s3Filename || undefined,
-      s3Key: task.s3Key || undefined,
-      s3Bucket: task.s3Bucket || undefined,
-      createdAt: task.createdAt.toISOString(),
-      startedAt: task.startedAt?.toISOString(),
-      finishedAt: task.finishedAt?.toISOString(),
-      user: task.user || undefined,
-      dstackVersion: task.dstackVersion || undefined,
-      dataObjectsCount: Array.isArray(task.dataObjects)
-        ? task.dataObjects.length
-        : 0,
-      dataObjects: Array.isArray(task.dataObjects)
-        ? (task.dataObjects as string[])
-        : undefined,
-      isPublic: task.isPublic,
-      profile: appProfile
-        ? {
-            displayName: appProfile.displayName,
-            avatarUrl,
-            fullAvatarUrl,
-            description: appProfile.description || undefined,
-            customDomain: appProfile.customDomain || undefined,
-          }
-        : null,
-      workspaceProfile: workspaceProfile?.display_name
-        ? {
-            displayName: workspaceProfile.display_name,
-            avatarUrl: workspaceProfile.avatar_url,
-            fullAvatarUrl: workspaceProfile.avatar_url
-              ? `${AVATAR_BASE_URL}/${workspaceProfile.avatar_url}`
-              : null,
-          }
-        : null,
-    }
-  })
-
-  return apps
+  return results.map(resultToAppTask)
 }
 
 // Get all unique dstack versions from latest completed tasks (apps) with app counts
@@ -326,7 +347,7 @@ export async function getUsers(params?: {
 export async function getApp(
   appId: string,
   checkPublic = false,
-): Promise<App | null> {
+): Promise<AppTask | null> {
   const whereConditions = [eq(verificationTasksTable.appId, appId)]
 
   // Add public check if required
@@ -335,27 +356,27 @@ export async function getApp(
   }
 
   const results = await db
-    .select({
-      task: verificationTasksTable,
-      appProfile: profilesTable,
-      workspaceProfile: sql<{
-        display_name: string | null
-        avatar_url: string | null
-      }>`(SELECT display_name, avatar_url FROM ${profilesTable} WHERE entity_type = 'workspace' AND entity_id = ${verificationTasksTable.workspaceId} LIMIT 1)`.as(
-        'workspace_profile',
-      ),
-      userProfile: sql<{
-        avatar_url: string | null
-      }>`(SELECT avatar_url FROM ${profilesTable} WHERE entity_type = 'user' AND entity_id = ${verificationTasksTable.creatorId} LIMIT 1)`.as(
-        'user_profile',
-      ),
-    })
+    .select(profileSelection)
     .from(verificationTasksTable)
     .leftJoin(
-      profilesTable,
+      appProfileTable,
       and(
-        eq(profilesTable.entityType, 'app'),
-        eq(profilesTable.entityId, verificationTasksTable.appProfileId),
+        eq(appProfileTable.entityType, 'app'),
+        eq(appProfileTable.entityId, verificationTasksTable.appProfileId),
+      ),
+    )
+    .leftJoin(
+      workspaceProfileTable,
+      and(
+        eq(workspaceProfileTable.entityType, 'workspace'),
+        eq(workspaceProfileTable.entityId, verificationTasksTable.workspaceId),
+      ),
+    )
+    .leftJoin(
+      userProfileTable,
+      and(
+        eq(userProfileTable.entityType, 'user'),
+        eq(userProfileTable.entityId, verificationTasksTable.creatorId),
       ),
     )
     .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
@@ -367,69 +388,7 @@ export async function getApp(
     return null
   }
 
-  const task = result.task
-  const appProfile = result.appProfile
-  const workspaceProfile = result.workspaceProfile as unknown as {
-    display_name: string | null
-    avatar_url: string | null
-  } | null
-  const userProfile = result.userProfile as unknown as {
-    avatar_url: string | null
-  } | null
-
-  // Avatar priority: app → workspace → user
-  let avatarUrl: string | null = null
-  if (appProfile?.avatarUrl) {
-    avatarUrl = appProfile.avatarUrl
-  } else if (workspaceProfile?.avatar_url) {
-    avatarUrl = workspaceProfile.avatar_url
-  } else if (userProfile?.avatar_url) {
-    avatarUrl = userProfile.avatar_url
-  }
-
-  const fullAvatarUrl = avatarUrl ? `${AVATAR_BASE_URL}/${avatarUrl}` : null
-
-  return {
-    id: task.id,
-    appId: task.appId,
-    appName: task.appName,
-    appConfigType: task.appConfigType,
-    contractAddress: task.contractAddress,
-    modelOrDomain: task.modelOrDomain,
-    verificationFlags: task.verificationFlags as VerificationFlags | null,
-    status: task.status,
-    errorMessage: task.errorMessage || undefined,
-    s3Filename: task.s3Filename || undefined,
-    s3Key: task.s3Key || undefined,
-    s3Bucket: task.s3Bucket || undefined,
-    createdAt: task.createdAt.toISOString(),
-    startedAt: task.startedAt?.toISOString(),
-    finishedAt: task.finishedAt?.toISOString(),
-    user: task.user || undefined,
-    dstackVersion: task.dstackVersion || undefined,
-    dataObjects: Array.isArray(task.dataObjects)
-      ? (task.dataObjects as string[])
-      : undefined,
-    isPublic: task.isPublic,
-    profile: appProfile
-      ? {
-          displayName: appProfile.displayName,
-          avatarUrl,
-          fullAvatarUrl,
-          description: appProfile.description || undefined,
-          customDomain: appProfile.customDomain || undefined,
-        }
-      : null,
-    workspaceProfile: workspaceProfile?.display_name
-      ? {
-          displayName: workspaceProfile.display_name,
-          avatarUrl: workspaceProfile.avatar_url,
-          fullAvatarUrl: workspaceProfile.avatar_url
-            ? `${AVATAR_BASE_URL}/${workspaceProfile.avatar_url}`
-            : null,
-        }
-      : null,
-  }
+  return resultToAppTask(result)
 }
 
 // Get all tasks for a specific app
@@ -454,9 +413,6 @@ export async function getAppTasks(
   return results.map((task) => ({
     id: task.id,
     appId: task.appId,
-    appProfileId: null, // Internal ID, not exposed to frontend
-    workspaceId: null, // Internal ID, not exposed to frontend
-    creatorId: null, // Internal ID, not exposed to frontend
     appName: task.appName,
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
@@ -494,9 +450,6 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
   return {
     id: task.id,
     appId: task.appId,
-    appProfileId: null, // Internal ID, not exposed to frontend
-    workspaceId: null, // Internal ID, not exposed to frontend
-    creatorId: null, // Internal ID, not exposed to frontend
     appName: task.appName,
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
@@ -543,9 +496,6 @@ export async function getTask(
   return {
     id: task.id,
     appId: task.appId,
-    appProfileId: null, // Internal ID, not exposed to frontend
-    workspaceId: null, // Internal ID, not exposed to frontend
-    creatorId: null, // Internal ID, not exposed to frontend
     appName: task.appName,
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
@@ -581,4 +531,5 @@ export interface WorkspaceProfile {
   displayName: string | null
   avatarUrl: string | null
   fullAvatarUrl: string | null
+  description?: string
 }

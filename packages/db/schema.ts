@@ -71,7 +71,6 @@ export const TaskCreateRequestSchema = z.object({
 export const TaskSchema = z.object({
   id: z.string(),
   appId: z.string(),
-  appProfileId: z.number().nullable(), // Nullable for backward compatibility with old data
   appName: z.string(),
   appConfigType: AppConfigTypeSchema,
   contractAddress: z.string(),
@@ -86,8 +85,6 @@ export const TaskSchema = z.object({
   startedAt: z.string().optional(),
   finishedAt: z.string().optional(),
   user: z.string().optional(),
-  workspaceId: z.number().nullable(), // Nullable for backward compatibility with old data
-  creatorId: z.number().nullable(), // Nullable for backward compatibility with old data
   dstackVersion: z.string().optional(),
   dataObjects: z.array(z.string()).optional(),
   isPublic: z.boolean(),

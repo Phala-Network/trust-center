@@ -7,15 +7,17 @@ import {AppLogo} from '@/components/app-logo'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {getAppBadges} from '@/lib/app-badges'
-import {type App} from '@/lib/db'
+import {type AppTask} from '@/lib/db'
 import {isReportStale} from '@/lib/utils'
 
-const AppCard = memo(function AppCard({app}: {app: App}) {
+const AppCard = memo(function AppCard({app}: {app: AppTask}) {
   const badges = getAppBadges(app.dstackVersion, app.dataObjects)
   const stale = isReportStale(app.createdAt)
 
   // Determine display name: use profile displayName if available, fallback to appName
   const displayName = app.profile?.displayName || app.appName
+  // Show workspace displayName if available, otherwise fallback to user field
+  const displayOwner = app.workspaceProfile?.displayName || app.user
 
   return (
     <Link
@@ -27,9 +29,9 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
         <div className="flex items-center gap-4">
           {/* Use profile avatar if available, otherwise fallback to AppLogo */}
           {app.profile?.fullAvatarUrl ? (
-            <Avatar className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm">
+            <Avatar className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm rounded-lg">
               <AvatarImage src={app.profile.fullAvatarUrl} alt={displayName} />
-              <AvatarFallback>
+              <AvatarFallback className="rounded-lg">
                 {displayName.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
@@ -42,10 +44,10 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
             />
           )}
           <div className="flex-1 min-w-0 flex flex-col justify-center">
-            {/* Owner: show user field (workspace name) */}
-            {app.user && (
+            {/* Owner: show workspace displayName if available, otherwise user field */}
+            {displayOwner && (
               <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
-                {app.user}
+                {displayOwner}
               </p>
             )}
             <h3 className="text-lg font-semibold tracking-tight truncate leading-tight">
@@ -150,7 +152,7 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
 })
 
 interface AppListProps {
-  apps: App[]
+  apps: AppTask[]
   hasFilters?: boolean
 }
 

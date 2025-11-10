@@ -2,6 +2,7 @@ import {notFound} from 'next/navigation'
 
 import WidgetClient from '@/components/widget-client'
 import {getApp} from '@/lib/db'
+import {appToTask} from '@/lib/db-utils'
 
 interface WidgetAppPageProps {
   params: Promise<{
@@ -45,35 +46,9 @@ export default async function WidgetAppPage({params, searchParams}: WidgetAppPag
     notFound()
   }
 
-  // Convert App to Task format
-  const task = {
-    id: app.id,
-    appId: app.appId,
-    appProfileId: null, // Internal ID, not exposed to frontend
-    workspaceId: null, // Internal ID, not exposed to frontend
-    creatorId: null, // Internal ID, not exposed to frontend
-    appName: app.appName,
-    appConfigType: app.appConfigType as 'redpill' | 'phala_cloud',
-    contractAddress: app.contractAddress,
-    modelOrDomain: app.modelOrDomain,
-    verificationFlags: app.verificationFlags,
-    status: app.status,
-    errorMessage: app.errorMessage,
-    s3Filename: app.s3Filename,
-    s3Key: app.s3Key,
-    s3Bucket: app.s3Bucket,
-    createdAt: app.createdAt,
-    startedAt: app.startedAt,
-    finishedAt: app.finishedAt,
-    user: app.user,
-    dstackVersion: app.dstackVersion,
-    dataObjects: app.dataObjects,
-    isPublic: app.isPublic,
-  }
-
   return (
     <WidgetClient
-      task={task}
+      task={appToTask(app)}
       appId={appId}
       taskId={app.id}
       config={config}
