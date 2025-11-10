@@ -97,7 +97,7 @@ export const ProfileSchema = z.object({
   id: z.string(),
   entityType: ProfileEntityTypeSchema,
   entityId: z.number(),
-  displayName: z.string(),
+  displayName: z.string().nullable(),
   avatarUrl: z.string().nullable(),
   description: z.string().nullable(),
   customDomain: z.string().nullable(),
@@ -192,7 +192,7 @@ export const profilesTable = pgTable(
     entityId: integer().notNull(), // The ID from the entity (app_id, user_id, workspace_id)
 
     // Profile information
-    displayName: text().notNull(),
+    displayName: text(),
     avatarUrl: text(),
     description: text(),
     customDomain: text(),

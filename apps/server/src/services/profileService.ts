@@ -11,13 +11,13 @@ import {
 
 export interface ProfileData {
   entityType: ProfileEntityType
-  entityId: string
-  displayName: string
-  avatarUrl: string
-  description: string
-  customDomain: string
+  entityId: number
+  displayName: string | null
+  avatarUrl: string | null
+  description: string | null
+  customDomain: string | null
   createdAt: string
-  updatedAt: string
+  updatedAt: string | null
 }
 
 export interface ProfileService {
