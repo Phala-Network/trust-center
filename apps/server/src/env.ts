@@ -40,6 +40,7 @@ export const env = createEnv({
     CRON_API_KEY: z.string().min(1, 'CRON_API_KEY must not be empty'),
 
     // Cron patterns (configurable)
+    CLEANUP_CRON_PATTERN: z.string().default('0 0 * * *'), // Default: daily at midnight
     PROFILE_CRON_PATTERN: z.string().default('*/1 * * * *'), // Default: every 1 minute
     TASKS_CRON_PATTERN: z.string().default('*/5 * * * *'), // Default: every 5 minutes
 

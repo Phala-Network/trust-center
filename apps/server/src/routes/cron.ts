@@ -6,6 +6,25 @@ import {env} from '../env'
 import {getServices} from '../services'
 
 export const cronRoutes = new Elysia()
+  // Cleanup failed tasks cron - runs daily to clean up old failed/cancelled tasks
+  .use(
+    cron({
+      name: 'cleanup-failed-tasks',
+      pattern: env.CLEANUP_CRON_PATTERN,
+      run: async () => {
+        console.log('[CRON:CLEANUP] Running scheduled cleanup of failed tasks...')
+        try {
+          const services = getServices()
+          const deletedCount = await services.verificationTask.cleanupFailedTasks(24)
+          console.log(
+            `[CRON:CLEANUP] Cleanup completed: ${deletedCount} old failed/cancelled tasks deleted`,
+          )
+        } catch (error) {
+          console.error('[CRON:CLEANUP] Cleanup failed:', error)
+        }
+      },
+    }),
+  )
   // Profile sync cron - configurable via PROFILE_CRON_PATTERN env
   // Profiles change less frequently than apps, so lower sync frequency is acceptable
   .use(
@@ -77,12 +96,19 @@ export const cronRoutes = new Elysia()
           .get(
             '/status',
             async ({store}: any) => {
+              const cleanupCron = store?.cron?.['cleanup-failed-tasks']
               const profilesCron = store?.cron?.['sync-profiles']
               const tasksCron = store?.cron?.['sync-tasks']
 
               return {
                 success: true,
                 crons: [
+                  {
+                    name: 'cleanup-failed-tasks',
+                    pattern: env.CLEANUP_CRON_PATTERN,
+                    description: 'Cleanup old failed/cancelled tasks (24h+)',
+                    running: cleanupCron?.running ?? false,
+                  },
                   {
                     name: 'sync-profiles',
                     pattern: env.PROFILE_CRON_PATTERN,
@@ -176,9 +202,11 @@ export const cronRoutes = new Elysia()
           .post(
             '/start-all',
             async ({store}: any) => {
+              const cleanupCron = store?.cron?.['cleanup-failed-tasks']
               const profilesCron = store?.cron?.['sync-profiles']
               const tasksCron = store?.cron?.['sync-tasks']
 
+              if (cleanupCron) cleanupCron.start()
               if (profilesCron) profilesCron.start()
               if (tasksCron) tasksCron.start()
 
@@ -196,9 +224,11 @@ export const cronRoutes = new Elysia()
           .post(
             '/stop-all',
             async ({store}: any) => {
+              const cleanupCron = store?.cron?.['cleanup-failed-tasks']
               const profilesCron = store?.cron?.['sync-profiles']
               const tasksCron = store?.cron?.['sync-tasks']
 
+              if (cleanupCron) cleanupCron.stop()
               if (profilesCron) profilesCron.stop()
               if (tasksCron) tasksCron.stop()
 
@@ -207,6 +237,50 @@ export const cronRoutes = new Elysia()
             {
               detail: {
                 summary: 'Stop all cron jobs',
+                tags: ['Cron'],
+                security: [{bearerAuth: []}],
+              },
+            },
+          )
+          // Force refresh all apps - creates new verification tasks for all apps
+          .post(
+            '/force-refresh-apps',
+            async () => {
+              console.log('[CRON] Force refresh all apps triggered...')
+              try {
+                const services = getServices()
+                if (!services.sync) {
+                  return {
+                    success: false,
+                    error: 'Sync service not configured',
+                  }
+                }
+
+                const result = await services.sync.syncAllTasks()
+                console.log(
+                  `[CRON] Force refresh completed: ${result.tasksCreated} tasks created`,
+                )
+
+                return {
+                  success: true,
+                  message: `Successfully created ${result.tasksCreated} verification tasks`,
+                  tasksCreated: result.tasksCreated,
+                  appsProcessed: result.apps.length,
+                }
+              } catch (error) {
+                console.error('[CRON] Force refresh failed:', error)
+                const errorMessage =
+                  error instanceof Error ? error.message : 'Unknown error'
+                return {
+                  success: false,
+                  error: 'Force refresh failed',
+                  message: errorMessage,
+                }
+              }
+            },
+            {
+              detail: {
+                summary: 'Force refresh all apps and create new verification tasks',
                 tags: ['Cron'],
                 security: [{bearerAuth: []}],
               },
