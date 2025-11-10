@@ -32,11 +32,16 @@ export const env = createEnv({
     QUEUE_BACKOFF_DELAY: z.string().default('2000'),
 
     // Sync service configuration
-    METABASE_URL: z.url().optional(),
+    METABASE_APP_QUERY: z.url().optional(),
+    METABASE_PROFILE_QUERY: z.url().optional(),
     METABASE_API_KEY: z.string().optional(),
 
     // Cron API authentication (required)
     CRON_API_KEY: z.string().min(1, 'CRON_API_KEY must not be empty'),
+
+    // Cron patterns (configurable)
+    PROFILE_CRON_PATTERN: z.string().default('*/1 * * * *'), // Default: every 1 minute
+    TASKS_CRON_PATTERN: z.string().default('*/5 * * * *'), // Default: every 5 minutes
 
     BASE_RPC_URL: z.string().optional(),
     ETHEREUM_RPC_URL: z.string().optional(),

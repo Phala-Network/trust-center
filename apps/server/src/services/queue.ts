@@ -33,6 +33,7 @@ export interface TaskData extends TaskCreateRequest {
 
 export interface NewTaskData {
   appId: string
+  appProfileId: string
   appName: string
   appConfigType: 'phala_cloud' | 'redpill'
   contractAddress: string
@@ -88,6 +89,7 @@ export const createQueueService = (
       const {
         postgresTaskId,
         appId,
+        appProfileId,
         appName,
         appConfigType,
         contractAddress,
@@ -97,6 +99,8 @@ export const createQueueService = (
         metadata,
         flags,
         user,
+        workspaceId,
+        creatorId,
       } = job.data
 
       try {
@@ -140,6 +144,7 @@ export const createQueueService = (
         await verificationTaskService.createTask({
           id: postgresTaskId,
           appId,
+          appProfileId, // Required field
           appName,
           appConfigType,
           contractAddress,
@@ -147,6 +152,8 @@ export const createQueueService = (
           dstackVersion: dstackVersion || null,
           isPublic: isPublic ?? false,
           user: user || null,
+          workspaceId: workspaceId || null,
+          creatorId: creatorId || null,
           status: 'active' as const,
           bullJobId: job.id,
           createdAt: new Date(),
@@ -412,6 +419,7 @@ export const createQueueService = (
     const queueData: TaskData = {
       postgresTaskId: taskId,
       appId: taskData.appId,
+      appProfileId: taskData.appProfileId,
       appName: taskData.appName,
       appConfigType: taskData.appConfigType,
       contractAddress: taskData.contractAddress,

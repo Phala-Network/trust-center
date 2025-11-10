@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import {z} from 'zod'
 
@@ -24,8 +25,17 @@ export const appConfigTypeEnum = pgEnum('app_config_type', [
   'phala_cloud',
 ])
 
+// Profile entity type enum
+export const profileEntityTypeEnum = pgEnum('profile_entity_type', [
+  'app',
+  'user',
+  'workspace',
+])
+
 // Zod schemas for validation
 export const AppConfigTypeSchema = z.enum(['redpill', 'phala_cloud'])
+
+export const ProfileEntityTypeSchema = z.enum(['app', 'user', 'workspace'])
 
 export const VerificationTaskStatusSchema = z.enum([
   'pending',
@@ -44,6 +54,7 @@ export const VerificationFlagsSchema = z.object({
 
 export const TaskCreateRequestSchema = z.object({
   appId: z.string(),
+  appProfileId: z.string(),
   appName: z.string(),
   appConfigType: AppConfigTypeSchema,
   contractAddress: z.string(),
@@ -52,11 +63,14 @@ export const TaskCreateRequestSchema = z.object({
   metadata: z.any().optional(),
   flags: VerificationFlagsSchema.optional(),
   user: z.string().optional(),
+  workspaceId: z.string().optional(),
+  creatorId: z.string().optional(),
 })
 
 export const TaskSchema = z.object({
   id: z.string(),
   appId: z.string(),
+  appProfileId: z.string().optional(), // Optional for backward compatibility with old data
   appName: z.string(),
   appConfigType: AppConfigTypeSchema,
   contractAddress: z.string(),
@@ -71,9 +85,23 @@ export const TaskSchema = z.object({
   startedAt: z.string().optional(),
   finishedAt: z.string().optional(),
   user: z.string().optional(),
+  workspaceId: z.string().optional(),
+  creatorId: z.string().optional(),
   dstackVersion: z.string().optional(),
   dataObjects: z.array(z.string()).optional(),
   isPublic: z.boolean(),
+})
+
+export const ProfileSchema = z.object({
+  id: z.string(),
+  entityType: ProfileEntityTypeSchema,
+  entityId: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+  description: z.string().nullable(),
+  customDomain: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable(),
 })
 
 // Verification tasks table - stores VerificationService execution data
@@ -89,7 +117,8 @@ export const verificationTasksTable = pgTable(
     bullJobId: text(), // BullMQ job ID for correlation
 
     // Application identification
-    appId: text().notNull(),
+    appId: text().notNull(), // dstack_app_id from Metabase (used for contract address)
+    appProfileId: text(), // app_id from Metabase (database ID, used for profile lookup) - nullable for backward compatibility
     appName: text().notNull(),
     appConfigType: appConfigTypeEnum().notNull(), // redpill or phala_cloud
     dstackVersion: text(), // DStack version (e.g., 'v0.5.3')
@@ -117,6 +146,8 @@ export const verificationTasksTable = pgTable(
 
     // User identification
     user: text(), // User identifier assigned based on business rules
+    workspaceId: text(), // Workspace ID from upstream (Metabase)
+    creatorId: text(), // Creator user ID from upstream (Metabase)
 
     // Timestamps
     createdAt: timestamp().notNull().defaultNow(),
@@ -134,6 +165,7 @@ export const verificationTasksTable = pgTable(
 
     // Application indexes
     index().on(t.appId),
+    index().on(t.appProfileId),
     index().on(t.appName),
     index().on(t.appConfigType),
     index().on(t.contractAddress),
@@ -141,6 +173,42 @@ export const verificationTasksTable = pgTable(
     index().on(t.dstackVersion),
     index().on(t.isPublic),
     index().on(t.user),
+    index().on(t.workspaceId),
+    index().on(t.creatorId),
+  ],
+)
+
+// Profiles table - stores entity profile information from Metabase
+export const profilesTable = pgTable(
+  'profiles',
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+
+    // Entity identification (composite unique key)
+    entityType: profileEntityTypeEnum().notNull(), // app, user, workspace
+    entityId: text().notNull(), // The ID from the entity (app_id, user_id, workspace_id)
+
+    // Profile information
+    displayName: text().notNull(),
+    avatarUrl: text(),
+    description: text(),
+    customDomain: text(),
+
+    // Timestamps
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp(),
+  },
+  (t) => [
+    // Unique constraint on entity type + entity ID
+    uniqueIndex('entity_unique_idx').on(t.entityType, t.entityId),
+
+    // Query indexes
+    index().on(t.entityType),
+    index().on(t.entityId),
+    index().on(t.displayName),
+    index().on(t.customDomain),
   ],
 )
 
@@ -148,9 +216,12 @@ export const verificationTasksTable = pgTable(
 export type VerificationFlags = z.infer<typeof VerificationFlagsSchema>
 export type TaskCreateRequest = z.infer<typeof TaskCreateRequestSchema>
 export type Task = z.infer<typeof TaskSchema>
+export type Profile = z.infer<typeof ProfileSchema>
 
 // Drizzle inferred types
 export type VerificationTask = typeof verificationTasksTable.$inferSelect
 export type VerificationTaskStatus =
   (typeof verificationTaskStatusEnum.enumValues)[number]
 export type AppConfigType = (typeof appConfigTypeEnum.enumValues)[number]
+export type ProfileEntityType = (typeof profileEntityTypeEnum.enumValues)[number]
+export type ProfileRecord = typeof profilesTable.$inferSelect

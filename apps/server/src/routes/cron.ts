@@ -6,24 +6,54 @@ import {env} from '../env'
 import {getServices} from '../services'
 
 export const cronRoutes = new Elysia()
+  // Profile sync cron - configurable via PROFILE_CRON_PATTERN env
+  // Profiles change less frequently than apps, so lower sync frequency is acceptable
   .use(
     cron({
-      name: 'sync-tasks',
-      pattern: '*/5 * * * *', // Every 5 minutes
+      name: 'sync-profiles',
+      pattern: env.PROFILE_CRON_PATTERN,
       run: async () => {
-        console.log('[CRON] Running scheduled sync...')
+        console.log('[CRON:PROFILES] Running scheduled profile sync...')
         try {
           const services = getServices()
           if (!services.sync) {
-            console.warn('[CRON] Sync service not configured, skipping...')
+            console.warn(
+              '[CRON:PROFILES] Sync service not configured, skipping...',
+            )
             return
           }
-          const result = await services.sync.syncAllTasks()
+
+          const profilesResult = await services.sync.syncProfiles()
           console.log(
-            `[CRON] Sync completed: ${result.tasksCreated} tasks created`,
+            `[CRON:PROFILES] Sync completed: ${profilesResult.profilesSynced} profiles synced`,
           )
         } catch (error) {
-          console.error('[CRON] Sync failed:', error)
+          console.error('[CRON:PROFILES] Sync failed:', error)
+        }
+      },
+    }),
+  )
+  // App/Task sync cron - configurable via TASKS_CRON_PATTERN env
+  // Apps and verification tasks need more frequent updates
+  .use(
+    cron({
+      name: 'sync-tasks',
+      pattern: env.TASKS_CRON_PATTERN,
+      run: async () => {
+        console.log('[CRON:TASKS] Running scheduled app sync...')
+        try {
+          const services = getServices()
+          if (!services.sync) {
+            console.warn('[CRON:TASKS] Sync service not configured, skipping...')
+            return
+          }
+
+          const tasksResult = await services.sync.syncAllTasks()
+          console.log(
+            `[CRON:TASKS] Sync completed: ${tasksResult.tasksCreated} tasks created`,
+          )
+        } catch (error) {
+          console.error('[CRON:TASKS] Sync failed:', error)
         }
       },
     }),
@@ -43,85 +73,140 @@ export const cronRoutes = new Elysia()
       },
       (app) =>
         app
-          // Start cron
-          .post(
-            '/start',
-            async ({error, store}: any) => {
-              const syncCron = store?.cron?.['sync-tasks']
-              if (syncCron) {
-                syncCron.start()
-                return {success: true, message: 'Cron started'}
-              }
-
-              return error(404, 'Cron not found')
-            },
-            {
-              detail: {
-                summary: 'Start the sync cron job',
-                tags: ['Cron'],
-                security: [{bearerAuth: []}],
-              },
-            },
-          )
-          // Stop cron
-          .post(
-            '/stop',
-            async ({error, store}: any) => {
-              const syncCron = store?.cron?.['sync-tasks']
-              if (syncCron) {
-                syncCron.stop()
-                return {success: true, message: 'Cron stopped'}
-              }
-
-              return error(404, 'Cron not found')
-            },
-            {
-              detail: {
-                summary: 'Stop the sync cron job',
-                tags: ['Cron'],
-                security: [{bearerAuth: []}],
-              },
-            },
-          )
-          // Get cron status
+          // Get status of all crons
           .get(
             '/status',
-            async ({error, store}: any) => {
-              const syncCron = store?.cron?.['sync-tasks']
-              if (syncCron) {
-                return {
-                  success: true,
-                  name: 'sync-tasks',
-                  pattern: '*/5 * * * *',
-                  running: syncCron.running,
-                }
-              }
+            async ({store}: any) => {
+              const profilesCron = store?.cron?.['sync-profiles']
+              const tasksCron = store?.cron?.['sync-tasks']
 
-              return error(404, 'Cron not found')
+              return {
+                success: true,
+                crons: [
+                  {
+                    name: 'sync-profiles',
+                    pattern: env.PROFILE_CRON_PATTERN,
+                    description: 'Profile synchronization',
+                    running: profilesCron?.running ?? false,
+                  },
+                  {
+                    name: 'sync-tasks',
+                    pattern: env.TASKS_CRON_PATTERN,
+                    description: 'App/Task synchronization',
+                    running: tasksCron?.running ?? false,
+                  },
+                ],
+              }
             },
             {
               detail: {
-                summary: 'Get cron job status',
+                summary: 'Get status of all cron jobs',
                 tags: ['Cron'],
                 security: [{bearerAuth: []}],
               },
             },
           )
-          // Trigger cron manually
+          // Start a specific cron
           .post(
-            '/trigger',
-            async ({error, store}: any) => {
-              const syncCron = store?.cron?.['sync-tasks']
-              if (syncCron) {
-                await syncCron.trigger()
-                return {success: true, message: 'Cron triggered'}
+            '/start/:name',
+            async ({params, error, store}: any) => {
+              const {name} = params
+              const cron = store?.cron?.[name]
+
+              if (!cron) {
+                return error(404, `Cron '${name}' not found`)
               }
 
-              return error(404, 'Cron not found')
+              cron.start()
+              return {success: true, message: `Cron '${name}' started`}
             },
             {
               detail: {
-                summary: 'Manually trigger the sync cron job',
+                summary: 'Start a specific cron job',
+                tags: ['Cron'],
+                security: [{bearerAuth: []}],
+              },
+            },
+          )
+          // Stop a specific cron
+          .post(
+            '/stop/:name',
+            async ({params, error, store}: any) => {
+              const {name} = params
+              const cron = store?.cron?.[name]
+
+              if (!cron) {
+                return error(404, `Cron '${name}' not found`)
+              }
+
+              cron.stop()
+              return {success: true, message: `Cron '${name}' stopped`}
+            },
+            {
+              detail: {
+                summary: 'Stop a specific cron job',
+                tags: ['Cron'],
+                security: [{bearerAuth: []}],
+              },
+            },
+          )
+          // Trigger a specific cron manually
+          .post(
+            '/trigger/:name',
+            async ({params, error, store}: any) => {
+              const {name} = params
+              const cron = store?.cron?.[name]
+
+              if (!cron) {
+                return error(404, `Cron '${name}' not found`)
+              }
+
+              await cron.trigger()
+              return {success: true, message: `Cron '${name}' triggered`}
+            },
+            {
+              detail: {
+                summary: 'Manually trigger a specific cron job',
+                tags: ['Cron'],
+                security: [{bearerAuth: []}],
+              },
+            },
+          )
+          // Start all crons
+          .post(
+            '/start-all',
+            async ({store}: any) => {
+              const profilesCron = store?.cron?.['sync-profiles']
+              const tasksCron = store?.cron?.['sync-tasks']
+
+              if (profilesCron) profilesCron.start()
+              if (tasksCron) tasksCron.start()
+
+              return {success: true, message: 'All crons started'}
+            },
+            {
+              detail: {
+                summary: 'Start all cron jobs',
+                tags: ['Cron'],
+                security: [{bearerAuth: []}],
+              },
+            },
+          )
+          // Stop all crons
+          .post(
+            '/stop-all',
+            async ({store}: any) => {
+              const profilesCron = store?.cron?.['sync-profiles']
+              const tasksCron = store?.cron?.['sync-tasks']
+
+              if (profilesCron) profilesCron.stop()
+              if (tasksCron) tasksCron.stop()
+
+              return {success: true, message: 'All crons stopped'}
+            },
+            {
+              detail: {
+                summary: 'Stop all cron jobs',
                 tags: ['Cron'],
                 security: [{bearerAuth: []}],
               },

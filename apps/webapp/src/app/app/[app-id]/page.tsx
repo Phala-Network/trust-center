@@ -51,6 +51,7 @@ export default async function AppPage({params, searchParams}: AppPageProps) {
   const task = {
     id: app.id,
     appId: app.appId,
+    appProfileId: app.appProfileId,
     appName: app.appName,
     appConfigType: app.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: app.contractAddress,

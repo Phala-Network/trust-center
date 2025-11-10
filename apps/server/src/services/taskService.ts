@@ -46,6 +46,7 @@ export const createVerificationTaskService = (
   const createTask = async (taskData: {
     id: string
     appId: string
+    appProfileId: string
     appName: string
     appConfigType: 'redpill' | 'phala_cloud'
     contractAddress: string
@@ -53,6 +54,8 @@ export const createVerificationTaskService = (
     dstackVersion?: string | null
     isPublic?: boolean
     user?: string | null
+    workspaceId?: string | null
+    creatorId?: string | null
     status: 'pending' | 'active'
     bullJobId?: string | null
     createdAt: Date
@@ -71,3 +74,5 @@ export const createVerificationTaskService = (
 export type VerificationTaskService = ReturnType<
   typeof createVerificationTaskService
 >
+
+export type TaskService = VerificationTaskService

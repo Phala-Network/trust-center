@@ -1,6 +1,10 @@
 import {VerificationService} from '@phala/dstack-verifier'
 
 import {env} from '../env'
+import {
+  createProfileService,
+  type ProfileService,
+} from './profileService'
 import {createQueueService, type QueueConfig, type QueueService} from './queue'
 import {createS3Service, type S3Config, type S3Service} from './s3'
 import {
@@ -18,6 +22,7 @@ export interface Services {
   queue: QueueService
   s3: S3Service
   verificationTask: VerificationTaskService
+  profile: ProfileService
   sync: SyncService | null
 }
 
@@ -45,11 +50,16 @@ const buildQueueConfig = (): QueueConfig => ({
 })
 
 const buildSyncConfig = (): SyncServiceConfig | null => {
-  if (!env.METABASE_URL || !env.METABASE_API_KEY) {
+  if (
+    !env.METABASE_APP_QUERY ||
+    !env.METABASE_PROFILE_QUERY ||
+    !env.METABASE_API_KEY
+  ) {
     return null
   }
   return {
-    metabaseUrl: env.METABASE_URL,
+    metabaseAppQuery: env.METABASE_APP_QUERY,
+    metabaseProfileQuery: env.METABASE_PROFILE_QUERY,
     metabaseApiKey: env.METABASE_API_KEY,
   }
 }
@@ -65,12 +75,15 @@ const buildServiceConfig = (): ServiceConfig => ({
 const composeServices = (config: ServiceConfig): Services => {
   const s3 = createS3Service(config.s3)
   const verificationTask = createVerificationTaskService(config.databaseUrl)
+  const profile = createProfileService(config.databaseUrl)
   // Note: VerificationService is now created per-task in queue worker
   // to avoid state pollution between concurrent verifications
   const queue = createQueueService(config.queue, verificationTask, s3)
-  const sync = config.sync ? createSyncService(config.sync, queue) : null
+  const sync = config.sync
+    ? createSyncService(config.sync, queue, profile)
+    : null
 
-  return {queue, s3, verificationTask, sync}
+  return {queue, s3, verificationTask, profile, sync}
 }
 
 // Service lifecycle management with functional approach
@@ -123,6 +136,7 @@ export {
   createS3Service,
   createSyncService,
   createVerificationTaskService,
+  createProfileService,
 }
 export type {
   QueueConfig,
@@ -132,4 +146,5 @@ export type {
   QueueService,
   S3Service,
   VerificationTaskService,
+  ProfileService,
 }
