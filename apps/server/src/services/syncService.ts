@@ -4,13 +4,13 @@ import {z} from 'zod'
 import type {ProfileService} from './profileService'
 import type {QueueService} from './queue'
 
-// Zod schema for new Metabase app data format
+// Zod schema for Metabase app data format
 const AppDataSchema = z.object({
-  app_id: z.coerce.number(),
+  app_id: z.number(),
   dstack_app_id: z.string(),
   app_name: z.string(),
-  workspace_id: z.coerce.number(),
-  creator_id: z.coerce.number(),
+  workspace_id: z.number(),
+  creator_id: z.number(),
   chain_id: z.number().nullable(),
   kms_contract_address: z.string(),
   contract_address: z.string().nullable(),
@@ -18,8 +18,8 @@ const AppDataSchema = z.object({
   tproxy_base_domain: z.string().nullable(),
   gateway_domain_suffix: z.string().nullable(),
   listed: z.boolean(),
-  creator_username: z.string(),
-  creator_email: z.string(),
+  username: z.string(),
+  email: z.string().nullable(),
   workspace_name: z.string(),
   app_created_at: z.string(),
   vm_created_at: z.string(),
@@ -30,13 +30,13 @@ export type AppData = z.infer<typeof AppDataSchema>
 // Zod schema for profile data from Metabase
 const ProfileDataSchema = z.object({
   entity_type: z.enum(['app', 'user', 'workspace']),
-  entity_id: z.string(),
-  display_name: z.string(),
-  avatar_url: z.string(),
-  description: z.string(),
-  custom_domain: z.string(),
+  entity_id: z.number(),
+  display_name: z.string().nullable(),
+  avatar_url: z.string().nullable(),
+  description: z.string().nullable(),
+  custom_domain: z.string().nullable(),
   created_at: z.string(),
-  updated_at: z.string(),
+  updated_at: z.string().nullable(),
 })
 
 export type ProfileData = z.infer<typeof ProfileDataSchema>
@@ -57,7 +57,7 @@ export interface TaskData {
 
 // Helper function to determine user based on business rules
 function determineUser(app: AppData): string | undefined {
-  const {creator_email, creator_username, app_name} = app
+  const {email, username, app_name} = app
 
   // Crossmint -> Name contains crossmint
   if (app_name.toLowerCase().includes('crossmint')) {
@@ -65,25 +65,25 @@ function determineUser(app: AppData): string | undefined {
   }
 
   // Vana -> User == volod@opendatalabs.xyz
-  if (creator_email === 'volod@opendatalabs.xyz') {
+  if (email && email === 'volod@opendatalabs.xyz') {
     return 'Vana'
   }
 
   // Rena Labs -> user == Renalabs
-  if (creator_username === 'Renalabs ') {
+  if (username === 'Renalabs ') {
     return 'Rena Labs'
   }
 
   // Blormy -> User == tint@blorm.xyz
-  if (creator_email === 'tint@blorm.xyz') {
+  if (email && email === 'tint@blorm.xyz') {
     return 'blormy'
   }
 
   // NEAR -> User == robertyan.ai or kaku5555 or robertyan
   if (
-    creator_username === 'robertyan.ai' ||
-    creator_username === 'kaku5555' ||
-    creator_username === 'robertyan'
+    username === 'robertyan.ai' ||
+    username === 'kaku5555' ||
+    username === 'robertyan'
   ) {
     return 'NEAR'
   }
@@ -94,22 +94,22 @@ function determineUser(app: AppData): string | undefined {
   }
 
   // Lit -> User == chris@litprotocol.com
-  if (creator_email === 'chris@litprotocol.com') {
+  if (email && email === 'chris@litprotocol.com') {
     return 'Lit'
   }
 
   // Magic Link -> User == infra@magic.link
-  if (creator_email === 'infra@magic.link') {
+  if (email && email === 'infra@magic.link') {
     return 'Magic Link'
   }
 
   // Vijil -> User == vele-vijil
-  if (creator_username === 'vele-vijil') {
+  if (username === 'vele-vijil') {
     return 'Vijil'
   }
 
   // Rift -> User == alpinevm
-  if (creator_username === 'alpinevm') {
+  if (username === 'alpinevm') {
     return 'Rift'
   }
 

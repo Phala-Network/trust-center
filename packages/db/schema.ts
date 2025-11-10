@@ -1,6 +1,7 @@
 import {
   boolean,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -95,7 +96,7 @@ export const TaskSchema = z.object({
 export const ProfileSchema = z.object({
   id: z.string(),
   entityType: ProfileEntityTypeSchema,
-  entityId: z.string(),
+  entityId: z.number(),
   displayName: z.string(),
   avatarUrl: z.string().nullable(),
   description: z.string().nullable(),
@@ -188,7 +189,7 @@ export const profilesTable = pgTable(
 
     // Entity identification (composite unique key)
     entityType: profileEntityTypeEnum().notNull(), // app, user, workspace
-    entityId: text().notNull(), // The ID from the entity (app_id, user_id, workspace_id)
+    entityId: integer().notNull(), // The ID from the entity (app_id, user_id, workspace_id)
 
     // Profile information
     displayName: text().notNull(),

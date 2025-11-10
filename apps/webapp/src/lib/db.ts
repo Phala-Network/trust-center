@@ -516,9 +516,18 @@ export async function getAppProfile(
 ): Promise<AppProfile | null> {
   'use server'
 
-  // Convert numbers to strings for consistency
-  const workspaceIdStr = workspaceId?.toString()
-  const creatorIdStr = creatorId?.toString()
+  // Convert to integers for database queries (entityId is integer type)
+  const appIdInt = parseInt(appId, 10)
+  const workspaceIdInt = workspaceId
+    ? typeof workspaceId === 'number'
+      ? workspaceId
+      : parseInt(workspaceId, 10)
+    : undefined
+  const creatorIdInt = creatorId
+    ? typeof creatorId === 'number'
+      ? creatorId
+      : parseInt(creatorId, 10)
+    : undefined
 
   // Get app profile (contains app-specific fields)
   const appProfile = await db
@@ -527,7 +536,7 @@ export async function getAppProfile(
     .where(
       and(
         eq(profilesTable.entityType, 'app'),
-        eq(profilesTable.entityId, appId),
+        eq(profilesTable.entityId, appIdInt),
       ),
     )
     .limit(1)
@@ -544,14 +553,14 @@ export async function getAppProfile(
   let fullAvatarUrl = avatarUrl ? `${AVATAR_BASE_URL}/${avatarUrl}` : null
 
   // If app has no avatar, try workspace
-  if (!avatarUrl && workspaceIdStr) {
+  if (!avatarUrl && workspaceIdInt !== undefined) {
     const workspaceProfile = await db
       .select({avatarUrl: profilesTable.avatarUrl})
       .from(profilesTable)
       .where(
         and(
           eq(profilesTable.entityType, 'workspace'),
-          eq(profilesTable.entityId, workspaceIdStr),
+          eq(profilesTable.entityId, workspaceIdInt),
         ),
       )
       .limit(1)
@@ -563,14 +572,14 @@ export async function getAppProfile(
   }
 
   // If still no avatar, try user
-  if (!avatarUrl && creatorIdStr) {
+  if (!avatarUrl && creatorIdInt !== undefined) {
     const userProfile = await db
       .select({avatarUrl: profilesTable.avatarUrl})
       .from(profilesTable)
       .where(
         and(
           eq(profilesTable.entityType, 'user'),
-          eq(profilesTable.entityId, creatorIdStr),
+          eq(profilesTable.entityId, creatorIdInt),
         ),
       )
       .limit(1)
