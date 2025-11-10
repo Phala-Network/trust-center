@@ -1,5 +1,5 @@
 {
-  "id": "c06e6f15-d4b1-42a8-a61e-6c28549c9fc9",
+  "id": "7da3c1c3-1acc-40ae-aa3e-cb84edaf7c5d",
   "prevId": "102ec2a7-5697-4f52-b232-684df3171411",
   "version": "7",
   "dialect": "postgresql",
@@ -23,7 +23,7 @@
         },
         "entity_id": {
           "name": "entity_id",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -31,7 +31,7 @@
           "name": "display_name",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "avatar_url": {
           "name": "avatar_url",

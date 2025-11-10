@@ -89,7 +89,7 @@ services:
 
       # Cron patterns (optional, defaults: profile=1min, tasks=5min)
       PROFILE_CRON_PATTERN: ${PROFILE_CRON_PATTERN:-*/1 * * * *}
-      TASKS_CRON_PATTERN: ${TASKS_CRON_PATTERN:-*/5 * * * *}
+      TASKS_CRON_PATTERN: ${TASKS_CRON_PATTERN:-*/1 * * * *}
 
       # Metabase sync (optional)
       METABASE_APP_QUERY: ${METABASE_APP_QUERY:-}

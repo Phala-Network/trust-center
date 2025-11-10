@@ -12,7 +12,7 @@ const AppDataSchema = z.object({
   workspace_id: z.number(),
   creator_id: z.number(),
   chain_id: z.number().nullable(),
-  kms_contract_address: z.string(),
+  kms_contract_address: z.string().nullable(),
   contract_address: z.string().nullable(),
   base_image: z.string(),
   tproxy_base_domain: z.string().nullable(),
@@ -20,7 +20,6 @@ const AppDataSchema = z.object({
   listed: z.boolean(),
   username: z.string(),
   email: z.string().nullable(),
-  workspace_name: z.string(),
   app_created_at: z.string(),
   vm_created_at: z.string(),
 })

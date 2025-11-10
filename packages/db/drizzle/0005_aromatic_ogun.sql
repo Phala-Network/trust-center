@@ -2,8 +2,8 @@ CREATE TYPE "public"."profile_entity_type" AS ENUM('app', 'user', 'workspace');-
 CREATE TABLE "profiles" (
 	"id" text PRIMARY KEY NOT NULL,
 	"entity_type" "profile_entity_type" NOT NULL,
-	"entity_id" text NOT NULL,
-	"display_name" text NOT NULL,
+	"entity_id" integer NOT NULL,
+	"display_name" text,
 	"avatar_url" text,
 	"description" text,
 	"custom_domain" text,
