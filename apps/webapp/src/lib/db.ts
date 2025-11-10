@@ -195,11 +195,16 @@ export async function getApps(params?: {
   page?: number
   perPage?: number
 }): Promise<AppTask[]> {
-  // Build base where conditions (status, isPublic, time filter, keyword)
-  const whereConditions = buildBaseWhereConditions(params)
+  // Build base conditions WITHOUT isPublic filter
+  // We need to find the latest task for each app first, THEN filter by isPublic
+  const twoDaysAgo = subDays(new Date(), 2)
+  const baseConditions = [
+    eq(verificationTasksTable.status, 'completed'),
+    gte(verificationTasksTable.createdAt, twoDaysAgo),
+  ]
 
   if (params?.dstackVersions && params.dstackVersions.length > 0) {
-    whereConditions.push(
+    baseConditions.push(
       sql`${verificationTasksTable.dstackVersion} IN (${sql.join(
         params.dstackVersions.map((v) => sql`${v}`),
         sql`, `,
@@ -207,7 +212,7 @@ export async function getApps(params?: {
     )
   }
 
-  // Get latest task for each unique appId
+  // Get latest task for each unique appId (regardless of isPublic status)
   const latestTasks = db.$with('latest_tasks').as(
     db
       .select({
@@ -217,7 +222,7 @@ export async function getApps(params?: {
         ),
       })
       .from(verificationTasksTable)
-      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .where(baseConditions.length > 0 ? and(...baseConditions) : undefined)
       .groupBy(verificationTasksTable.appId),
   )
 
@@ -263,10 +268,14 @@ export async function getApps(params?: {
   // Convert to AppTask and apply post-JOIN filters
   const appTasks = results.map(resultToAppTask)
 
+  // IMPORTANT: Filter by isPublic=true AFTER getting latest tasks
+  // This ensures we use the latest task to determine public status
+  // (not skip to an older public task)
+  let filteredTasks = appTasks.filter((task) => task.isPublic === true)
+
   // Apply owner filter after JOIN (so we can match workspace/user displayNames)
-  let filteredTasks = appTasks
   if (params?.users && params.users.length > 0) {
-    filteredTasks = appTasks.filter((task) => {
+    filteredTasks = filteredTasks.filter((task) => {
       const owner = resolveOwner(task)
       return owner && params.users!.includes(owner)
     })
