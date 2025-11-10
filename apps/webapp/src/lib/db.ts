@@ -408,12 +408,13 @@ export async function getUsers(params?: {
     }
   }
 
-  // Convert to array and sort
+  // Convert to array, filter out owners with no apps, and sort
   return Array.from(ownerMap.entries())
     .map(([user, appIds]) => ({
       user,
       count: appIds.size,
     }))
+    .filter((owner) => owner.count > 0) // Only return owners with at least 1 app
     .sort((a, b) => a.user.localeCompare(b.user))
 }
 
