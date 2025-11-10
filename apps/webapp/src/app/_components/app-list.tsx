@@ -19,6 +19,12 @@ const AppCard = memo(function AppCard({app}: {app: AppTask}) {
   // Show workspace displayName if available, otherwise fallback to user field
   const displayOwner = app.workspaceProfile?.displayName || app.user
 
+  // Avatar priority: app → workspace → user
+  const avatarUrl =
+    app.profile?.fullAvatarUrl ||
+    app.workspaceProfile?.fullAvatarUrl ||
+    app.userProfile?.fullAvatarUrl
+
   return (
     <Link
       href={`/app/${app.appId}`}
@@ -27,10 +33,10 @@ const AppCard = memo(function AppCard({app}: {app: AppTask}) {
       {/* Header with gradient background */}
       <div className="bg-gradient-to-br from-muted/40 to-muted/20 p-5 border-b border-border/50">
         <div className="flex items-center gap-4">
-          {/* Use profile avatar if available, otherwise fallback to AppLogo */}
-          {app.profile?.fullAvatarUrl ? (
+          {/* Use profile avatar if available (app/workspace/user priority), otherwise fallback to AppLogo */}
+          {avatarUrl ? (
             <Avatar className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm rounded-lg">
-              <AvatarImage src={app.profile.fullAvatarUrl} alt={displayName} />
+              <AvatarImage src={avatarUrl} alt={displayName} />
               <AvatarFallback className="rounded-lg">
                 {displayName.slice(0, 2).toUpperCase()}
               </AvatarFallback>
