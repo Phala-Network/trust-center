@@ -242,7 +242,7 @@ export const cronRoutes = new Elysia()
               },
             },
           )
-          // Force refresh all apps - creates new verification tasks for all apps
+          // Force refresh all apps - creates new verification tasks for all apps (bypasses 24h check)
           .post(
             '/force-refresh-apps',
             async () => {
@@ -256,14 +256,14 @@ export const cronRoutes = new Elysia()
                   }
                 }
 
-                const result = await services.sync.syncAllTasks()
+                const result = await services.sync.forceRefreshAllApps()
                 console.log(
-                  `[CRON] Force refresh completed: ${result.tasksCreated} tasks created`,
+                  `[CRON] Force refresh completed: ${result.tasksCreated} tasks created (bypassing 24h check)`,
                 )
 
                 return {
                   success: true,
-                  message: `Successfully created ${result.tasksCreated} verification tasks`,
+                  message: `Successfully created ${result.tasksCreated} verification tasks (forced refresh, bypassing 24h duplicate check)`,
                   tasksCreated: result.tasksCreated,
                   appsProcessed: result.apps.length,
                 }
@@ -280,7 +280,8 @@ export const cronRoutes = new Elysia()
             },
             {
               detail: {
-                summary: 'Force refresh all apps and create new verification tasks',
+                summary:
+                  'Force refresh all apps and create new verification tasks (bypasses 24h duplicate check)',
                 tags: ['Cron'],
                 security: [{bearerAuth: []}],
               },

@@ -194,6 +194,10 @@ export interface SyncService {
   syncSelectedTasks: (
     appIds: string[],
   ) => Promise<{tasksCreated: number; apps: UpstreamAppData[]}>
+  forceRefreshAllApps: () => Promise<{
+    tasksCreated: number
+    apps: UpstreamAppData[]
+  }>
   syncProfiles: () => Promise<{
     profilesSynced: number
     profiles: UpstreamProfileData[]
@@ -362,6 +366,58 @@ export function createSyncService(
     }
   }
 
+  // Force refresh all apps - bypasses 24h duplicate check
+  const forceRefreshAllApps = async (): Promise<{
+    tasksCreated: number
+    apps: UpstreamAppData[]
+  }> => {
+    try {
+      console.log('[SYNC] Force refreshing all apps (bypassing 24h check)...')
+
+      const apps = await fetchApps()
+
+      // Process and filter apps
+      const tasks: TaskData[] = apps
+        .map(processAppData)
+        .filter(
+          (task) => task.contractAddress !== '' && task.modelOrDomain !== '',
+        )
+
+      if (tasks.length === 0) {
+        console.log('[SYNC] No tasks to create')
+        return {tasksCreated: 0, apps: []}
+      }
+
+      // Add tasks with forceRefresh flag to skip 24h check
+      const jobPromises = tasks.map((task) =>
+        queueService.addTask({
+          appId: task.appId,
+          appProfileId: task.appProfileId,
+          appName: task.appName,
+          appConfigType: task.appConfigType,
+          contractAddress: task.contractAddress,
+          modelOrDomain: task.modelOrDomain,
+          dstackVersion: task.dstackVersion,
+          isPublic: task.isPublic,
+          user: task.user,
+          workspaceId: task.workspaceId,
+          creatorId: task.creatorId,
+          forceRefresh: true, // Force refresh - bypass 24h check
+        }),
+      )
+
+      await Promise.all(jobPromises)
+
+      console.log(
+        `[SYNC] Force refresh: Added ${tasks.length} tasks to queue (bypassing 24h check)`,
+      )
+      return {tasksCreated: tasks.length, apps}
+    } catch (error) {
+      console.error('[SYNC] Force refresh error:', error)
+      throw error
+    }
+  }
+
   // Sync profiles from Metabase to database
   const syncProfiles = async (): Promise<{
     profilesSynced: number
@@ -392,6 +448,7 @@ export function createSyncService(
   return {
     syncAllTasks,
     syncSelectedTasks,
+    forceRefreshAllApps,
     syncProfiles,
     fetchApps,
     fetchProfiles,
