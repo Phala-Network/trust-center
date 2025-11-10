@@ -55,7 +55,7 @@ export const VerificationFlagsSchema = z.object({
 
 export const TaskCreateRequestSchema = z.object({
   appId: z.string(),
-  appProfileId: z.string().optional(), // Optional for backward compatibility
+  appProfileId: z.number(), // Required for new tasks
   appName: z.string(),
   appConfigType: AppConfigTypeSchema,
   contractAddress: z.string(),
@@ -64,14 +64,14 @@ export const TaskCreateRequestSchema = z.object({
   metadata: z.any().optional(),
   flags: VerificationFlagsSchema.optional(),
   user: z.string().optional(),
-  workspaceId: z.string().optional(),
-  creatorId: z.string().optional(),
+  workspaceId: z.number(), // Required for new tasks
+  creatorId: z.number(), // Required for new tasks
 })
 
 export const TaskSchema = z.object({
   id: z.string(),
   appId: z.string(),
-  appProfileId: z.string().optional(), // Optional for backward compatibility with old data
+  appProfileId: z.number().nullable(), // Nullable for backward compatibility with old data
   appName: z.string(),
   appConfigType: AppConfigTypeSchema,
   contractAddress: z.string(),
@@ -86,8 +86,8 @@ export const TaskSchema = z.object({
   startedAt: z.string().optional(),
   finishedAt: z.string().optional(),
   user: z.string().optional(),
-  workspaceId: z.string().optional(),
-  creatorId: z.string().optional(),
+  workspaceId: z.number().nullable(), // Nullable for backward compatibility with old data
+  creatorId: z.number().nullable(), // Nullable for backward compatibility with old data
   dstackVersion: z.string().optional(),
   dataObjects: z.array(z.string()).optional(),
   isPublic: z.boolean(),
@@ -103,6 +103,26 @@ export const ProfileSchema = z.object({
   customDomain: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
+})
+
+// Upstream app data schema (from Metabase) - for validation
+export const UpstreamAppDataSchema = z.object({
+  app_id: z.number(),
+  dstack_app_id: z.string(),
+  app_name: z.string(),
+  workspace_id: z.number(),
+  creator_id: z.number(),
+  chain_id: z.number().nullable(),
+  kms_contract_address: z.string().nullable(),
+  contract_address: z.string().nullable(),
+  base_image: z.string(),
+  tproxy_base_domain: z.string().nullable(),
+  gateway_domain_suffix: z.string().nullable(),
+  listed: z.boolean(),
+  username: z.string(),
+  email: z.string().nullable(),
+  app_created_at: z.string(),
+  vm_created_at: z.string(),
 })
 
 // Upstream profile data schema (from Metabase) - for validation
@@ -131,7 +151,7 @@ export const verificationTasksTable = pgTable(
 
     // Application identification
     appId: text().notNull(), // dstack_app_id from Metabase (used for contract address)
-    appProfileId: text(), // app_id from Metabase (database ID, used for profile lookup) - nullable for backward compatibility
+    appProfileId: integer(), // app_id from Metabase (database ID, used for profile lookup) - nullable for backward compatibility
     appName: text().notNull(),
     appConfigType: appConfigTypeEnum().notNull(), // redpill or phala_cloud
     dstackVersion: text(), // DStack version (e.g., 'v0.5.3')
@@ -159,8 +179,8 @@ export const verificationTasksTable = pgTable(
 
     // User identification
     user: text(), // User identifier assigned based on business rules
-    workspaceId: text(), // Workspace ID from upstream (Metabase)
-    creatorId: text(), // Creator user ID from upstream (Metabase)
+    workspaceId: integer(), // Workspace ID from upstream (Metabase)
+    creatorId: integer(), // Creator user ID from upstream (Metabase)
 
     // Timestamps
     createdAt: timestamp().notNull().defaultNow(),
@@ -230,6 +250,7 @@ export type VerificationFlags = z.infer<typeof VerificationFlagsSchema>
 export type TaskCreateRequest = z.infer<typeof TaskCreateRequestSchema>
 export type Task = z.infer<typeof TaskSchema>
 export type Profile = z.infer<typeof ProfileSchema>
+export type UpstreamAppData = z.infer<typeof UpstreamAppDataSchema>
 export type UpstreamProfileData = z.infer<typeof UpstreamProfileDataSchema>
 
 // Drizzle inferred types

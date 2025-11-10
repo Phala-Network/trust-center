@@ -363,7 +363,7 @@ export async function getApp(
 // Get all tasks for a specific app
 export async function getAppTasks(
   appId: string,
-  params?: {
+  _params?: {
     status?: string
     page?: number
     perPage?: number

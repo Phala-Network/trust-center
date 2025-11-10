@@ -1,48 +1,21 @@
-import type {ProfileEntityType} from '@phala/trust-center-db'
+import {
+  type UpstreamAppData,
+  UpstreamAppDataSchema,
+  type UpstreamProfileData,
+  UpstreamProfileDataSchema,
+} from '@phala/trust-center-db'
 import {z} from 'zod'
 
 import type {ProfileService} from './profileService'
 import type {QueueService} from './queue'
 
-// Zod schema for Metabase app data format
-const AppDataSchema = z.object({
-  app_id: z.number(),
-  dstack_app_id: z.string(),
-  app_name: z.string(),
-  workspace_id: z.number(),
-  creator_id: z.number(),
-  chain_id: z.number().nullable(),
-  kms_contract_address: z.string().nullable(),
-  contract_address: z.string().nullable(),
-  base_image: z.string(),
-  tproxy_base_domain: z.string().nullable(),
-  gateway_domain_suffix: z.string().nullable(),
-  listed: z.boolean(),
-  username: z.string(),
-  email: z.string().nullable(),
-  app_created_at: z.string(),
-  vm_created_at: z.string(),
-})
-
-export type AppData = z.infer<typeof AppDataSchema>
-
-// Zod schema for profile data from Metabase
-const ProfileDataSchema = z.object({
-  entity_type: z.enum(['app', 'user', 'workspace']),
-  entity_id: z.number(),
-  display_name: z.string().nullable(),
-  avatar_url: z.string().nullable(),
-  description: z.string().nullable(),
-  custom_domain: z.string().nullable(),
-  created_at: z.string(),
-  updated_at: z.string().nullable(),
-})
-
-export type ProfileData = z.infer<typeof ProfileDataSchema>
+// Re-export types for backward compatibility
+export type AppData = UpstreamAppData
+export type ProfileData = UpstreamProfileData
 
 export interface TaskData {
   appId: string // dstack_app_id (used for contract address)
-  appProfileId: string // app_id from Metabase (used for profile lookup, always exists)
+  appProfileId: number // app_id from Metabase (required when creating new tasks)
   appName: string
   appConfigType: 'phala_cloud' | 'redpill'
   contractAddress: string
@@ -50,8 +23,8 @@ export interface TaskData {
   dstackVersion?: string
   isPublic?: boolean
   user?: string
-  workspaceId?: string // Workspace ID from Metabase
-  creatorId?: string // Creator user ID from Metabase
+  workspaceId: number // Workspace ID from Metabase (required when creating new tasks)
+  creatorId: number // Creator user ID from Metabase (required when creating new tasks)
 }
 
 // Helper function to determine user based on business rules
@@ -201,7 +174,7 @@ function processAppData(app: AppData): TaskData {
 
   return {
     appId: dstack_app_id, // Used for contract address generation
-    appProfileId: app_id.toString(), // Metabase database ID for profile lookup
+    appProfileId: app_id, // Metabase database ID for profile lookup (integer)
     appName: app_name,
     appConfigType: 'phala_cloud',
     contractAddress: contractAddress || defaultContractAddress,
@@ -209,8 +182,8 @@ function processAppData(app: AppData): TaskData {
     dstackVersion: base_image,
     isPublic: listed,
     user: determineUser(app),
-    workspaceId: workspace_id.toString(),
-    creatorId: creator_id.toString(),
+    workspaceId: workspace_id, // Integer ID from Metabase
+    creatorId: creator_id, // Integer ID from Metabase
   }
 }
 
@@ -255,7 +228,7 @@ export function createSyncService(
     }
 
     const data = await metabaseResponse.json()
-    const apps = z.array(AppDataSchema).parse(data)
+    const apps = z.array(UpstreamAppDataSchema).parse(data)
     return apps
   }
 
@@ -279,7 +252,7 @@ export function createSyncService(
     }
 
     const data = await metabaseResponse.json()
-    const profiles = z.array(ProfileDataSchema).parse(data)
+    const profiles = z.array(UpstreamProfileDataSchema).parse(data)
     return profiles
   }
 

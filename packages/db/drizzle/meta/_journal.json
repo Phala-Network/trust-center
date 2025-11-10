@@ -43,6 +43,13 @@
       "when": 1762776682451,
       "tag": "0005_aromatic_ogun",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1762777756231,
+      "tag": "0006_productive_pestilence",
+      "breakpoints": true
     }
   ]
 }

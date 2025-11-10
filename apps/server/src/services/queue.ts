@@ -151,11 +151,18 @@ export const createQueueService = (
           }
         }
 
+        // Validate required IDs exist (should always be present for new tasks)
+        if (!appProfileId || !workspaceId || !creatorId) {
+          throw new Error(
+            `Missing required IDs for task ${postgresTaskId}: appProfileId=${appProfileId}, workspaceId=${workspaceId}, creatorId=${creatorId}`,
+          )
+        }
+
         // Create task in database when actually starting processing
         await verificationTaskService.createTask({
           id: postgresTaskId,
           appId,
-          appProfileId: appProfileId || '', // Default to empty string if undefined
+          appProfileId,
           appName,
           appConfigType,
           contractAddress,
@@ -163,8 +170,8 @@ export const createQueueService = (
           dstackVersion: dstackVersion || null,
           isPublic: isPublic ?? false,
           user: user || null,
-          workspaceId: workspaceId || null,
-          creatorId: creatorId || null,
+          workspaceId,
+          creatorId,
           status: 'active' as const,
           bullJobId: job.id,
           createdAt: new Date(),
@@ -423,6 +430,14 @@ export const createQueueService = (
 
   // Add new task (only adds to queue, worker will create DB record)
   const addTask = async (taskData: NewTaskData): Promise<string> => {
+    // Validate required IDs for new tasks (from Metabase)
+    // These fields are required for new tasks but nullable in DB schema for backward compatibility
+    if (!taskData.appProfileId || !taskData.workspaceId || !taskData.creatorId) {
+      throw new Error(
+        `Missing required IDs for task creation: appProfileId=${taskData.appProfileId}, workspaceId=${taskData.workspaceId}, creatorId=${taskData.creatorId}`,
+      )
+    }
+
     // Create task ID
     const taskId = crypto.randomUUID()
 
@@ -430,7 +445,7 @@ export const createQueueService = (
     const queueData: TaskData = {
       postgresTaskId: taskId,
       appId: taskData.appId,
-      appProfileId: taskData.appProfileId || undefined,
+      appProfileId: taskData.appProfileId,
       appName: taskData.appName,
       appConfigType: taskData.appConfigType,
       contractAddress: taskData.contractAddress,
@@ -440,8 +455,8 @@ export const createQueueService = (
       metadata: taskData.appMetadata,
       flags: taskData.verificationFlags as any, // TaskCreateRequest uses 'flags', DB uses 'verificationFlags'
       user: taskData.user || undefined,
-      workspaceId: taskData.workspaceId || undefined,
-      creatorId: taskData.creatorId || undefined,
+      workspaceId: taskData.workspaceId,
+      creatorId: taskData.creatorId,
     }
 
     const job = await queue.add('verification', queueData, {
