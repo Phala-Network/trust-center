@@ -128,6 +128,7 @@ export const createQueueService = (
 
         // Check if app has a recent completed report (within last 24 hours)
         // Skip this check if forceRefresh is true
+        // Only skip if there's a recent report with the SAME isPublic status
         if (!forceRefresh) {
           const oneDayAgo = new Date()
           oneDayAgo.setDate(oneDayAgo.getDate() - 1)
@@ -140,6 +141,7 @@ export const createQueueService = (
               and(
                 eq(verificationTasksTable.appId, appId),
                 eq(verificationTasksTable.status, 'completed'),
+                eq(verificationTasksTable.isPublic, isPublic ?? false), // Must match isPublic status
                 gte(verificationTasksTable.createdAt, oneDayAgo),
               ),
             )
@@ -147,7 +149,7 @@ export const createQueueService = (
 
           if (recentReports.length > 0) {
             console.log(
-              `[QUEUE] Skipping task ${postgresTaskId} - app ${appId} has a report within last 24 hours`,
+              `[QUEUE] Skipping task ${postgresTaskId} - app ${appId} has a report within last 24 hours with isPublic=${isPublic}`,
             )
             // Don't create DB record for skipped tasks
             return {
