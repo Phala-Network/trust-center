@@ -26,9 +26,6 @@ export interface App extends Task {
   dstackVersion?: string
   dataObjectsCount?: number
   dataObjects?: string[]
-  appProfileId?: string  // Optional for backward compatibility with old data
-  workspaceId?: string   // Workspace ID from upstream
-  creatorId?: string     // Creator user ID from upstream
   profile?: AppProfile | null
   workspaceProfile?: WorkspaceProfile | null
 }
@@ -174,9 +171,9 @@ export async function getApps(params?: {
     return {
       id: task.id,
       appId: task.appId,
-      appProfileId: task.appProfileId || undefined,
-      workspaceId: task.workspaceId || undefined,
-      creatorId: task.creatorId || undefined,
+      appProfileId: task.appProfileId ?? null,
+      workspaceId: task.workspaceId ?? null,
+      creatorId: task.creatorId ?? null,
       appName: task.appName,
       appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
       contractAddress: task.contractAddress,
@@ -324,20 +321,66 @@ export async function getApp(
   }
 
   const results = await db
-    .select()
+    .select({
+      task: verificationTasksTable,
+      appProfile: profilesTable,
+      workspaceProfile: sql<{
+        display_name: string | null
+        avatar_url: string | null
+      }>`(SELECT display_name, avatar_url FROM ${profilesTable} WHERE entity_type = 'workspace' AND entity_id = ${verificationTasksTable.workspaceId} LIMIT 1)`.as(
+        'workspace_profile',
+      ),
+      userProfile: sql<{
+        avatar_url: string | null
+      }>`(SELECT avatar_url FROM ${profilesTable} WHERE entity_type = 'user' AND entity_id = ${verificationTasksTable.creatorId} LIMIT 1)`.as(
+        'user_profile',
+      ),
+    })
     .from(verificationTasksTable)
+    .leftJoin(
+      profilesTable,
+      and(
+        eq(profilesTable.entityType, 'app'),
+        eq(profilesTable.entityId, verificationTasksTable.appProfileId),
+      ),
+    )
     .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
     .orderBy(desc(verificationTasksTable.createdAt))
     .limit(1)
 
-  const task = results[0]
-  if (!task) {
+  const result = results[0]
+  if (!result) {
     return null
   }
+
+  const task = result.task
+  const appProfile = result.appProfile
+  const workspaceProfile = result.workspaceProfile as unknown as {
+    display_name: string | null
+    avatar_url: string | null
+  } | null
+  const userProfile = result.userProfile as unknown as {
+    avatar_url: string | null
+  } | null
+
+  // Avatar priority: app → workspace → user
+  let avatarUrl: string | null = null
+  if (appProfile?.avatarUrl) {
+    avatarUrl = appProfile.avatarUrl
+  } else if (workspaceProfile?.avatar_url) {
+    avatarUrl = workspaceProfile.avatar_url
+  } else if (userProfile?.avatar_url) {
+    avatarUrl = userProfile.avatar_url
+  }
+
+  const fullAvatarUrl = avatarUrl ? `${AVATAR_BASE_URL}/${avatarUrl}` : null
+
   return {
     id: task.id,
     appId: task.appId,
-    appProfileId: task.appProfileId || undefined,
+    appProfileId: task.appProfileId ?? null,
+    workspaceId: task.workspaceId ?? null,
+    creatorId: task.creatorId ?? null,
     appName: task.appName,
     appConfigType: task.appConfigType,
     contractAddress: task.contractAddress,
@@ -357,6 +400,24 @@ export async function getApp(
       ? (task.dataObjects as string[])
       : undefined,
     isPublic: task.isPublic,
+    profile: appProfile
+      ? {
+          displayName: appProfile.displayName,
+          avatarUrl,
+          fullAvatarUrl,
+          description: appProfile.description || undefined,
+          customDomain: appProfile.customDomain || undefined,
+        }
+      : null,
+    workspaceProfile: workspaceProfile?.display_name
+      ? {
+          displayName: workspaceProfile.display_name,
+          avatarUrl: workspaceProfile.avatar_url,
+          fullAvatarUrl: workspaceProfile.avatar_url
+            ? `${AVATAR_BASE_URL}/${workspaceProfile.avatar_url}`
+            : null,
+        }
+      : null,
   }
 }
 
@@ -382,7 +443,9 @@ export async function getAppTasks(
   return results.map((task) => ({
     id: task.id,
     appId: task.appId,
-    appProfileId: task.appProfileId || undefined,
+    appProfileId: task.appProfileId ?? null,
+    workspaceId: task.workspaceId ?? null,
+    creatorId: task.creatorId ?? null,
     appName: task.appName,
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
@@ -420,7 +483,9 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
   return {
     id: task.id,
     appId: task.appId,
-    appProfileId: task.appProfileId || undefined,
+    appProfileId: task.appProfileId ?? null,
+    workspaceId: task.workspaceId ?? null,
+    creatorId: task.creatorId ?? null,
     appName: task.appName,
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
@@ -467,7 +532,9 @@ export async function getTask(
   return {
     id: task.id,
     appId: task.appId,
-    appProfileId: task.appProfileId || undefined,
+    appProfileId: task.appProfileId ?? null,
+    workspaceId: task.workspaceId ?? null,
+    creatorId: task.creatorId ?? null,
     appName: task.appName,
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
@@ -503,99 +570,4 @@ export interface WorkspaceProfile {
   displayName: string | null
   avatarUrl: string | null
   fullAvatarUrl: string | null
-}
-
-/**
- * Get profile for an app with priority: app > workspace > user
- * Returns profile with full avatar URL constructed
- */
-export async function getAppProfile(
-  appId: string,
-  workspaceId?: string | number,
-  creatorId?: string | number,
-): Promise<AppProfile | null> {
-  'use server'
-
-  // Convert to integers for database queries (entityId is integer type)
-  const appIdInt = parseInt(appId, 10)
-  const workspaceIdInt = workspaceId
-    ? typeof workspaceId === 'number'
-      ? workspaceId
-      : parseInt(workspaceId, 10)
-    : undefined
-  const creatorIdInt = creatorId
-    ? typeof creatorId === 'number'
-      ? creatorId
-      : parseInt(creatorId, 10)
-    : undefined
-
-  // Get app profile (contains app-specific fields)
-  const appProfile = await db
-    .select()
-    .from(profilesTable)
-    .where(
-      and(
-        eq(profilesTable.entityType, 'app'),
-        eq(profilesTable.entityId, appIdInt),
-      ),
-    )
-    .limit(1)
-
-  // If no app profile exists, return null
-  if (!appProfile.length || !appProfile[0]) {
-    return null
-  }
-
-  const profile = appProfile[0]
-
-  // For avatarUrl, use priority: app → workspace → user
-  let avatarUrl = profile.avatarUrl
-  let fullAvatarUrl = avatarUrl ? `${AVATAR_BASE_URL}/${avatarUrl}` : null
-
-  // If app has no avatar, try workspace
-  if (!avatarUrl && workspaceIdInt !== undefined) {
-    const workspaceProfile = await db
-      .select({avatarUrl: profilesTable.avatarUrl})
-      .from(profilesTable)
-      .where(
-        and(
-          eq(profilesTable.entityType, 'workspace'),
-          eq(profilesTable.entityId, workspaceIdInt),
-        ),
-      )
-      .limit(1)
-
-    if (workspaceProfile.length > 0 && workspaceProfile[0]?.avatarUrl) {
-      avatarUrl = workspaceProfile[0].avatarUrl
-      fullAvatarUrl = `${AVATAR_BASE_URL}/${avatarUrl}`
-    }
-  }
-
-  // If still no avatar, try user
-  if (!avatarUrl && creatorIdInt !== undefined) {
-    const userProfile = await db
-      .select({avatarUrl: profilesTable.avatarUrl})
-      .from(profilesTable)
-      .where(
-        and(
-          eq(profilesTable.entityType, 'user'),
-          eq(profilesTable.entityId, creatorIdInt),
-        ),
-      )
-      .limit(1)
-
-    if (userProfile.length > 0 && userProfile[0]?.avatarUrl) {
-      avatarUrl = userProfile[0].avatarUrl
-      fullAvatarUrl = `${AVATAR_BASE_URL}/${avatarUrl}`
-    }
-  }
-
-  // Return app profile with prioritized avatar
-  return {
-    displayName: profile.displayName,
-    avatarUrl,
-    fullAvatarUrl,
-    description: profile.description || undefined,
-    customDomain: profile.customDomain || undefined,
-  }
 }

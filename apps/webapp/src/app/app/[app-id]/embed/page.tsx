@@ -63,6 +63,8 @@ export default async function EmbedPage({
     id: app.id,
     appId: app.appId,
     appProfileId: app.appProfileId,
+    workspaceId: app.workspaceId,
+    creatorId: app.creatorId,
     appName: app.appName,
     appConfigType: app.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: app.contractAddress,
