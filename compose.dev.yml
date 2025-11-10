@@ -87,8 +87,13 @@ services:
       # Cron API (required)
       CRON_API_KEY: ${CRON_API_KEY}
 
+      # Cron patterns (optional, defaults: profile=1min, tasks=5min)
+      PROFILE_CRON_PATTERN: ${PROFILE_CRON_PATTERN:-*/1 * * * *}
+      TASKS_CRON_PATTERN: ${TASKS_CRON_PATTERN:-*/1 * * * *}
+
       # Metabase sync (optional)
-      METABASE_URL: ${METABASE_URL:-}
+      METABASE_APP_QUERY: ${METABASE_APP_QUERY:-}
+      METABASE_PROFILE_QUERY: ${METABASE_PROFILE_QUERY:-}
       METABASE_API_KEY: ${METABASE_API_KEY:-}
     depends_on:
       postgres:

@@ -3,18 +3,17 @@ import Image from 'next/image'
 import type React from 'react'
 
 import {AppLogo} from '@/components/app-logo'
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
-import type {Task} from '@phala/trust-center-db'
 import {getAppBadges} from '@/lib/app-badges'
+import type {AppTask} from '@/lib/db'
 
 // Shared Report Header Component
 export const ReportHeader: React.FC<{
-  task: Task
+  task: AppTask
   showAttributes?: boolean
   showVerificationStatus?: boolean
-  customAppName?: string
-  customDomain?: string
   showBranding?: boolean
   showTrustCenterButton?: boolean
   appId?: string
@@ -23,17 +22,22 @@ export const ReportHeader: React.FC<{
   task,
   showAttributes = true,
   showVerificationStatus = true,
-  customAppName,
-  customDomain,
   showBranding = false,
   showTrustCenterButton = false,
   appId,
   taskId,
 }) => {
   const badges = getAppBadges(task?.dstackVersion, task?.dataObjects)
-  const displayName = customAppName || task.appName
-  const displayUser = task.user
-  const displayDomain = customDomain || task.modelOrDomain
+
+  // Use profile display name if available, otherwise fallback to appName
+  const displayName = task.profile?.displayName || task.appName
+  // Show workspace displayName if available, otherwise fallback to user field
+  const displayUser = task.workspaceProfile?.displayName || task.user
+  // Use customDomain if available, otherwise fallback to modelOrDomain
+  const displayDomain = task.profile?.customDomain || task.modelOrDomain
+
+  // Get avatar URL from profile (priority: app → workspace → user)
+  const avatarUrl = task.profile?.fullAvatarUrl || task.workspaceProfile?.fullAvatarUrl || task.userProfile?.fullAvatarUrl
 
   return (
     <div className="space-y-2">
@@ -53,12 +57,22 @@ export const ReportHeader: React.FC<{
       {/* Header section */}
       <div className="p-5">
         <div className="flex items-center gap-4">
-          <AppLogo
-            user={displayUser}
-            appName={displayName}
-            size="lg"
-            className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
-          />
+          {/* Use profile avatar if available, otherwise fallback to AppLogo */}
+          {avatarUrl ? (
+            <Avatar className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm rounded-lg">
+              <AvatarImage src={avatarUrl} alt={displayName} />
+              <AvatarFallback className="rounded-lg">
+                {displayName.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          ) : (
+            <AppLogo
+              user={displayUser}
+              appName={displayName}
+              size="lg"
+              className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
+            />
+          )}
           <div className="flex-1 min-w-0 flex flex-col justify-center">
             {displayUser && (
               <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">

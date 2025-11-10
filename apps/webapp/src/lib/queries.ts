@@ -2,7 +2,7 @@
 
 import {useQuery} from '@tanstack/react-query'
 
-import type {App} from './db'
+import type {AppTask} from './db'
 import {getApps, getDstackVersions, getUsers} from './db'
 
 export function useApps(params?: {

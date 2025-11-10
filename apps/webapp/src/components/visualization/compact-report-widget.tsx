@@ -27,8 +27,6 @@ export interface CompactReportWidgetConfig {
   showAttributes?: boolean
   defaultExpanded?: boolean
   showSectionContent?: boolean
-  customAppName?: string
-  customDomain?: string
   darkMode?: boolean
   embedded?: boolean
   showTrustCenterButton?: boolean
@@ -58,7 +56,6 @@ const DEFAULT_CONFIG: CompactReportWidgetConfig & {
   darkMode: false,
   embedded: false,
   showTrustCenterButton: false,
-  customAppName: undefined,
   sections: {
     hardware: true,
     sourceCode: true,
@@ -198,8 +195,6 @@ const CompactReportWidget: React.FC<{
           task={task}
           showAttributes={finalConfig.showAttributes}
           showVerificationStatus={true}
-          customAppName={config.customAppName}
-          customDomain={config.customDomain}
           showBranding={true}
           showTrustCenterButton={finalConfig.showTrustCenterButton}
           appId={finalConfig.appId}

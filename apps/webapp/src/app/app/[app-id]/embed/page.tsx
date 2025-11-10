@@ -58,35 +58,10 @@ export default async function EmbedPage({
     )
   }
 
-  // Convert App to Task format for EmbedLayout compatibility
-  const task = {
-    id: app.id,
-    appId: app.appId,
-    appName: app.appName,
-    appConfigType: app.appConfigType as 'redpill' | 'phala_cloud',
-    contractAddress: app.contractAddress,
-    modelOrDomain: app.modelOrDomain,
-    verificationFlags: app.verificationFlags,
-    status: app.status,
-    errorMessage: app.errorMessage,
-    s3Filename: app.s3Filename,
-    s3Key: app.s3Key,
-    s3Bucket: app.s3Bucket,
-    createdAt: app.createdAt,
-    startedAt: app.startedAt,
-    finishedAt: app.finishedAt,
-    user: app.user,
-    dstackVersion: app.dstackVersion,
-    dataObjects: app.dataObjects,
-    isPublic: app.isPublic,
-  }
-
   return (
     <EmbedLayout
       searchParams={searchParams}
-      appId={appId}
-      taskId={app.id}
-      task={task}
+      app={app}
     />
   )
 }

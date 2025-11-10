@@ -1,26 +1,17 @@
+import {
+  type UpstreamAppData,
+  UpstreamAppDataSchema,
+  type UpstreamProfileData,
+  UpstreamProfileDataSchema,
+} from '@phala/trust-center-db'
 import {z} from 'zod'
 
+import type {ProfileService} from './profileService'
 import type {QueueService} from './queue'
 
-// Zod schema for Metabase API response
-const AppDataSchema = z.object({
-  app_id: z.string(),
-  name: z.string(),
-  chain_id: z.number().nullable(),
-  kms_contract_address: z.string().nullable(),
-  contract_address: z.string().nullable(),
-  base_image: z.string(),
-  tproxy_base_domain: z.string().nullable(),
-  gateway_domain_suffix: z.string().nullable(),
-  listed: z.boolean(),
-  email: z.string().nullable(),
-  username: z.string().nullable(),
-})
-
-export type AppData = z.infer<typeof AppDataSchema>
-
 export interface TaskData {
-  appId: string
+  appId: string // dstack_app_id (used for contract address)
+  appProfileId: number // app_id from Metabase (required when creating new tasks)
   appName: string
   appConfigType: 'phala_cloud' | 'redpill'
   contractAddress: string
@@ -28,29 +19,31 @@ export interface TaskData {
   dstackVersion?: string
   isPublic?: boolean
   user?: string
+  workspaceId: number // Workspace ID from Metabase (required when creating new tasks)
+  creatorId: number // Creator user ID from Metabase (required when creating new tasks)
 }
 
 // Helper function to determine user based on business rules
-function determineUser(app: AppData): string | undefined {
-  const {email, username, name} = app
+function determineUser(app: UpstreamAppData): string | undefined {
+  const {email, username, app_name} = app
 
   // Crossmint -> Name contains crossmint
-  if (name.includes('crossmint')) {
+  if (app_name.toLowerCase().includes('crossmint')) {
     return 'Crossmint'
   }
 
   // Vana -> User == volod@opendatalabs.xyz
-  if (email === 'volod@opendatalabs.xyz') {
+  if (email && email === 'volod@opendatalabs.xyz') {
     return 'Vana'
   }
 
-  // Rena Labs -> user == Renalabs
-  if (username === 'Renalabs ') {
+  // Rena Labs -> user == Renalabs (with or without trailing space)
+  if (username?.trim() === 'Renalabs') {
     return 'Rena Labs'
   }
 
   // Blormy -> User == tint@blorm.xyz
-  if (email === 'tint@blorm.xyz') {
+  if (email && email === 'tint@blorm.xyz') {
     return 'blormy'
   }
 
@@ -64,17 +57,17 @@ function determineUser(app: AppData): string | undefined {
   }
 
   // Sahara -> Name contains sahara
-  if (name.includes('sahara')) {
+  if (app_name.toLowerCase().includes('sahara')) {
     return 'Sahara'
   }
 
   // Lit -> User == chris@litprotocol.com
-  if (email === 'chris@litprotocol.com') {
+  if (email && email === 'chris@litprotocol.com') {
     return 'Lit'
   }
 
   // Magic Link -> User == infra@magic.link
-  if (email === 'infra@magic.link') {
+  if (email && email === 'infra@magic.link') {
     return 'Magic Link'
   }
 
@@ -137,26 +130,29 @@ function isVersionGreaterOrEqual(
 }
 
 // Helper function to process app data and create task
-function processAppData(app: AppData): TaskData {
+function processAppData(app: UpstreamAppData): TaskData {
   const {
     app_id,
-    name,
+    dstack_app_id,
+    app_name,
     base_image,
     contract_address,
     tproxy_base_domain,
     gateway_domain_suffix,
     listed,
+    workspace_id,
+    creator_id,
   } = app
 
   let contractAddress = ''
   let modelOrDomain = ''
 
-  const defaultContractAddress = `0x${app_id}`
+  const defaultContractAddress = `0x${dstack_app_id}`
 
   // Determine contract address based on base_image version
   if (isVersionGreaterOrEqual(base_image, '0.5.3')) {
-    // >= 0.5.3: use app_id converted to hex
-    contractAddress = `0x${app_id}`
+    // >= 0.5.3: use dstack_app_id as hex
+    contractAddress = `0x${dstack_app_id}`
   } else if (isVersionGreaterOrEqual(base_image, '0.5.1')) {
     // 0.5.1 to 0.5.2: use contract_address field
     contractAddress = contract_address || ''
@@ -173,39 +169,49 @@ function processAppData(app: AppData): TaskData {
   }
 
   return {
-    appId: app_id,
-    appName: name,
+    appId: dstack_app_id, // Used for contract address generation
+    appProfileId: app_id, // Metabase database ID for profile lookup (integer)
+    appName: app_name,
     appConfigType: 'phala_cloud',
     contractAddress: contractAddress || defaultContractAddress,
     modelOrDomain,
     dstackVersion: base_image,
     isPublic: listed,
     user: determineUser(app),
+    workspaceId: workspace_id, // Integer ID from Metabase
+    creatorId: creator_id, // Integer ID from Metabase
   }
 }
 
 export interface SyncServiceConfig {
-  metabaseUrl: string
+  metabaseAppQuery: string
+  metabaseProfileQuery: string
   metabaseApiKey: string
 }
 
 export interface SyncService {
-  syncAllTasks: () => Promise<{tasksCreated: number; apps: AppData[]}>
+  syncAllTasks: () => Promise<{tasksCreated: number; apps: UpstreamAppData[]}>
   syncSelectedTasks: (
     appIds: string[],
-  ) => Promise<{tasksCreated: number; apps: AppData[]}>
-  fetchApps: () => Promise<AppData[]>
+  ) => Promise<{tasksCreated: number; apps: UpstreamAppData[]}>
+  syncProfiles: () => Promise<{
+    profilesSynced: number
+    profiles: UpstreamProfileData[]
+  }>
+  fetchApps: () => Promise<UpstreamAppData[]>
+  fetchProfiles: () => Promise<UpstreamProfileData[]>
 }
 
 export function createSyncService(
   config: SyncServiceConfig,
   queueService: QueueService,
+  profileService: ProfileService,
 ): SyncService {
   // Fetch apps from Metabase
-  const fetchApps = async (): Promise<AppData[]> => {
+  const fetchApps = async (): Promise<UpstreamAppData[]> => {
     console.log('[SYNC] Fetching apps from Metabase...')
 
-    const metabaseResponse = await fetch(config.metabaseUrl, {
+    const metabaseResponse = await fetch(config.metabaseAppQuery, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -221,14 +227,38 @@ export function createSyncService(
     }
 
     const data = await metabaseResponse.json()
-    const apps = z.array(AppDataSchema).parse(data)
+    const apps = z.array(UpstreamAppDataSchema).parse(data)
     return apps
+  }
+
+  // Fetch profiles from Metabase
+  const fetchProfiles = async (): Promise<UpstreamProfileData[]> => {
+    console.log('[SYNC] Fetching profiles from Metabase...')
+
+    const metabaseResponse = await fetch(config.metabaseProfileQuery, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-KEY': config.metabaseApiKey,
+      },
+      body: JSON.stringify({}),
+    })
+
+    if (!metabaseResponse.ok) {
+      throw new Error(
+        `Metabase Profile API error: ${metabaseResponse.status} ${metabaseResponse.statusText}`,
+      )
+    }
+
+    const data = await metabaseResponse.json()
+    const profiles = z.array(UpstreamProfileDataSchema).parse(data)
+    return profiles
   }
 
   // Sync all tasks
   const syncAllTasks = async (): Promise<{
     tasksCreated: number
-    apps: AppData[]
+    apps: UpstreamAppData[]
   }> => {
     try {
       console.log('[SYNC] Syncing all tasks from Metabase...')
@@ -251,6 +281,7 @@ export function createSyncService(
       const jobPromises = tasks.map((task) =>
         queueService.addTask({
           appId: task.appId,
+          appProfileId: task.appProfileId,
           appName: task.appName,
           appConfigType: task.appConfigType,
           contractAddress: task.contractAddress,
@@ -258,6 +289,8 @@ export function createSyncService(
           dstackVersion: task.dstackVersion,
           isPublic: task.isPublic,
           user: task.user,
+          workspaceId: task.workspaceId,
+          creatorId: task.creatorId,
         }),
       )
 
@@ -274,14 +307,16 @@ export function createSyncService(
   // Sync selected tasks by app IDs
   const syncSelectedTasks = async (
     appIds: string[],
-  ): Promise<{tasksCreated: number; apps: AppData[]}> => {
+  ): Promise<{tasksCreated: number; apps: UpstreamAppData[]}> => {
     try {
       console.log(`[SYNC] Syncing selected ${appIds.length} tasks...`)
 
       const apps = await fetchApps()
 
       // Filter apps by selected IDs
-      const selectedApps = apps.filter((app) => appIds.includes(app.app_id))
+      const selectedApps = apps.filter((app) =>
+        appIds.includes(app.dstack_app_id),
+      )
 
       if (selectedApps.length === 0) {
         console.log('[SYNC] No matching apps found')
@@ -304,6 +339,7 @@ export function createSyncService(
       const jobPromises = tasks.map((task) =>
         queueService.addTask({
           appId: task.appId,
+          appProfileId: task.appProfileId,
           appName: task.appName,
           appConfigType: task.appConfigType,
           contractAddress: task.contractAddress,
@@ -311,6 +347,8 @@ export function createSyncService(
           dstackVersion: task.dstackVersion,
           isPublic: task.isPublic,
           user: task.user,
+          workspaceId: task.workspaceId,
+          creatorId: task.creatorId,
         }),
       )
 
@@ -324,9 +362,38 @@ export function createSyncService(
     }
   }
 
+  // Sync profiles from Metabase to database
+  const syncProfiles = async (): Promise<{
+    profilesSynced: number
+    profiles: UpstreamProfileData[]
+  }> => {
+    try {
+      console.log('[SYNC] Syncing profiles from Metabase...')
+
+      const profiles = await fetchProfiles()
+
+      if (profiles.length === 0) {
+        console.log('[SYNC] No profiles to sync')
+        return {profilesSynced: 0, profiles: []}
+      }
+
+      // Sync profiles to database using profileService
+      // Pass profiles directly - they already have snake_case format from Metabase
+      await profileService.syncProfiles(profiles)
+
+      console.log(`[SYNC] Synced ${profiles.length} profiles successfully`)
+      return {profilesSynced: profiles.length, profiles}
+    } catch (error) {
+      console.error('[SYNC] Sync profiles error:', error)
+      throw error
+    }
+  }
+
   return {
     syncAllTasks,
     syncSelectedTasks,
+    syncProfiles,
     fetchApps,
+    fetchProfiles,
   }
 }

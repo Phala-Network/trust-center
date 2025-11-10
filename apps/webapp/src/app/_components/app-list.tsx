@@ -1,15 +1,29 @@
-import {Activity, SearchX} from 'lucide-react'
+import {Activity, AlertCircle, ExternalLink, SearchX} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {memo} from 'react'
 
 import {AppLogo} from '@/components/app-logo'
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {getAppBadges} from '@/lib/app-badges'
-import type {App} from '@/lib/db'
+import {type AppTask} from '@/lib/db'
+import {isReportStale} from '@/lib/utils'
 
-const AppCard = memo(function AppCard({app}: {app: App}) {
+const AppCard = memo(function AppCard({app}: {app: AppTask}) {
   const badges = getAppBadges(app.dstackVersion, app.dataObjects)
+  const stale = isReportStale(app.createdAt)
+
+  // Determine display name: use profile displayName if available, fallback to appName
+  const displayName = app.profile?.displayName || app.appName
+  // Show workspace displayName if available, otherwise fallback to user field
+  const displayOwner = app.workspaceProfile?.displayName || app.user
+
+  // Avatar priority: app → workspace → user
+  const avatarUrl =
+    app.profile?.fullAvatarUrl ||
+    app.workspaceProfile?.fullAvatarUrl ||
+    app.userProfile?.fullAvatarUrl
 
   return (
     <Link
@@ -19,22 +33,33 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
       {/* Header with gradient background */}
       <div className="bg-gradient-to-br from-muted/40 to-muted/20 p-5 border-b border-border/50">
         <div className="flex items-center gap-4">
-          <AppLogo
-            user={app.user}
-            appName={app.appName}
-            size="lg"
-            className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
-          />
+          {/* Use profile avatar if available (app/workspace/user priority), otherwise fallback to AppLogo */}
+          {avatarUrl ? (
+            <Avatar className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm rounded-lg">
+              <AvatarImage src={avatarUrl} alt={displayName} />
+              <AvatarFallback className="rounded-lg">
+                {displayName.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          ) : (
+            <AppLogo
+              user={app.user}
+              appName={app.appName}
+              size="lg"
+              className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
+            />
+          )}
           <div className="flex-1 min-w-0 flex flex-col justify-center">
-            {app.user && (
+            {/* Owner: show workspace displayName if available, otherwise user field */}
+            {displayOwner && (
               <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
-                {app.user}
+                {displayOwner}
               </p>
             )}
             <h3 className="text-lg font-semibold tracking-tight truncate leading-tight">
-              {app.appName}
+              {displayName}
             </h3>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               {badges.versionBadge.show && (
                 <Badge
                   variant="secondary"
@@ -58,6 +83,15 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
                   className="text-xs h-5 px-2 font-medium"
                 >
                   {badges.kmsBadge.text}
+                </Badge>
+              )}
+              {app.profile?.customDomain && (
+                <Badge
+                  variant="outline"
+                  className="flex items-center gap-1 text-xs h-5 px-2 font-medium"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  {app.profile.customDomain}
                 </Badge>
               )}
             </div>
@@ -98,7 +132,7 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
           <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
             Created
           </span>
-          <div className="flex items-center gap-2 flex-1">
+          <div className="flex items-center gap-2 flex-1 flex-wrap">
             <Activity className="h-3.5 w-3.5 text-muted-foreground/50" />
             <span className="text-muted-foreground">
               {new Date(app.createdAt).toLocaleDateString('en-US', {
@@ -107,6 +141,15 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
                 day: 'numeric',
               })}
             </span>
+            {stale && (
+              <Badge
+                variant="outline"
+                className="flex items-center gap-1 text-xs h-5 px-2 text-amber-600 border-amber-600/30 bg-amber-50/50 dark:bg-amber-950/20"
+              >
+                <AlertCircle className="h-3 w-3" />
+                May be outdated
+              </Badge>
+            )}
           </div>
         </div>
       </div>
@@ -115,7 +158,7 @@ const AppCard = memo(function AppCard({app}: {app: App}) {
 })
 
 interface AppListProps {
-  apps: App[]
+  apps: AppTask[]
   hasFilters?: boolean
 }
 
@@ -131,7 +174,7 @@ export function AppList({apps, hasFilters = false}: AppListProps) {
         </h3>
         <p className="text-muted-foreground max-w-md leading-relaxed">
           {hasFilters
-            ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
+            ? "Try adjusting your search terms or filters to find what you're looking for."
             : 'No verified applications are available at the moment.'}
         </p>
       </div>

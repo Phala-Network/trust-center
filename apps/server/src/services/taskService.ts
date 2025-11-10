@@ -42,10 +42,11 @@ export const createVerificationTaskService = (
     return true
   }
 
-  // Create a single task
+  // Create a single task (new tasks always have these IDs from Metabase)
   const createTask = async (taskData: {
     id: string
     appId: string
+    appProfileId: number // Required for new tasks
     appName: string
     appConfigType: 'redpill' | 'phala_cloud'
     contractAddress: string
@@ -53,6 +54,8 @@ export const createVerificationTaskService = (
     dstackVersion?: string | null
     isPublic?: boolean
     user?: string | null
+    workspaceId: number // Required for new tasks
+    creatorId: number // Required for new tasks
     status: 'pending' | 'active'
     bullJobId?: string | null
     createdAt: Date
@@ -71,3 +74,5 @@ export const createVerificationTaskService = (
 export type VerificationTaskService = ReturnType<
   typeof createVerificationTaskService
 >
+
+export type TaskService = VerificationTaskService

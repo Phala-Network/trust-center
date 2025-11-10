@@ -1,15 +1,14 @@
 'use client'
 
-import type {Task} from '@phala/trust-center-db'
-
 import {AttestationDataProvider} from '@/components/attestation-data-provider'
 import {HydrateProvider} from '@/components/hydrate-provider'
 import CompactReportWidget, {
   type CompactReportWidgetConfig,
 } from '@/components/visualization/compact-report-widget'
+import type {AppTask} from '@/lib/db'
 
 interface WidgetClientProps {
-  task: Task
+  task: AppTask
   appId: string
   taskId: string
   config?: Partial<CompactReportWidgetConfig>

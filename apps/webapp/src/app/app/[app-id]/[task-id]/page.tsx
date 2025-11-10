@@ -1,7 +1,7 @@
 import {notFound} from 'next/navigation'
 
 import AppLayout from '@/components/app-layout'
-import {getTask} from '@/lib/db'
+import {getApp} from '@/lib/db'
 
 interface TaskPageProps {
   params: Promise<{
@@ -12,41 +12,39 @@ interface TaskPageProps {
 }
 
 export const generateMetadata = async ({params}: TaskPageProps) => {
-  const {['app-id']: appId, ['task-id']: taskId} = await params
-  const task = await getTask(appId, taskId)
-  if (task == null) {
+  const {['app-id']: appId} = await params
+  const app = await getApp(appId)
+  if (app == null) {
     notFound()
   }
 
   // Only allow indexing for public apps
-  const robots = task.isPublic ? undefined : {
+  const robots = app.isPublic ? undefined : {
     index: false,
     follow: false,
   }
 
   return {
-    title: `${task.appName}`,
-    description: `Trust report for ${task.appName} by Phala`,
+    title: `${app.appName}`,
+    description: `Trust report for ${app.appName} by Phala`,
     ...(robots && { robots }),
   }
 }
 
 export default async function TaskPage({params, searchParams}: TaskPageProps) {
-  const {['app-id']: appId, ['task-id']: taskId} = await params
+  const {['app-id']: appId} = await params
 
-  // Get task data from database
-  const task = await getTask(appId, taskId)
+  // Get app data from database (shows latest task for this app)
+  const app = await getApp(appId)
 
-  if (!task) {
+  if (!app) {
     notFound()
   }
 
   return (
     <AppLayout
       searchParams={searchParams}
-      appId={appId}
-      taskId={taskId}
-      task={task}
+      app={app}
     />
   )
 }

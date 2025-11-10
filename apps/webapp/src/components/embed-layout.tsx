@@ -1,4 +1,3 @@
-import type {Task} from '@phala/trust-center-db'
 import {cookies} from 'next/headers'
 import {ExternalLink} from 'lucide-react'
 
@@ -7,19 +6,16 @@ import {HydrateProvider} from '@/components/hydrate-provider'
 import Panels from '@/components/panels'
 import {Button} from '@/components/ui/button'
 import {PANEL_LAYOUT_STORAGE_KEY} from '@/stores/app'
+import type {AppTask} from '@/lib/db'
 
 interface EmbedLayoutProps {
   searchParams: Promise<{selected?: string}>
-  appId?: string
-  taskId?: string
-  task?: Task | null
+  app: AppTask
 }
 
 export default async function EmbedLayout({
   searchParams,
-  appId,
-  taskId,
-  task,
+  app,
 }: EmbedLayoutProps) {
   const cookieStore = await cookies()
   const layout = cookieStore.get(PANEL_LAYOUT_STORAGE_KEY)
@@ -37,25 +33,23 @@ export default async function EmbedLayout({
   // Read selected object from URL search params during SSR
   const selectedObjectId = (await searchParams).selected ?? null
 
-  // Extract app info from task data
-  const appInfo = task
-    ? {
-        id: task.appId,
-        name: task.appName,
-        description: `${task.appConfigType === 'phala_cloud' ? 'Phala Cloud' : 'Redpill'} Application`,
-        configType: task.appConfigType,
-        user: task.user,
-      }
-    : null
+  // Extract app info from app data
+  const appInfo = {
+    id: app.appId,
+    name: app.appName,
+    description: `${app.appConfigType === 'phala_cloud' ? 'Phala Cloud' : 'Redpill'} Application`,
+    configType: app.appConfigType,
+    user: app.user,
+  }
 
-  // Construct the Trust Center URL using task ID
-  const trustCenterUrl = appId && taskId ? `/app/${appId}/${taskId}` : '/'
+  // Construct the Trust Center URL using app info
+  const trustCenterUrl = `/app/${app.appId}/${app.id}`
 
   return (
     <HydrateProvider
-      appId={appId}
-      taskId={taskId}
-      task={task}
+      appId={app.appId}
+      taskId={app.id}
+      task={app}
       appInfo={appInfo}
     >
       <AttestationDataProvider initialSelectedObjectId={selectedObjectId}>
