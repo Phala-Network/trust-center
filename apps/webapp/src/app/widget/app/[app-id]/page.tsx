@@ -49,9 +49,9 @@ export default async function WidgetAppPage({params, searchParams}: WidgetAppPag
   const task = {
     id: app.id,
     appId: app.appId,
-    appProfileId: app.appProfileId,
-    workspaceId: app.workspaceId,
-    creatorId: app.creatorId,
+    appProfileId: null, // Internal ID, not exposed to frontend
+    workspaceId: null, // Internal ID, not exposed to frontend
+    creatorId: null, // Internal ID, not exposed to frontend
     appName: app.appName,
     appConfigType: app.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: app.contractAddress,

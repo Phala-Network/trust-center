@@ -13,8 +13,6 @@ export const ReportHeader: React.FC<{
   task: Task
   showAttributes?: boolean
   showVerificationStatus?: boolean
-  customAppName?: string
-  customDomain?: string
   showBranding?: boolean
   showTrustCenterButton?: boolean
   appId?: string
@@ -23,17 +21,15 @@ export const ReportHeader: React.FC<{
   task,
   showAttributes = true,
   showVerificationStatus = true,
-  customAppName,
-  customDomain,
   showBranding = false,
   showTrustCenterButton = false,
   appId,
   taskId,
 }) => {
   const badges = getAppBadges(task?.dstackVersion, task?.dataObjects)
-  const displayName = customAppName || task.appName
+  const displayName = task.appName
   const displayUser = task.user
-  const displayDomain = customDomain || task.modelOrDomain
+  const displayDomain = task.modelOrDomain
 
   return (
     <div className="space-y-2">

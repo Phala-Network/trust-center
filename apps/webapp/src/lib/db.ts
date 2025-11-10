@@ -22,10 +22,27 @@ const db = createDbConnection(env.DATABASE_POSTGRES_URL)
 // Avatar base URL for Phala Cloud R2
 const AVATAR_BASE_URL = 'https://cloud-r2.phala.com'
 
-export interface App extends Task {
+export interface App {
+  id: string
+  appId: string
+  appName: string
+  appConfigType: 'redpill' | 'phala_cloud'
+  contractAddress: string
+  modelOrDomain: string
+  verificationFlags: VerificationFlags | null
+  status: string
+  errorMessage?: string
+  s3Filename?: string
+  s3Key?: string
+  s3Bucket?: string
+  createdAt: string
+  startedAt?: string
+  finishedAt?: string
+  user?: string
   dstackVersion?: string
   dataObjectsCount?: number
   dataObjects?: string[]
+  isPublic: boolean
   profile?: AppProfile | null
   workspaceProfile?: WorkspaceProfile | null
 }
@@ -171,9 +188,6 @@ export async function getApps(params?: {
     return {
       id: task.id,
       appId: task.appId,
-      appProfileId: task.appProfileId ?? null,
-      workspaceId: task.workspaceId ?? null,
-      creatorId: task.creatorId ?? null,
       appName: task.appName,
       appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
       contractAddress: task.contractAddress,
@@ -378,9 +392,6 @@ export async function getApp(
   return {
     id: task.id,
     appId: task.appId,
-    appProfileId: task.appProfileId ?? null,
-    workspaceId: task.workspaceId ?? null,
-    creatorId: task.creatorId ?? null,
     appName: task.appName,
     appConfigType: task.appConfigType,
     contractAddress: task.contractAddress,
@@ -443,9 +454,9 @@ export async function getAppTasks(
   return results.map((task) => ({
     id: task.id,
     appId: task.appId,
-    appProfileId: task.appProfileId ?? null,
-    workspaceId: task.workspaceId ?? null,
-    creatorId: task.creatorId ?? null,
+    appProfileId: null, // Internal ID, not exposed to frontend
+    workspaceId: null, // Internal ID, not exposed to frontend
+    creatorId: null, // Internal ID, not exposed to frontend
     appName: task.appName,
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
@@ -483,9 +494,9 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
   return {
     id: task.id,
     appId: task.appId,
-    appProfileId: task.appProfileId ?? null,
-    workspaceId: task.workspaceId ?? null,
-    creatorId: task.creatorId ?? null,
+    appProfileId: null, // Internal ID, not exposed to frontend
+    workspaceId: null, // Internal ID, not exposed to frontend
+    creatorId: null, // Internal ID, not exposed to frontend
     appName: task.appName,
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
@@ -532,9 +543,9 @@ export async function getTask(
   return {
     id: task.id,
     appId: task.appId,
-    appProfileId: task.appProfileId ?? null,
-    workspaceId: task.workspaceId ?? null,
-    creatorId: task.creatorId ?? null,
+    appProfileId: null, // Internal ID, not exposed to frontend
+    workspaceId: null, // Internal ID, not exposed to frontend
+    creatorId: null, // Internal ID, not exposed to frontend
     appName: task.appName,
     appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: task.contractAddress,
