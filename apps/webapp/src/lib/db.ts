@@ -498,10 +498,31 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
 export async function getTask(
   appId: string,
   taskId: string,
-): Promise<Task | null> {
+): Promise<AppTask | null> {
   const results = await db
-    .select()
+    .select(profileSelection)
     .from(verificationTasksTable)
+    .leftJoin(
+      appProfileTable,
+      and(
+        eq(appProfileTable.entityType, 'app'),
+        eq(appProfileTable.entityId, verificationTasksTable.appProfileId),
+      ),
+    )
+    .leftJoin(
+      workspaceProfileTable,
+      and(
+        eq(workspaceProfileTable.entityType, 'workspace'),
+        eq(workspaceProfileTable.entityId, verificationTasksTable.workspaceId),
+      ),
+    )
+    .leftJoin(
+      userProfileTable,
+      and(
+        eq(userProfileTable.entityType, 'user'),
+        eq(userProfileTable.entityId, verificationTasksTable.creatorId),
+      ),
+    )
     .where(
       and(
         eq(verificationTasksTable.id, taskId),
@@ -510,8 +531,8 @@ export async function getTask(
     )
     .limit(1)
 
-  const task = results[0]
-  return task ? taskToPublic(task) : null
+  const result = results[0]
+  return result ? resultToAppTask(result) : null
 }
 
 // Re-export unified profile type for backward compatibility

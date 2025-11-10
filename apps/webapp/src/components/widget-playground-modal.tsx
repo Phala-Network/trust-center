@@ -28,9 +28,7 @@ interface WidgetPlaygroundModalProps {
   taskId?: string | null
 }
 
-type WidgetConfig = Omit<Required<CompactReportWidgetConfig>, 'customAppName' | 'customDomain' | 'appId' | 'taskId' | 'showTrustCenterButton'> & {
-  customAppName?: string
-  customDomain?: string
+type WidgetConfig = Omit<Required<CompactReportWidgetConfig>, 'appId' | 'taskId' | 'showTrustCenterButton'> & {
   appId?: string
   taskId?: string
   showTrustCenterButton?: boolean
@@ -42,8 +40,6 @@ const defaultConfig: WidgetConfig = {
   showSectionContent: true,
   darkMode: false,
   embedded: false,
-  customAppName: undefined,
-  customDomain: undefined,
   appId: undefined,
   taskId: undefined,
   showTrustCenterButton: true,
@@ -70,7 +66,7 @@ export default function WidgetPlaygroundModal({
   })
   const {attestationData} = useAttestationData()
 
-  const updateConfig = (key: keyof Omit<WidgetConfig, 'sections' | 'customAppName'>, value: boolean) => {
+  const updateConfig = (key: keyof Omit<WidgetConfig, 'sections'>, value: boolean) => {
     setConfig((prev) => ({...prev, [key]: value}))
   }
 
@@ -84,13 +80,6 @@ export default function WidgetPlaygroundModal({
     }))
   }
 
-  const updateCustomText = (key: 'customAppName' | 'customDomain', value: string) => {
-    setConfig((prev) => ({
-      ...prev,
-      [key]: value || undefined,
-    }))
-  }
-
   // Generate optimized config (only include non-default values, use short keys)
   const getOptimizedConfig = () => {
     const optimized: Record<string, any> = {}
@@ -100,8 +89,6 @@ export default function WidgetPlaygroundModal({
     if (config.defaultExpanded) optimized.e = 1
     if (!config.showSectionContent) optimized.c = 0
     if (config.darkMode) optimized.t = 1
-    if (config.customAppName) optimized.n = config.customAppName
-    if (config.customDomain) optimized.dm = config.customDomain
 
     // Only include disabled sections with short keys
     const disabledSections: string[] = []
@@ -184,43 +171,6 @@ export default function WidgetPlaygroundModal({
                   onCheckedChange={(checked) =>
                     updateConfig('showAttributes', checked)
                   }
-                />
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Customization Controls */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Customization
-              </h4>
-
-              <div className="space-y-2">
-                <Label htmlFor="custom-app-name" className="text-sm">
-                  Custom App Name
-                </Label>
-                <Input
-                  id="custom-app-name"
-                  type="text"
-                  placeholder="Leave empty to use original"
-                  value={config.customAppName || ''}
-                  onChange={(e) => updateCustomText('customAppName', e.target.value)}
-                  className="text-sm"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="custom-domain" className="text-sm">
-                  Custom Domain
-                </Label>
-                <Input
-                  id="custom-domain"
-                  type="text"
-                  placeholder="Leave empty to use original"
-                  value={config.customDomain || ''}
-                  onChange={(e) => updateCustomText('customDomain', e.target.value)}
-                  className="text-sm"
                 />
               </div>
             </div>
