@@ -9,10 +9,6 @@ import {z} from 'zod'
 import type {ProfileService} from './profileService'
 import type {QueueService} from './queue'
 
-// Re-export types for backward compatibility
-export type AppData = UpstreamAppData
-export type ProfileData = UpstreamProfileData
-
 export interface TaskData {
   appId: string // dstack_app_id (used for contract address)
   appProfileId: number // app_id from Metabase (required when creating new tasks)
@@ -28,7 +24,7 @@ export interface TaskData {
 }
 
 // Helper function to determine user based on business rules
-function determineUser(app: AppData): string | undefined {
+function determineUser(app: UpstreamAppData): string | undefined {
   const {email, username, app_name} = app
 
   // Crossmint -> Name contains crossmint
@@ -41,8 +37,8 @@ function determineUser(app: AppData): string | undefined {
     return 'Vana'
   }
 
-  // Rena Labs -> user == Renalabs
-  if (username === 'Renalabs ') {
+  // Rena Labs -> user == Renalabs (with or without trailing space)
+  if (username?.trim() === 'Renalabs') {
     return 'Rena Labs'
   }
 
@@ -134,7 +130,7 @@ function isVersionGreaterOrEqual(
 }
 
 // Helper function to process app data and create task
-function processAppData(app: AppData): TaskData {
+function processAppData(app: UpstreamAppData): TaskData {
   const {
     app_id,
     dstack_app_id,
@@ -194,13 +190,16 @@ export interface SyncServiceConfig {
 }
 
 export interface SyncService {
-  syncAllTasks: () => Promise<{tasksCreated: number; apps: AppData[]}>
+  syncAllTasks: () => Promise<{tasksCreated: number; apps: UpstreamAppData[]}>
   syncSelectedTasks: (
     appIds: string[],
-  ) => Promise<{tasksCreated: number; apps: AppData[]}>
-  syncProfiles: () => Promise<{profilesSynced: number; profiles: ProfileData[]}>
-  fetchApps: () => Promise<AppData[]>
-  fetchProfiles: () => Promise<ProfileData[]>
+  ) => Promise<{tasksCreated: number; apps: UpstreamAppData[]}>
+  syncProfiles: () => Promise<{
+    profilesSynced: number
+    profiles: UpstreamProfileData[]
+  }>
+  fetchApps: () => Promise<UpstreamAppData[]>
+  fetchProfiles: () => Promise<UpstreamProfileData[]>
 }
 
 export function createSyncService(
@@ -209,7 +208,7 @@ export function createSyncService(
   profileService: ProfileService,
 ): SyncService {
   // Fetch apps from Metabase
-  const fetchApps = async (): Promise<AppData[]> => {
+  const fetchApps = async (): Promise<UpstreamAppData[]> => {
     console.log('[SYNC] Fetching apps from Metabase...')
 
     const metabaseResponse = await fetch(config.metabaseAppQuery, {
@@ -233,7 +232,7 @@ export function createSyncService(
   }
 
   // Fetch profiles from Metabase
-  const fetchProfiles = async (): Promise<ProfileData[]> => {
+  const fetchProfiles = async (): Promise<UpstreamProfileData[]> => {
     console.log('[SYNC] Fetching profiles from Metabase...')
 
     const metabaseResponse = await fetch(config.metabaseProfileQuery, {
@@ -259,7 +258,7 @@ export function createSyncService(
   // Sync all tasks
   const syncAllTasks = async (): Promise<{
     tasksCreated: number
-    apps: AppData[]
+    apps: UpstreamAppData[]
   }> => {
     try {
       console.log('[SYNC] Syncing all tasks from Metabase...')
@@ -308,7 +307,7 @@ export function createSyncService(
   // Sync selected tasks by app IDs
   const syncSelectedTasks = async (
     appIds: string[],
-  ): Promise<{tasksCreated: number; apps: AppData[]}> => {
+  ): Promise<{tasksCreated: number; apps: UpstreamAppData[]}> => {
     try {
       console.log(`[SYNC] Syncing selected ${appIds.length} tasks...`)
 
@@ -366,7 +365,7 @@ export function createSyncService(
   // Sync profiles from Metabase to database
   const syncProfiles = async (): Promise<{
     profilesSynced: number
-    profiles: ProfileData[]
+    profiles: UpstreamProfileData[]
   }> => {
     try {
       console.log('[SYNC] Syncing profiles from Metabase...')

@@ -36,18 +36,34 @@ export function createProfileService(
 
     console.log(`[PROFILE] Starting full sync for ${profiles.length} profiles`)
 
-    // Validate all profiles with Zod schema
-    const validatedProfiles = profiles.map((p, index) => {
+    // Validate all profiles with Zod schema (skip invalid ones with warnings)
+    const validatedProfiles: UpstreamProfileData[] = []
+    let skippedCount = 0
+
+    for (let index = 0; index < profiles.length; index++) {
+      const p = profiles[index]
       const result = UpstreamProfileDataSchema.safeParse(p)
       if (!result.success) {
-        console.error(
-          `[PROFILE] Invalid profile data at index ${index}:`,
-          result.error,
+        console.warn(
+          `[PROFILE] Skipping invalid profile at index ${index}:`,
+          result.error.format(),
         )
-        throw new Error(`Invalid profile data at index ${index}`)
+        skippedCount++
+        continue
       }
-      return result.data
-    })
+      validatedProfiles.push(result.data)
+    }
+
+    if (skippedCount > 0) {
+      console.warn(
+        `[PROFILE] Skipped ${skippedCount} invalid profiles out of ${profiles.length}`,
+      )
+    }
+
+    if (validatedProfiles.length === 0) {
+      console.warn('[PROFILE] No valid profiles after validation, skipping sync')
+      return
+    }
 
     // Build composite keys map for upstream profiles
     const upstreamMap = new Map<string, UpstreamProfileData>()

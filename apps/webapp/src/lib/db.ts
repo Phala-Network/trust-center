@@ -23,20 +23,21 @@ const db = createDbConnection(env.DATABASE_POSTGRES_URL)
 // Avatar base URL for Phala Cloud R2
 const AVATAR_BASE_URL = 'https://cloud-r2.phala.com'
 
-// User profile
-export interface UserProfile {
+// Unified profile display type used for all entity types (app, workspace, user)
+export interface ProfileDisplay {
   displayName: string | null
   avatarUrl: string | null
   fullAvatarUrl: string | null
   description?: string
+  customDomain?: string // Only used for app profiles
 }
 
 // Extended Task with profile information for frontend
 export interface AppTask extends Task {
   dataObjectsCount?: number
-  profile?: AppProfile | null
-  workspaceProfile?: WorkspaceProfile | null
-  userProfile?: UserProfile | null
+  profile?: ProfileDisplay | null
+  workspaceProfile?: ProfileDisplay | null
+  userProfile?: ProfileDisplay | null
 }
 
 // Common filter parameters
@@ -83,6 +84,35 @@ const profileSelection = {
   appProfile: appProfileTable,
   workspaceProfile: workspaceProfileTable,
   userProfile: userProfileTable,
+}
+
+// Helper: Convert database task to Task object (for frontend display)
+function taskToPublic(
+  task: typeof verificationTasksTable.$inferSelect,
+): Task {
+  return {
+    id: task.id,
+    appId: task.appId,
+    appName: task.appName,
+    appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
+    contractAddress: task.contractAddress,
+    modelOrDomain: task.modelOrDomain,
+    verificationFlags: task.verificationFlags as VerificationFlags | null,
+    status: task.status,
+    errorMessage: task.errorMessage || undefined,
+    s3Filename: task.s3Filename || undefined,
+    s3Key: task.s3Key || undefined,
+    s3Bucket: task.s3Bucket || undefined,
+    createdAt: task.createdAt.toISOString(),
+    startedAt: task.startedAt?.toISOString(),
+    finishedAt: task.finishedAt?.toISOString(),
+    user: task.user || undefined,
+    dstackVersion: task.dstackVersion || undefined,
+    dataObjects: Array.isArray(task.dataObjects)
+      ? (task.dataObjects as string[])
+      : undefined,
+    isPublic: task.isPublic,
+  }
 }
 
 // Helper: Convert query result to AppTask with profile data
@@ -392,47 +422,14 @@ export async function getApp(
 }
 
 // Get all tasks for a specific app
-export async function getAppTasks(
-  appId: string,
-  _params?: {
-    status?: string
-    page?: number
-    perPage?: number
-    sortBy?: string
-    sortOrder?: 'asc' | 'desc'
-    createdAfter?: string
-    createdBefore?: string
-  },
-): Promise<Task[]> {
+export async function getAppTasks(appId: string): Promise<Task[]> {
   const results = await db
     .select()
     .from(verificationTasksTable)
     .where(eq(verificationTasksTable.appId, appId))
     .orderBy(desc(verificationTasksTable.createdAt))
 
-  return results.map((task) => ({
-    id: task.id,
-    appId: task.appId,
-    appName: task.appName,
-    appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
-    contractAddress: task.contractAddress,
-    modelOrDomain: task.modelOrDomain,
-    verificationFlags: task.verificationFlags as VerificationFlags | null,
-    status: task.status,
-    errorMessage: task.errorMessage || undefined,
-    s3Filename: task.s3Filename || undefined,
-    s3Key: task.s3Key || undefined,
-    s3Bucket: task.s3Bucket || undefined,
-    createdAt: task.createdAt.toISOString(),
-    startedAt: task.startedAt?.toISOString(),
-    finishedAt: task.finishedAt?.toISOString(),
-    user: task.user || undefined,
-    dstackVersion: task.dstackVersion || undefined,
-    dataObjects: Array.isArray(task.dataObjects)
-      ? (task.dataObjects as string[])
-      : undefined,
-    isPublic: task.isPublic,
-  }))
+  return results.map(taskToPublic)
 }
 
 // Get task by ID
@@ -444,32 +441,7 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
     .limit(1)
 
   const task = results[0]
-  if (!task) {
-    return null
-  }
-  return {
-    id: task.id,
-    appId: task.appId,
-    appName: task.appName,
-    appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
-    contractAddress: task.contractAddress,
-    modelOrDomain: task.modelOrDomain,
-    verificationFlags: task.verificationFlags as VerificationFlags | null,
-    status: task.status,
-    errorMessage: task.errorMessage || undefined,
-    s3Filename: task.s3Filename || undefined,
-    s3Key: task.s3Key || undefined,
-    s3Bucket: task.s3Bucket || undefined,
-    createdAt: task.createdAt.toISOString(),
-    startedAt: task.startedAt?.toISOString(),
-    finishedAt: task.finishedAt?.toISOString(),
-    user: task.user || undefined,
-    dstackVersion: task.dstackVersion || undefined,
-    dataObjects: Array.isArray(task.dataObjects)
-      ? (task.dataObjects as string[])
-      : undefined,
-    isPublic: task.isPublic,
-  }
+  return task ? taskToPublic(task) : null
 }
 
 // Get task by app and task ID
@@ -490,46 +462,10 @@ export async function getTask(
     .limit(1)
 
   const task = results[0]
-  if (!task) {
-    return null
-  }
-  return {
-    id: task.id,
-    appId: task.appId,
-    appName: task.appName,
-    appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
-    contractAddress: task.contractAddress,
-    modelOrDomain: task.modelOrDomain,
-    verificationFlags: task.verificationFlags as VerificationFlags | null,
-    status: task.status,
-    errorMessage: task.errorMessage || undefined,
-    s3Filename: task.s3Filename || undefined,
-    s3Key: task.s3Key || undefined,
-    s3Bucket: task.s3Bucket || undefined,
-    createdAt: task.createdAt.toISOString(),
-    startedAt: task.startedAt?.toISOString(),
-    finishedAt: task.finishedAt?.toISOString(),
-    user: task.user || undefined,
-    dstackVersion: task.dstackVersion || undefined,
-    dataObjects: Array.isArray(task.dataObjects)
-      ? (task.dataObjects as string[])
-      : undefined,
-    isPublic: task.isPublic,
-  }
+  return task ? taskToPublic(task) : null
 }
 
-// Profile types for frontend
-export interface AppProfile {
-  displayName: string | null
-  avatarUrl: string | null
-  fullAvatarUrl: string | null // Full URL with CDN prefix
-  description?: string
-  customDomain?: string
-}
-
-export interface WorkspaceProfile {
-  displayName: string | null
-  avatarUrl: string | null
-  fullAvatarUrl: string | null
-  description?: string
-}
+// Re-export unified profile type for backward compatibility
+export type AppProfile = ProfileDisplay
+export type WorkspaceProfile = ProfileDisplay
+export type UserProfile = ProfileDisplay
