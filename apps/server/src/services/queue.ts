@@ -440,6 +440,8 @@ export const createQueueService = (
       metadata: taskData.appMetadata,
       flags: taskData.verificationFlags as any, // TaskCreateRequest uses 'flags', DB uses 'verificationFlags'
       user: taskData.user || undefined,
+      workspaceId: taskData.workspaceId || undefined,
+      creatorId: taskData.creatorId || undefined,
     }
 
     const job = await queue.add('verification', queueData, {
