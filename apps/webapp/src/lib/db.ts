@@ -77,6 +77,33 @@ const profileSelection = {
   userProfile: userProfileTable,
 }
 
+// Helper: Build ProfileDisplay from profile record
+function buildProfileDisplay(
+  profile: typeof profilesTable.$inferSelect | null,
+  overrideAvatarUrl?: string | null,
+): ProfileDisplay | null {
+  if (!profile) return null
+
+  const avatarUrl = overrideAvatarUrl ?? profile.avatarUrl
+  return {
+    displayName: profile.displayName,
+    avatarUrl,
+    fullAvatarUrl: avatarUrl ? `${AVATAR_BASE_URL}/${avatarUrl}` : null,
+    description: profile.description || undefined,
+    customDomain: profile.customDomain || undefined,
+  }
+}
+
+// Helper: Resolve owner from AppTask (priority: workspace > user > legacy)
+function resolveOwner(task: AppTask): string | null {
+  return (
+    task.workspaceProfile?.displayName ||
+    task.userProfile?.displayName ||
+    task.user ||
+    null
+  )
+}
+
 // Helper: Convert database task to Task object (for frontend display)
 function taskToPublic(
   task: typeof verificationTasksTable.$inferSelect,
@@ -118,17 +145,12 @@ function resultToAppTask(result: {
   const workspaceProfile = result.workspaceProfile
   const userProfile = result.userProfile
 
-  // Avatar priority: app → workspace → user
-  let avatarUrl: string | null = null
-  if (appProfile?.avatarUrl) {
-    avatarUrl = appProfile.avatarUrl
-  } else if (workspaceProfile?.avatarUrl) {
-    avatarUrl = workspaceProfile.avatarUrl
-  } else if (userProfile?.avatarUrl) {
-    avatarUrl = userProfile.avatarUrl
-  }
-
-  const fullAvatarUrl = avatarUrl ? `${AVATAR_BASE_URL}/${avatarUrl}` : null
+  // Avatar priority: app → workspace → user (for app profile override)
+  const avatarUrl =
+    appProfile?.avatarUrl ||
+    workspaceProfile?.avatarUrl ||
+    userProfile?.avatarUrl ||
+    null
 
   return {
     id: task.id,
@@ -155,35 +177,10 @@ function resultToAppTask(result: {
       ? (task.dataObjects as string[])
       : undefined,
     isPublic: task.isPublic,
-    profile: appProfile
-      ? {
-          displayName: appProfile.displayName,
-          avatarUrl,
-          fullAvatarUrl,
-          description: appProfile.description || undefined,
-          customDomain: appProfile.customDomain || undefined,
-        }
-      : null,
-    workspaceProfile: workspaceProfile
-      ? {
-          displayName: workspaceProfile.displayName,
-          avatarUrl: workspaceProfile.avatarUrl,
-          fullAvatarUrl: workspaceProfile.avatarUrl
-            ? `${AVATAR_BASE_URL}/${workspaceProfile.avatarUrl}`
-            : null,
-          description: workspaceProfile.description || undefined,
-        }
-      : null,
-    userProfile: userProfile
-      ? {
-          displayName: userProfile.displayName,
-          avatarUrl: userProfile.avatarUrl,
-          fullAvatarUrl: userProfile.avatarUrl
-            ? `${AVATAR_BASE_URL}/${userProfile.avatarUrl}`
-            : null,
-          description: userProfile.description || undefined,
-        }
-      : null,
+    // Use helper to build profiles with avatar priority
+    profile: buildProfileDisplay(appProfile, avatarUrl),
+    workspaceProfile: buildProfileDisplay(workspaceProfile),
+    userProfile: buildProfileDisplay(userProfile),
   }
 }
 
@@ -270,11 +267,7 @@ export async function getApps(params?: {
   let filteredTasks = appTasks
   if (params?.users && params.users.length > 0) {
     filteredTasks = appTasks.filter((task) => {
-      // Owner priority: workspaceProfile.displayName > userProfile.displayName > task.user
-      const owner =
-        task.workspaceProfile?.displayName ||
-        task.userProfile?.displayName ||
-        task.user
+      const owner = resolveOwner(task)
       return owner && params.users!.includes(owner)
     })
   }
