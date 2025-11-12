@@ -22,6 +22,7 @@ import {isAddress} from 'viem'
 import type {AppService} from './appService'
 import type {S3Service} from './s3'
 import type {VerificationTaskService} from './taskService'
+import type {VijilService} from './vijil'
 
 export interface QueueConfig {
   redisUrl: string
@@ -58,6 +59,7 @@ export const createQueueService = (
   verificationTaskService: VerificationTaskService,
   s3Service: S3Service,
   appService: AppService,
+  vijilService: VijilService,
 ) => {
   const redis = new IORedis(config.redisUrl, {
     maxRetriesPerRequest: null,
@@ -184,6 +186,45 @@ export const createQueueService = (
         console.log(
           `[QUEUE] Verification completed for task ${postgresTaskId} in ${processingTimeMs}ms`,
         )
+
+        // Check if this is an agent and query Vijil for evaluations
+        if (app.appConfigType === 'phala_cloud' && vijilService.isWhitelistedAgent(appId)) {
+          console.log(`[VIJIL] App ${appId} is whitelisted as agent, querying evaluations...`)
+
+          try {
+            const vijilInfo = await vijilService.getAgentEvaluationInfo(appId, app.modelOrDomain)
+
+            if (vijilInfo.evaluations.length > 0) {
+              console.log(`[VIJIL] Found ${vijilInfo.evaluations.length} evaluations for app ${appId}`)
+
+              // Add Vijil evaluation links to verification result
+              // Cast to any for demo purposes to extend the response
+              const extendedResult = verificationResult as any
+              if (!extendedResult.metadata) {
+                extendedResult.metadata = {}
+              }
+
+              extendedResult.metadata.vijil = {
+                isAgent: true,
+                agentEndpoint: vijilInfo.agentEndpoint,
+                evaluations: vijilInfo.evaluations.map((evaluation) => ({
+                  id: evaluation.id,
+                  status: evaluation.status,
+                  reportUrl: evaluation.report_url,
+                  webLink: vijilService.getEvaluationWebLink(evaluation.id),
+                  createdAt: evaluation.created_at,
+                })),
+              }
+
+              console.log(`[VIJIL] Added evaluation links to verification result`)
+            } else {
+              console.log(`[VIJIL] No evaluations found for app ${appId}`)
+            }
+          } catch (error) {
+            console.error(`[VIJIL] Error querying evaluations for app ${appId}:`, error)
+            // Don't fail the verification if Vijil query fails
+          }
+        }
 
         return {
           postgresTaskId,

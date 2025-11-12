@@ -47,6 +47,12 @@ export const env = createEnv({
 
     BASE_RPC_URL: z.string().optional(),
     ETHEREUM_RPC_URL: z.string().optional(),
+
+    // Vijil integration configuration
+    VIJIL_API_URL: z.string().url().default('https://evaluate-api.vijil.ai'),
+    VIJIL_API_TOKEN: z.string().optional(),
+    VIJIL_AGENT_WHITELIST: z.string().optional(), // Comma-separated app IDs that are known agents
+    VIJIL_AGENT_MODEL_NAME: z.string().default('vijil-docs-agent'), // Default model name for agents
   },
   runtimeEnv: process.env,
 })

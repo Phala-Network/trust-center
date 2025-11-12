@@ -14,6 +14,7 @@ import {
   createVerificationTaskService,
   type VerificationTaskService,
 } from './taskService'
+import {createVijilService, type VijilService} from './vijil'
 
 // Types
 export interface Services {
@@ -23,6 +24,7 @@ export interface Services {
   profile: ProfileService
   app: AppService
   sync: SyncService | null
+  vijil: VijilService
 }
 
 export interface ServiceConfig {
@@ -76,14 +78,20 @@ const composeServices = (config: ServiceConfig): Services => {
   const verificationTask = createVerificationTaskService(config.databaseUrl)
   const profile = createProfileService(config.databaseUrl)
   const app = createAppService(config.databaseUrl)
+  const vijil = createVijilService({
+    apiUrl: env.VIJIL_API_URL,
+    apiToken: env.VIJIL_API_TOKEN,
+    whitelistString: env.VIJIL_AGENT_WHITELIST,
+    agentModelName: env.VIJIL_AGENT_MODEL_NAME,
+  })
   // Note: VerificationService is now created per-task in queue worker
   // to avoid state pollution between concurrent verifications
-  const queue = createQueueService(config.queue, verificationTask, s3, app)
+  const queue = createQueueService(config.queue, verificationTask, s3, app, vijil)
   const sync = config.sync
     ? createSyncService(config.sync, queue, profile, app)
     : null
 
-  return {queue, s3, verificationTask, profile, app, sync}
+  return {queue, s3, verificationTask, profile, app, sync, vijil}
 }
 
 // Service lifecycle management with functional approach
@@ -138,6 +146,7 @@ export {
   createVerificationTaskService,
   createProfileService,
   createAppService,
+  createVijilService,
 }
 export type {
   QueueConfig,
@@ -149,4 +158,5 @@ export type {
   VerificationTaskService,
   ProfileService,
   AppService,
+  VijilService,
 }
