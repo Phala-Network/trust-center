@@ -10,7 +10,10 @@ export const env = createEnv({
       .url()
       .optional()
       .default('https://evaluate-api.vijil.ai'),
-    VIJIL_API_TOKEN: z.string().optional().default(''),
+    VIJIL_API_TOKEN: z.string().optional().default(''), // Deprecated: use client credentials instead
+    VIJIL_CLIENT_ID: z.string().optional().default(''),
+    VIJIL_CLIENT_SECRET: z.string().optional().default(''),
+    VIJIL_CLIENT_TOKEN: z.string().optional().default(''),
     VIJIL_AGENT_WHITELIST: z.string().optional().default(''),
   },
   client: {

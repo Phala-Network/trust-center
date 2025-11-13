@@ -1,9 +1,21 @@
 'use client'
 
-import { AlertCircle, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Copy, Download, Eye } from 'lucide-react'
 import type React from 'react'
+import { useState } from 'react'
 
-import type { VijilEvaluation } from '@/app/actions/vijil'
+import {
+  getVijilDomeConfig,
+  type VijilDomeConfig,
+  type VijilEvaluation,
+} from '@/app/actions/vijil'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 // Utility functions
@@ -20,6 +32,12 @@ interface VijilCardProps {
 }
 
 export const VijilCard: React.FC<VijilCardProps> = ({ evaluation }) => {
+  const [isLoadingReport, setIsLoadingReport] = useState(false)
+  const [isLoadingDome, setIsLoadingDome] = useState(false)
+  const [domeConfig, setDomeConfig] = useState<VijilDomeConfig | null>(null)
+  const [isDomeDialogOpen, setIsDomeDialogOpen] = useState(false)
+  const [copiedDome, setCopiedDome] = useState(false)
+
   console.log('[VijilCard Component] Rendering with evaluation:', {
     id: evaluation.id,
     score: evaluation.score,
@@ -37,6 +55,59 @@ export const VijilCard: React.FC<VijilCardProps> = ({ evaluation }) => {
     scoreLevel,
     webLink,
   })
+
+  const handleDownloadReport = () => {
+    setIsLoadingReport(true)
+    try {
+      // Construct the static file URL (customize path as needed)
+      const fileUrl = `/evaluations/${evaluation.id}.pdf`
+      // Create a temporary link to trigger download
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.download = `vijil-trust-report-${evaluation.id}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      console.log('[VijilCard] Static PDF download triggered:', fileUrl)
+    } catch (error) {
+      console.error('[VijilCard] Error downloading static PDF:', error)
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      alert(
+        `Error downloading report: ${errorMessage}\n\nPlease check the console for details.`,
+      )
+    } finally {
+      setIsLoadingReport(false)
+    }
+  }
+
+  const handleViewDomeConfig = async () => {
+    setIsLoadingDome(true)
+    try {
+      const config = await getVijilDomeConfig(evaluation.id)
+      if (config) {
+        setDomeConfig(config)
+        setIsDomeDialogOpen(true)
+      } else {
+        console.error('Failed to get Dome config')
+        alert('Failed to load Dome configuration. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error loading Dome config:', error)
+      alert('Error loading Dome configuration. Please try again.')
+    } finally {
+      setIsLoadingDome(false)
+    }
+  }
+
+  const handleCopyDomeConfig = () => {
+    if (domeConfig) {
+      const jsonStr = JSON.stringify(domeConfig, null, 2)
+      navigator.clipboard.writeText(jsonStr)
+      setCopiedDome(true)
+      setTimeout(() => setCopiedDome(false), 2000)
+    }
+  }
 
   return (
     <div className="w-full rounded-lg border border-border bg-card p-3">
@@ -77,7 +148,7 @@ export const VijilCard: React.FC<VijilCardProps> = ({ evaluation }) => {
                   Higher score indicates greater reliability, security, and
                   safety.{' '}
                   <a
-                    href="https://www.vijil.ai"
+                    href="https://docs.vijil.ai/components/index.html"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-green-600 underline hover:text-green-700"
@@ -95,32 +166,55 @@ export const VijilCard: React.FC<VijilCardProps> = ({ evaluation }) => {
 
         {/* Links */}
         <div className="flex flex-col items-start gap-1">
-          <a
-            href="https://evaluate.vijil.ai/evaluations"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-green-600 text-xs underline hover:text-green-700"
+          <button
+            type="button"
+            onClick={handleDownloadReport}
+            disabled={isLoadingReport}
+            className="flex items-center gap-1 text-green-600 text-xs underline hover:text-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Replay Trustworthiness Evaluation
-          </a>
-          <a
-            href={webLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-green-600 text-xs underline hover:text-green-700"
+            {isLoadingReport
+              ? 'Generating PDF...'
+              : 'Download Vijil Trust Report™'}
+          </button>
+          <button
+            type="button"
+            onClick={handleViewDomeConfig}
+            disabled={isLoadingDome}
+            className="flex items-center gap-1 text-green-600 text-xs underline hover:text-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Download Vijil Trust Report™
-          </a>
-          <a
-            href="https://docs.vijil.ai/dome/intro.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-green-600 text-xs underline hover:text-green-700"
-          >
-            View Vijil Dome Guardrails
-          </a>
+            {isLoadingDome ? 'Loading...' : 'View Vijil Dome Guardrails'}
+          </button>
         </div>
       </div>
+
+      {/* Dome Config Dialog */}
+      <Dialog open={isDomeDialogOpen} onOpenChange={setIsDomeDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Vijil Dome Guardrails Configuration</DialogTitle>
+            <DialogDescription>
+              Recommended guardrail configuration for this evaluation
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md bg-muted p-4">
+              <pre className="overflow-x-auto text-xs">
+                {domeConfig ? JSON.stringify(domeConfig, null, 2) : ''}
+              </pre>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCopyDomeConfig}
+                className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-white text-sm hover:bg-green-700"
+              >
+                <Copy className="h-4 w-4" />
+                {copiedDome ? 'Copied!' : 'Copy to Clipboard'}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

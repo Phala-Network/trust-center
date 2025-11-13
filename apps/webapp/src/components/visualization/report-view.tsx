@@ -18,7 +18,10 @@ import {REPORT_ITEMS} from '@/data/report-items'
 import {appWithTaskAtom} from '@/stores/app'
 
 // Vijil whitelist check (client-side)
-const VIJIL_WHITELIST = ['22b30e8e1b01d732e7dae67d7b0c2dfd67dfeb53']
+const VIJIL_WHITELIST = [
+  '22b30e8e1b01d732e7dae67d7b0c2dfd67dfeb53',
+  '88b5c6a7c5f2975e5851f311fba51dc995c0736f',
+]
 const isVijilEnabled = (appId: string) => VIJIL_WHITELIST.includes(appId)
 
 interface TrustSection {
@@ -148,7 +151,10 @@ const ReportView: React.FC = () => {
         // Try to get domain from app-main endpoint
         const rawEndpoint = appMainObj?.fields?.endpoint as string | undefined
         if (rawEndpoint) {
-          console.log('[VijilCard] Trying to extract domain from endpoint:', rawEndpoint)
+          console.log(
+            '[VijilCard] Trying to extract domain from endpoint:',
+            rawEndpoint,
+          )
           // Extract domain from URL like https://something-8090.dstack-pha-prod7.phala.network
           // Match any port number, not just 8000
           const match = rawEndpoint.match(/https:\/\/[^-]+-\d+\.(.+?)(?:\/|$)/)
@@ -156,13 +162,17 @@ const ReportView: React.FC = () => {
             domain = match[1]
             console.log('[VijilCard] Extracted domain from endpoint:', domain)
           } else {
-            console.log('[VijilCard] Failed to match domain pattern in endpoint')
+            console.log(
+              '[VijilCard] Failed to match domain pattern in endpoint',
+            )
           }
         }
 
         // Try extracting from all attestationData objects with endpoint field
         if (!domain) {
-          console.log('[VijilCard] Trying to find endpoint in all attestationData objects')
+          console.log(
+            '[VijilCard] Trying to find endpoint in all attestationData objects',
+          )
           for (const obj of attestationData) {
             const endpoint = obj?.fields?.endpoint as string | undefined
             if (endpoint) {
@@ -170,13 +180,18 @@ const ReportView: React.FC = () => {
               const match = endpoint.match(/https:\/\/[^-]+-\d+\.(.+?)(?:\/|$)/)
               if (match) {
                 domain = match[1]
-                console.log('[VijilCard] Successfully extracted domain:', domain)
+                console.log(
+                  '[VijilCard] Successfully extracted domain:',
+                  domain,
+                )
                 break
               }
             }
           }
           if (!domain) {
-            console.log('[VijilCard] No valid endpoint found in any attestationData object')
+            console.log(
+              '[VijilCard] No valid endpoint found in any attestationData object',
+            )
           }
         }
 
@@ -187,7 +202,10 @@ const ReportView: React.FC = () => {
 
         // Construct Vijil endpoint: https://{app-id}-8000.{domain}/v1
         const vijilEndpoint = `https://${appId}-8000.${domain}/v1`
-        console.log('[VijilCard] Fetching Vijil evaluation from:', vijilEndpoint)
+        console.log(
+          '[VijilCard] Fetching Vijil evaluation from:',
+          vijilEndpoint,
+        )
 
         const evaluation = await getLatestVijilEvaluation(vijilEndpoint)
         console.log('[VijilCard] Received evaluation:', {
