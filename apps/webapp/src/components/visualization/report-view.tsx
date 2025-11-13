@@ -91,38 +91,113 @@ const ReportView: React.FC = () => {
   const [app] = useAtom(appWithTaskAtom)
   const [vijilEvaluation, setVijilEvaluation] =
     useState<VijilEvaluation | null>(null)
-  const [vijilLoading, setVijilLoading] = useState(false)
 
   // Check if Vijil integration is enabled for this app
   const vijilEnabled = app?.app?.id ? isVijilEnabled(app.app.id) : false
 
+  console.log('[VijilCard] Initial state:', {
+    appId: app?.app?.id,
+    vijilEnabled,
+    attestationDataLength: attestationData?.length,
+    taskExists: !!app?.task,
+  })
+
   // Fetch Vijil evaluation if enabled
   useEffect(() => {
-    if (!vijilEnabled || !attestationData || attestationData.length === 0 || !app?.task) {
+    console.log('[VijilCard] useEffect triggered:', {
+      vijilEnabled,
+      attestationDataLength: attestationData?.length,
+      appId: app?.app?.id,
+      taskId: app?.task?.id,
+    })
+
+    if (!vijilEnabled) {
+      console.log('[VijilCard] Vijil not enabled for this app')
+      return
+    }
+
+    if (!attestationData || attestationData.length === 0) {
+      console.log('[VijilCard] No attestation data available')
+      return
+    }
+
+    if (!app?.task) {
+      console.log('[VijilCard] No task available')
       return
     }
 
     const fetchVijilEvaluation = async () => {
-      setVijilLoading(true)
       try {
-        // Find app-main object to get endpoint
+        // Build endpoint from app-id and domain
+        // Format: https://{app-id}-8000.{domain}/v1
+        const appId = app.app?.id
+        if (!appId) {
+          console.log('[VijilCard] No appId available')
+          return
+        }
+
+        // Extract domain from attestationData or task metadata
         const appMainObj = attestationData.find((obj) => obj.id === 'app-main')
-        let endpoint = appMainObj?.fields?.endpoint as string | undefined
+        console.log('[VijilCard] Found app-main object:', {
+          found: !!appMainObj,
+          endpoint: appMainObj?.fields?.endpoint,
+        })
 
-        // Fallback: try to get endpoint from task metadata
-        if (!endpoint && app.task.appMetadata) {
-          const metadata = app.task.appMetadata as any
-          endpoint = metadata?.endpoint
+        let domain: string | undefined
+
+        // Try to get domain from app-main endpoint
+        const rawEndpoint = appMainObj?.fields?.endpoint as string | undefined
+        if (rawEndpoint) {
+          console.log('[VijilCard] Trying to extract domain from endpoint:', rawEndpoint)
+          // Extract domain from URL like https://something-8090.dstack-pha-prod7.phala.network
+          // Match any port number, not just 8000
+          const match = rawEndpoint.match(/https:\/\/[^-]+-\d+\.(.+?)(?:\/|$)/)
+          if (match) {
+            domain = match[1]
+            console.log('[VijilCard] Extracted domain from endpoint:', domain)
+          } else {
+            console.log('[VijilCard] Failed to match domain pattern in endpoint')
+          }
         }
 
-        if (endpoint) {
-          const evaluation = await getLatestVijilEvaluation(endpoint)
-          setVijilEvaluation(evaluation)
+        // Try extracting from all attestationData objects with endpoint field
+        if (!domain) {
+          console.log('[VijilCard] Trying to find endpoint in all attestationData objects')
+          for (const obj of attestationData) {
+            const endpoint = obj?.fields?.endpoint as string | undefined
+            if (endpoint) {
+              console.log(`[VijilCard] Found endpoint in ${obj.id}:`, endpoint)
+              const match = endpoint.match(/https:\/\/[^-]+-\d+\.(.+?)(?:\/|$)/)
+              if (match) {
+                domain = match[1]
+                console.log('[VijilCard] Successfully extracted domain:', domain)
+                break
+              }
+            }
+          }
+          if (!domain) {
+            console.log('[VijilCard] No valid endpoint found in any attestationData object')
+          }
         }
+
+        if (!domain) {
+          console.log('[VijilCard] Could not determine domain')
+          return
+        }
+
+        // Construct Vijil endpoint: https://{app-id}-8000.{domain}/v1
+        const vijilEndpoint = `https://${appId}-8000.${domain}/v1`
+        console.log('[VijilCard] Fetching Vijil evaluation from:', vijilEndpoint)
+
+        const evaluation = await getLatestVijilEvaluation(vijilEndpoint)
+        console.log('[VijilCard] Received evaluation:', {
+          id: evaluation?.id,
+          score: evaluation?.score,
+          hasEvaluation: !!evaluation,
+        })
+        setVijilEvaluation(evaluation)
       } catch (error) {
-        console.error('Error fetching Vijil evaluation:', error)
-      } finally {
-        setVijilLoading(false)
+        console.error('[VijilCard] Error fetching Vijil evaluation:', error)
       }
     }
 
@@ -130,8 +205,16 @@ const ReportView: React.FC = () => {
   }, [vijilEnabled, attestationData, app])
 
   if (!app) {
+    console.log('[VijilCard] No app available, returning null')
     return null
   }
+
+  console.log('[VijilCard] Rendering ReportView:', {
+    vijilEnabled,
+    hasEvaluation: !!vijilEvaluation,
+    evaluationId: vijilEvaluation?.id,
+    willRenderVijilCard: vijilEnabled && !!vijilEvaluation,
+  })
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: de-select all objects when clicking on the report view

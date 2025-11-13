@@ -110,7 +110,7 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary text-xs underline hover:opacity-80"
+              className="text-green-600 text-xs underline hover:text-green-700"
               onClick={(e) => e.stopPropagation()}
             >
               {link.text}
@@ -255,7 +255,7 @@ export const ReportItemCard: React.FC<{
                         href={link.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary text-xs underline hover:opacity-80"
+                        className="text-green-600 text-xs underline hover:text-green-700"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {link.text}
