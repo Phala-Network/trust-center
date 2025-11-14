@@ -435,13 +435,16 @@ export async function getApp(
     )
   }
 
-  // Start from apps table, JOIN to latest task and profiles
+  // Start from apps table, JOIN to latest completed task and profiles
   const results = await db
     .select(profileSelection)
     .from(appsTable)
     .innerJoin(
       verificationTasksTable,
-      eq(verificationTasksTable.appId, appsTable.id),
+      and(
+        eq(verificationTasksTable.appId, appsTable.id),
+        eq(verificationTasksTable.status, 'completed'), // Only completed tasks
+      ),
     )
     .leftJoin(
       appProfileTable,
