@@ -129,7 +129,7 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
           <div className="flex items-center gap-2 flex-1 flex-wrap">
             <Activity className="h-3.5 w-3.5 text-muted-foreground/50" />
             <span className="text-muted-foreground">
-              {new Date(app.createdAt).toLocaleDateString('en-US', {
+              {new Date(app.task.createdAt).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
