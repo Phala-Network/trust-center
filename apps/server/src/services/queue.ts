@@ -445,7 +445,11 @@ export const createQueueService = (
   const addTask = async (taskData: NewTaskData): Promise<string> => {
     // Validate required IDs for new tasks (from Metabase)
     // These fields are required for new tasks but nullable in DB schema for backward compatibility
-    if (!taskData.appProfileId || !taskData.workspaceId || !taskData.creatorId) {
+    if (
+      !taskData.appProfileId ||
+      !taskData.workspaceId ||
+      !taskData.creatorId
+    ) {
       throw new Error(
         `Missing required IDs for task creation: appProfileId=${taskData.appProfileId}, workspaceId=${taskData.workspaceId}, creatorId=${taskData.creatorId}`,
       )

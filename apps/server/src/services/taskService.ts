@@ -2,6 +2,7 @@ import {
   and,
   createDbConnection,
   type DbConnection,
+  desc,
   eq,
   lt,
   or,
@@ -87,10 +88,25 @@ export const createVerificationTaskService = (
     return result.length
   }
 
+  // Get latest completed task finish time
+  const getLatestCompletedTask = async (): Promise<Date | null> => {
+    const result = await db
+      .select({
+        finishedAt: verificationTasksTable.finishedAt,
+      })
+      .from(verificationTasksTable)
+      .where(eq(verificationTasksTable.status, 'completed'))
+      .orderBy(desc(verificationTasksTable.finishedAt))
+      .limit(1)
+
+    return result[0]?.finishedAt ?? null
+  }
+
   return {
     updateVerificationTask,
     createTask,
     cleanupFailedTasks,
+    getLatestCompletedTask,
     getDb: () => db,
   }
 }

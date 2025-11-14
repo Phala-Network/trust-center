@@ -11,7 +11,11 @@ const buildBasicHealthResponse = () => ({
 
 const buildDetailedHealthResponse = async (services: Services) => {
   try {
-    const queueHealth = await services.queue.healthCheck()
+    const [queueHealth, latestTaskTime] = await Promise.all([
+      services.queue.healthCheck(),
+      services.verificationTask.getLatestCompletedTask(),
+    ])
+
     const baseHealth = buildBasicHealthResponse()
     const servicesHealth = {
       queue: {
@@ -23,6 +27,9 @@ const buildDetailedHealthResponse = async (services: Services) => {
     return {
       ...baseHealth,
       services: servicesHealth,
+      latestCompletedReportTime: latestTaskTime
+        ? latestTaskTime.toISOString()
+        : null,
     }
   } catch (error) {
     const baseHealth = buildBasicHealthResponse()
@@ -36,6 +43,7 @@ const buildDetailedHealthResponse = async (services: Services) => {
     return {
       ...baseHealth,
       services: servicesHealth,
+      latestCompletedReportTime: null,
     }
   }
 }
