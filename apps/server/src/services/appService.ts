@@ -4,6 +4,7 @@ import {
   createDbConnection,
   type DbConnection,
   eq,
+  getTableColumns,
   lt,
   type NewAppRecord,
   or,
@@ -171,33 +172,12 @@ export const createAppService = (
         .from(verificationTasksTable),
     )
 
-    // Main query - select only apps table columns
+    // Main query - select only apps table columns using getTableColumns
+    const appsColumns = getTableColumns(appsTable)
+
     return await db
       .with(latestTaskPerApp)
-      .select({
-        id: appsTable.id,
-        profileId: appsTable.profileId,
-        appName: appsTable.appName,
-        appConfigType: appsTable.appConfigType,
-        contractAddress: appsTable.contractAddress,
-        modelOrDomain: appsTable.modelOrDomain,
-        dstackVersion: appsTable.dstackVersion,
-        workspaceId: appsTable.workspaceId,
-        creatorId: appsTable.creatorId,
-        chainId: appsTable.chainId,
-        kmsContractAddress: appsTable.kmsContractAddress,
-        baseImage: appsTable.baseImage,
-        tproxyBaseDomain: appsTable.tproxyBaseDomain,
-        gatewayDomainSuffix: appsTable.gatewayDomainSuffix,
-        isPublic: appsTable.isPublic,
-        deleted: appsTable.deleted,
-        createdAt: appsTable.createdAt,
-        updatedAt: appsTable.updatedAt,
-        lastSyncedAt: appsTable.lastSyncedAt,
-        username: appsTable.username,
-        email: appsTable.email,
-        customUser: appsTable.customUser,
-      })
+      .select(appsColumns)
       .from(appsTable)
       .leftJoin(
         latestTaskPerApp,
