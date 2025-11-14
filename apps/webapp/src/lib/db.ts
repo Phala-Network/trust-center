@@ -22,6 +22,12 @@ const db = createDbConnection(env.DATABASE_POSTGRES_URL)
 // Avatar base URL for Phala Cloud R2
 const AVATAR_BASE_URL = 'https://cloud-r2.phala.com'
 
+// Whitelist of app IDs that should always be accessible regardless of isPublic flag
+const WHITELISTED_APP_IDS = [
+  '22b30e8e1b01d732e7dae67d7b0c2dfd67dfeb53',
+  '88b5c6a7c5f2975e5851f311fba51dc995c0736f',
+]
+
 // Unified profile display type used for all entity types (app, workspace, user)
 export interface ProfileDisplay {
   displayName: string | null
@@ -418,7 +424,11 @@ export async function getApp(
 ): Promise<AppWithTask | null> {
   // Build app conditions
   const appConditions = [eq(appsTable.id, appId)]
-  if (checkPublic) {
+
+  // Check if app is whitelisted - if so, skip public/deleted checks
+  const isWhitelisted = WHITELISTED_APP_IDS.includes(appId)
+
+  if (checkPublic && !isWhitelisted) {
     appConditions.push(
       eq(appsTable.isPublic, true),
       eq(appsTable.deleted, false),
