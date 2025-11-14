@@ -36,7 +36,6 @@ export interface TaskData {
   appId: string // Internal UUID from apps table
   appMetadata?: any // Runtime metadata from systemInfo
   verificationFlags?: any // Verification configuration
-  forceRefresh?: boolean // Skip 24h duplicate check if true
 }
 
 // NewTaskData for queue
@@ -44,7 +43,6 @@ export type NewTaskData = {
   appId: string // Internal UUID from apps table
   appMetadata?: any
   verificationFlags?: any
-  forceRefresh?: boolean
 }
 
 export interface TaskResult {
@@ -89,13 +87,7 @@ export const createQueueService = (
     config.queueName,
     async (job: Job<TaskData>): Promise<TaskResult> => {
       const startTime = Date.now()
-      const {
-        postgresTaskId,
-        appId,
-        appMetadata,
-        verificationFlags,
-        forceRefresh,
-      } = job.data
+      const {postgresTaskId, appId, appMetadata, verificationFlags} = job.data
 
       try {
         // Get app data from apps table
@@ -105,48 +97,25 @@ export const createQueueService = (
         }
 
         console.log(
-          `[QUEUE] Processing verification task ${postgresTaskId} for app ${app.id}/${app.appName}${forceRefresh ? ' (force refresh)' : ''}`,
+          `[QUEUE] Processing verification task ${postgresTaskId} for app ${app.id}/${app.appName}`,
         )
 
+        // Note: App should already be validated by getValidApps() or getAppsNeedingVerification()
+        // This is a final safety check
         if (!isAddress(app.contractAddress)) {
-          throw new Error(`Invalid contract address: ${app.contractAddress}`)
-        }
-
-        // Check if app has a recent completed report (within last 24 hours)
-        // Skip this check if forceRefresh is true
-        if (!forceRefresh) {
-          const oneDayAgo = new Date()
-          oneDayAgo.setDate(oneDayAgo.getDate() - 1)
-
-          const db = verificationTaskService.getDb()
-          const recentReports = await db
-            .select({id: verificationTasksTable.id})
-            .from(verificationTasksTable)
-            .where(
-              and(
-                eq(verificationTasksTable.appId, appId),
-                eq(verificationTasksTable.status, 'completed'),
-                gte(verificationTasksTable.createdAt, oneDayAgo),
-              ),
-            )
-            .limit(1)
-
-          if (recentReports.length > 0) {
-            console.log(
-              `[QUEUE] Skipping task ${postgresTaskId} - app ${app.id} has a report within last 24 hours`,
-            )
-            // Don't create DB record for skipped tasks
-            return {
-              postgresTaskId,
-              success: true,
-              processingTimeMs: Date.now() - startTime,
-            }
-          }
-        } else {
-          console.log(
-            `[QUEUE] Force refresh enabled - skipping 24h duplicate check for app ${app.id}`,
+          throw new Error(
+            `Invalid contract address: ${app.contractAddress}. This should have been filtered earlier.`,
           )
         }
+
+        if (!app.modelOrDomain) {
+          throw new Error(
+            `Missing modelOrDomain for app ${app.id}. This should have been filtered earlier.`,
+          )
+        }
+
+        // Note: 24h duplicate check is now handled at the database query level
+        // in appService.getAppsNeedingVerification() - no need to check here
 
         // Create task in database when actually starting processing
         await verificationTaskService.createTask({

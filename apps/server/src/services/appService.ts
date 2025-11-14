@@ -1,10 +1,14 @@
 import {
+  and,
   appsTable,
   createDbConnection,
   type DbConnection,
   eq,
+  lt,
   type NewAppRecord,
+  or,
   sql,
+  verificationTasksTable,
 } from '@phala/trust-center-db'
 
 // App service factory function
@@ -109,11 +113,84 @@ export const createAppService = (
     return await db.select().from(appsTable)
   }
 
+  // Get apps that are valid for verification
+  // (have required fields and not deleted)
+  const getValidApps = async () => {
+    return await db
+      .select()
+      .from(appsTable)
+      .where(
+        sql`${appsTable.contractAddress} IS NOT NULL
+            AND ${appsTable.contractAddress} != ''
+            AND ${appsTable.modelOrDomain} IS NOT NULL
+            AND ${appsTable.modelOrDomain} != ''
+            AND ${appsTable.deleted} = false`,
+      )
+  }
+
+  // Get valid apps by IDs (batch query with validation)
+  const getValidAppsByIds = async (ids: string[]) => {
+    if (ids.length === 0) {
+      return []
+    }
+
+    return await db
+      .select()
+      .from(appsTable)
+      .where(
+        sql`${appsTable.id} = ANY(${ids})
+            AND ${appsTable.contractAddress} IS NOT NULL
+            AND ${appsTable.contractAddress} != ''
+            AND ${appsTable.modelOrDomain} IS NOT NULL
+            AND ${appsTable.modelOrDomain} != ''
+            AND ${appsTable.deleted} = false`,
+      )
+  }
+
+  // Get apps that need verification (excluding apps with recent completed reports)
+  // This combines validation and 24h duplicate check in a single query
+  const getAppsNeedingVerification = async () => {
+    const oneDayAgo = new Date()
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+
+    // Use a subquery to exclude apps with recent completed reports
+    const appsWithRecentReports = db
+      .select({appId: verificationTasksTable.appId})
+      .from(verificationTasksTable)
+      .where(
+        and(
+          eq(verificationTasksTable.status, 'completed'),
+          sql`${verificationTasksTable.createdAt} >= ${oneDayAgo}`,
+        ),
+      )
+      .as('recent_reports')
+
+    return await db
+      .select()
+      .from(appsTable)
+      .leftJoin(
+        appsWithRecentReports,
+        eq(appsTable.id, appsWithRecentReports.appId),
+      )
+      .where(
+        sql`${appsTable.contractAddress} IS NOT NULL
+            AND ${appsTable.contractAddress} != ''
+            AND ${appsTable.modelOrDomain} IS NOT NULL
+            AND ${appsTable.modelOrDomain} != ''
+            AND ${appsTable.deleted} = false
+            AND ${appsWithRecentReports.appId} IS NULL`,
+      )
+      .then((results) => results.map((r) => r.apps))
+  }
+
   return {
     getAppById,
     upsertApp,
     upsertApps,
     getAllApps,
+    getValidApps,
+    getValidAppsByIds,
+    getAppsNeedingVerification,
     getDb: () => db,
   }
 }

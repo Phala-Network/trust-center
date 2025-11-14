@@ -259,6 +259,7 @@ export function createSyncService(
   }
 
   // Sync all tasks - reads from current database apps table instead of fetching from upstream
+  // Only creates tasks for apps that need verification (no completed report in last 24h)
   const syncAllTasks = async (): Promise<{
     tasksCreated: number
     apps: UpstreamAppData[]
@@ -266,24 +267,23 @@ export function createSyncService(
     try {
       console.log('[SYNC] Creating tasks from database apps...')
 
-      // Get all apps from database (already synced by app cron)
-      const syncedApps = await appService.getAllApps()
+      // Get apps needing verification (valid apps without recent completed reports)
+      // This single query handles both validation and 24h duplicate check
+      const appsToVerify = await appService.getAppsNeedingVerification()
 
-      // Filter apps with valid config and not deleted
-      const validApps = syncedApps.filter(
-        (app) =>
-          app.contractAddress !== '' &&
-          app.modelOrDomain !== '' &&
-          !app.deleted,
-      )
-
-      if (validApps.length === 0) {
-        console.log('[SYNC] No tasks to create')
+      if (appsToVerify.length === 0) {
+        console.log(
+          '[SYNC] No apps need verification (all have recent reports or are invalid)',
+        )
         return {tasksCreated: 0, apps: []}
       }
 
+      console.log(
+        `[SYNC] Found ${appsToVerify.length} apps needing verification`,
+      )
+
       // Add tasks directly to queue (they will be created in DB by the worker)
-      const jobPromises = validApps.map((app) =>
+      const jobPromises = appsToVerify.map((app) =>
         queueService.addTask({
           appId: app.id, // Use dstack app ID (primary key)
         }),
@@ -292,9 +292,9 @@ export function createSyncService(
       await Promise.all(jobPromises)
 
       console.log(
-        `[SYNC] Added ${validApps.length} tasks to queue successfully`,
+        `[SYNC] Added ${appsToVerify.length} tasks to queue successfully`,
       )
-      return {tasksCreated: validApps.length, apps: []}
+      return {tasksCreated: appsToVerify.length, apps: []}
     } catch (error) {
       console.error('[SYNC] Sync all tasks error:', error)
       throw error
@@ -308,28 +308,17 @@ export function createSyncService(
     try {
       console.log(`[SYNC] Creating tasks for selected ${appIds.length} apps...`)
 
-      // Get selected apps from database by ID (dstack_app_id is now the primary key)
-      const appPromises = appIds.map((id) => appService.getAppById(id))
-      const appResults = await Promise.all(appPromises)
-      const syncedApps = appResults.filter((app) => app !== null)
-
-      if (syncedApps.length === 0) {
-        console.log('[SYNC] No matching apps found in database')
-        return {tasksCreated: 0, apps: []}
-      }
-
-      // Filter apps with valid config and not deleted
-      const validApps = syncedApps.filter(
-        (app) =>
-          app.contractAddress !== '' &&
-          app.modelOrDomain !== '' &&
-          !app.deleted,
-      )
+      // Get selected valid apps from database (pre-filtered by SQL)
+      const validApps = await appService.getValidAppsByIds(appIds)
 
       if (validApps.length === 0) {
-        console.log('[SYNC] No tasks to create')
+        console.log('[SYNC] No valid apps found for the selected IDs')
         return {tasksCreated: 0, apps: []}
       }
+
+      console.log(
+        `[SYNC] Found ${validApps.length} valid apps out of ${appIds.length} selected IDs`,
+      )
 
       // Add tasks directly to queue (they will be created in DB by the worker)
       const jobPromises = validApps.map((app) =>
@@ -350,7 +339,8 @@ export function createSyncService(
     }
   }
 
-  // Force refresh all apps - bypasses 24h duplicate check, reads from current database
+  // Force refresh all apps - bypasses 24h duplicate check by using getValidApps()
+  // instead of getAppsNeedingVerification()
   const forceRefreshAllApps = async (): Promise<{
     tasksCreated: number
     apps: UpstreamAppData[]
@@ -360,27 +350,22 @@ export function createSyncService(
         '[SYNC] Force refreshing all apps from database (bypassing 24h check)...',
       )
 
-      // Get all apps from database (already synced by app cron)
-      const syncedApps = await appService.getAllApps()
-
-      // Filter apps with valid config and not deleted
-      const validApps = syncedApps.filter(
-        (app) =>
-          app.contractAddress !== '' &&
-          app.modelOrDomain !== '' &&
-          !app.deleted,
-      )
+      // Get all valid apps (bypasses 24h check by not using getAppsNeedingVerification)
+      const validApps = await appService.getValidApps()
 
       if (validApps.length === 0) {
-        console.log('[SYNC] No tasks to create')
+        console.log('[SYNC] No valid apps to force refresh')
         return {tasksCreated: 0, apps: []}
       }
 
-      // Add tasks with forceRefresh flag to skip 24h check
+      console.log(
+        `[SYNC] Found ${validApps.length} valid apps for force refresh`,
+      )
+
+      // Add tasks to queue (will run even if they have recent reports)
       const jobPromises = validApps.map((app) =>
         queueService.addTask({
           appId: app.id, // Use dstack app ID (primary key)
-          forceRefresh: true, // Force refresh - bypass 24h check
         }),
       )
 
