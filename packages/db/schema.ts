@@ -214,8 +214,8 @@ export const verificationTasksTable = pgTable(
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
 
-    // Foreign key to apps table (nullable to preserve task data when app is deleted)
-    appId: text().references(() => appsTable.id, {onDelete: 'set null'}),
+    // Foreign key to apps table
+    appId: text().notNull(),
 
     // Task identification and BullMQ correlation
     jobName: text().notNull().default('verification'),
@@ -301,7 +301,8 @@ export type NewVerificationTask = typeof verificationTasksTable.$inferInsert
 export type VerificationTaskStatus =
   (typeof verificationTaskStatusEnum.enumValues)[number]
 export type AppConfigType = (typeof appConfigTypeEnum.enumValues)[number]
-export type ProfileEntityType = (typeof profileEntityTypeEnum.enumValues)[number]
+export type ProfileEntityType =
+  (typeof profileEntityTypeEnum.enumValues)[number]
 export type ProfileRecord = typeof profilesTable.$inferSelect
 export type NewProfileRecord = typeof profilesTable.$inferInsert
 export type AppRecord = typeof appsTable.$inferSelect
