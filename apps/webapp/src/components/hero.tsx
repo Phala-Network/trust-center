@@ -7,30 +7,54 @@ import {AttestationDataProvider} from '@/components/attestation-data-context'
 import {Button} from '@/components/ui/button'
 import CompactReportWidget from '@/components/visualization/compact-report-widget'
 
-// Mock task data for hero preview
-const mockTask = {
-  id: 'mock-task-id',
-  appId: 'mock-app-id',
+// Mock app data for hero preview (AppWithTask structure)
+const mockApp = {
+  // App fields
+  id: 'mock-app-id',
+  profileId: 1,
   appName: 'AI Assistant',
-  user: 'example-user',
   appConfigType: 'redpill' as const,
   contractAddress: '0x1234567890abcdef1234567890abcdef12345678',
   modelOrDomain: 'app.example.com',
-  verificationFlags: null,
-  status: 'completed' as const,
-  result: {},
-  bullJobId: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
   dstackVersion: 'v0.5.3',
-  dataObjects: [
-    'app-cpu',
-    'app-gpu',
-    'app-code',
-    'gateway-main',
-    'app-os',
-    'kms-main',
-  ],
+  workspaceId: 1,
+  creatorId: 1,
+  isPublic: true,
+  deleted: false,
+  customUser: null,
+  createdAt: new Date().toISOString(),
+  updatedAt: null,
+  lastSyncedAt: null,
+  // Task fields (TaskWithCounts extends Task which includes app fields for backward compatibility)
+  task: {
+    id: 'mock-task-id',
+    appId: 'mock-app-id',
+    appName: 'AI Assistant',
+    appConfigType: 'redpill' as const,
+    contractAddress: '0x1234567890abcdef1234567890abcdef12345678',
+    modelOrDomain: 'app.example.com',
+    dstackVersion: 'v0.5.3',
+    isPublic: true,
+    verificationFlags: null,
+    status: 'completed',
+    errorMessage: null,
+    s3Filename: null,
+    s3Key: null,
+    s3Bucket: null,
+    createdAt: new Date().toISOString(),
+    startedAt: null,
+    finishedAt: null,
+    user: null,
+    dataObjects: [
+      'app-cpu',
+      'app-gpu',
+      'app-code',
+      'gateway-main',
+      'app-os',
+      'kms-main',
+    ],
+    dataObjectsCount: 6,
+  },
 }
 
 // Mock attestation data objects
@@ -57,7 +81,7 @@ function WidgetPreview() {
       error={null}
     >
       <CompactReportWidget
-        task={mockTask}
+        app={mockApp}
         config={{
           showAttributes: true,
           defaultExpanded: false,

@@ -19,7 +19,7 @@ import {type Job, Queue, Worker} from 'bullmq'
 import IORedis from 'ioredis'
 import {isAddress} from 'viem'
 
-import type {TaskCreateRequest} from '../types/schemas'
+import type {AppService} from './appService'
 import type {S3Service} from './s3'
 import type {VerificationTaskService} from './taskService'
 
@@ -31,33 +31,21 @@ export interface QueueConfig {
   backoffDelay: number
 }
 
-export interface TaskData extends TaskCreateRequest {
+export interface TaskData {
   postgresTaskId: string // PostgreSQL task ID for correlation
-  dstackVersion?: string
-  isPublic?: boolean
+  appId: string // Internal UUID from apps table
+  appMetadata?: any // Runtime metadata from systemInfo
+  verificationFlags?: any // Verification configuration
   forceRefresh?: boolean // Skip 24h duplicate check if true
 }
 
-// NewTaskData for queue - uses Partial to make optional fields
-export type NewTaskData = Pick<
-  NewVerificationTask,
-  'appId' | 'appName' | 'appConfigType' | 'contractAddress' | 'modelOrDomain'
-> &
-  Partial<
-    Pick<
-      NewVerificationTask,
-      | 'appProfileId'
-      | 'dstackVersion'
-      | 'isPublic'
-      | 'appMetadata'
-      | 'verificationFlags'
-      | 'user'
-      | 'workspaceId'
-      | 'creatorId'
-    >
-  > & {
-    forceRefresh?: boolean // Skip 24h duplicate check if true
-  }
+// NewTaskData for queue
+export type NewTaskData = {
+  appId: string // Internal UUID from apps table
+  appMetadata?: any
+  verificationFlags?: any
+  forceRefresh?: boolean
+}
 
 export interface TaskResult {
   postgresTaskId: string // Include this for correlation
@@ -71,6 +59,7 @@ export const createQueueService = (
   config: QueueConfig,
   verificationTaskService: VerificationTaskService,
   s3Service: S3Service,
+  appService: AppService,
 ) => {
   const redis = new IORedis(config.redisUrl, {
     maxRetriesPerRequest: null,
@@ -103,32 +92,28 @@ export const createQueueService = (
       const {
         postgresTaskId,
         appId,
-        appProfileId,
-        appName,
-        appConfigType,
-        contractAddress,
-        modelOrDomain,
-        dstackVersion,
-        isPublic,
-        metadata,
-        flags,
-        user,
-        workspaceId,
-        creatorId,
+        appMetadata,
+        verificationFlags,
         forceRefresh,
       } = job.data
 
       try {
+        // Get app data from apps table
+        const app = await appService.getAppById(appId)
+        if (!app) {
+          throw new Error(`App not found with ID: ${appId}`)
+        }
+
         console.log(
-          `[QUEUE] Processing verification task ${postgresTaskId} for app ${appId}/${appName}${forceRefresh ? ' (force refresh)' : ''}`,
+          `[QUEUE] Processing verification task ${postgresTaskId} for app ${app.id}/${app.appName}${forceRefresh ? ' (force refresh)' : ''}`,
         )
-        if (!isAddress(contractAddress)) {
-          throw new Error(`Invalid contract address: ${contractAddress}`)
+
+        if (!isAddress(app.contractAddress)) {
+          throw new Error(`Invalid contract address: ${app.contractAddress}`)
         }
 
         // Check if app has a recent completed report (within last 24 hours)
         // Skip this check if forceRefresh is true
-        // Only skip if there's a recent report with the SAME isPublic status
         if (!forceRefresh) {
           const oneDayAgo = new Date()
           oneDayAgo.setDate(oneDayAgo.getDate() - 1)
@@ -141,7 +126,6 @@ export const createQueueService = (
               and(
                 eq(verificationTasksTable.appId, appId),
                 eq(verificationTasksTable.status, 'completed'),
-                eq(verificationTasksTable.isPublic, isPublic ?? false), // Must match isPublic status
                 gte(verificationTasksTable.createdAt, oneDayAgo),
               ),
             )
@@ -149,7 +133,7 @@ export const createQueueService = (
 
           if (recentReports.length > 0) {
             console.log(
-              `[QUEUE] Skipping task ${postgresTaskId} - app ${appId} has a report within last 24 hours with isPublic=${isPublic}`,
+              `[QUEUE] Skipping task ${postgresTaskId} - app ${app.id} has a report within last 24 hours`,
             )
             // Don't create DB record for skipped tasks
             return {
@@ -160,14 +144,7 @@ export const createQueueService = (
           }
         } else {
           console.log(
-            `[QUEUE] Force refresh enabled - skipping 24h duplicate check for app ${appId}`,
-          )
-        }
-
-        // Validate required IDs exist (should always be present for new tasks)
-        if (!appProfileId || !workspaceId || !creatorId) {
-          throw new Error(
-            `Missing required IDs for task ${postgresTaskId}: appProfileId=${appProfileId}, workspaceId=${workspaceId}, creatorId=${creatorId}`,
+            `[QUEUE] Force refresh enabled - skipping 24h duplicate check for app ${app.id}`,
           )
         }
 
@@ -175,18 +152,10 @@ export const createQueueService = (
         await verificationTaskService.createTask({
           id: postgresTaskId,
           appId,
-          appProfileId,
-          appName,
-          appConfigType,
-          contractAddress,
-          modelOrDomain,
-          dstackVersion: dstackVersion || null,
-          isPublic: isPublic ?? false,
-          user: user || null,
-          workspaceId,
-          creatorId,
           status: 'active' as const,
           bullJobId: job.id,
+          appMetadata,
+          verificationFlags,
           createdAt: new Date(),
           startedAt: new Date(),
         })
@@ -196,25 +165,33 @@ export const createQueueService = (
         )
 
         console.log(
-          `[QUEUE] Processing verification for ${appConfigType} config:`,
-          JSON.stringify({contractAddress, modelOrDomain, metadata}, null, 2),
+          `[QUEUE] Processing verification for ${app.appConfigType} config:`,
+          JSON.stringify(
+            {
+              contractAddress: app.contractAddress,
+              modelOrDomain: app.modelOrDomain,
+              metadata: appMetadata,
+            },
+            null,
+            2,
+          ),
         )
-        console.log(`[QUEUE] Verification flags:`, flags)
+        console.log(`[QUEUE] Verification flags:`, verificationFlags)
 
         // Create app config for VerificationService
         // Note: VerificationService will generate complete metadata from systemInfo
         // if the provided metadata is incomplete
         const appConfig: RedpillConfig | PhalaCloudConfig =
-          appConfigType === 'redpill'
+          app.appConfigType === 'redpill'
             ? {
-                contractAddress: toContractAddress(contractAddress),
-                model: modelOrDomain,
-                metadata,
+                contractAddress: toContractAddress(app.contractAddress),
+                model: app.modelOrDomain,
+                metadata: appMetadata,
               }
             : {
-                appId: toAppId(appId),
-                domain: modelOrDomain,
-                metadata,
+                appId: toAppId(app.id),
+                domain: app.modelOrDomain,
+                metadata: appMetadata,
               }
 
         // Create a new VerificationService instance for each task to avoid state pollution
@@ -225,7 +202,7 @@ export const createQueueService = (
         // verificationFlags can be partial - VerificationService will merge with defaults
         const verificationResult = await verificationService.verify(
           appConfig,
-          flags,
+          verificationFlags,
         )
         if (!verificationResult.success) {
           throw new Error(
@@ -443,16 +420,10 @@ export const createQueueService = (
 
   // Add new task (only adds to queue, worker will create DB record)
   const addTask = async (taskData: NewTaskData): Promise<string> => {
-    // Validate required IDs for new tasks (from Metabase)
-    // These fields are required for new tasks but nullable in DB schema for backward compatibility
-    if (
-      !taskData.appProfileId ||
-      !taskData.workspaceId ||
-      !taskData.creatorId
-    ) {
-      throw new Error(
-        `Missing required IDs for task creation: appProfileId=${taskData.appProfileId}, workspaceId=${taskData.workspaceId}, creatorId=${taskData.creatorId}`,
-      )
+    // Validate app exists
+    const app = await appService.getAppById(taskData.appId)
+    if (!app) {
+      throw new Error(`App not found with ID: ${taskData.appId}`)
     }
 
     // Create task ID
@@ -462,18 +433,8 @@ export const createQueueService = (
     const queueData: TaskData = {
       postgresTaskId: taskId,
       appId: taskData.appId,
-      appProfileId: taskData.appProfileId,
-      appName: taskData.appName,
-      appConfigType: taskData.appConfigType,
-      contractAddress: taskData.contractAddress,
-      modelOrDomain: taskData.modelOrDomain,
-      dstackVersion: taskData.dstackVersion || undefined,
-      isPublic: taskData.isPublic,
-      metadata: taskData.appMetadata,
-      flags: taskData.verificationFlags as any, // TaskCreateRequest uses 'flags', DB uses 'verificationFlags'
-      user: taskData.user || undefined,
-      workspaceId: taskData.workspaceId,
-      creatorId: taskData.creatorId,
+      appMetadata: taskData.appMetadata,
+      verificationFlags: taskData.verificationFlags,
       forceRefresh: taskData.forceRefresh,
     }
 
@@ -482,7 +443,7 @@ export const createQueueService = (
     })
 
     console.log(
-      `[QUEUE] Queued verification task ${taskId} for app ${taskData.appId}/${taskData.appName}`,
+      `[QUEUE] Queued verification task ${taskId} for app ${app.id}/${app.appName}`,
     )
 
     return taskId

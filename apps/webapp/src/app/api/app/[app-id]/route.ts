@@ -67,7 +67,7 @@ export async function GET(request: NextRequest, {params}: RouteParams) {
   // Return only id and status fields
   const response = NextResponse.json({
     id: app.id,
-    status: app.status,
+    status: app.task.status,
   })
 
   return addCorsHeaders(response, origin)

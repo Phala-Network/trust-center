@@ -4,18 +4,15 @@ import {AttestationDataProvider} from '@/components/attestation-data-provider'
 import Header from '@/components/header'
 import {HydrateProvider} from '@/components/hydrate-provider'
 import Panels from '@/components/panels'
+import type {AppWithTask} from '@/lib/db'
 import {PANEL_LAYOUT_STORAGE_KEY} from '@/stores/app'
-import type {AppTask} from '@/lib/db'
 
 interface AppLayoutProps {
   searchParams: Promise<{selected?: string}>
-  app: AppTask
+  app: AppWithTask
 }
 
-export default async function AppLayout({
-  searchParams,
-  app,
-}: AppLayoutProps) {
+export default async function AppLayout({searchParams, app}: AppLayoutProps) {
   const cookieStore = await cookies()
   const layout = cookieStore.get(PANEL_LAYOUT_STORAGE_KEY)
 
@@ -34,17 +31,17 @@ export default async function AppLayout({
 
   // Extract app info from app data
   const appInfo = {
-    id: app.appId,
+    id: app.id ?? '',
     name: app.appName,
     description: `${app.appConfigType === 'phala_cloud' ? 'Phala Cloud' : 'Redpill'} Application`,
     configType: app.appConfigType,
-    user: app.user,
+    user: app.workspaceProfile?.displayName || app.customUser || undefined,
   }
 
   return (
     <HydrateProvider
-      appId={app.appId}
-      taskId={app.id}
+      appId={app.id ?? undefined}
+      taskId={app.task.id}
       task={app}
       appInfo={appInfo}
     >

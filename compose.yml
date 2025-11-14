@@ -51,8 +51,9 @@ services:
       # Cron API (required)
       CRON_API_KEY: ${CRON_API_KEY}
 
-      # Cron patterns (optional, defaults: profile=1min, tasks=5min)
+      # Cron patterns (optional, defaults: profile=1min, app=1min, tasks=5min)
       PROFILE_CRON_PATTERN: ${PROFILE_CRON_PATTERN:-*/1 * * * *}
+      APP_CRON_PATTERN: ${APP_CRON_PATTERN:-*/1 * * * *}
       TASKS_CRON_PATTERN: ${TASKS_CRON_PATTERN:-*/5 * * * *}
 
       # Metabase sync (optional)

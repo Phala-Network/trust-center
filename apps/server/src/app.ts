@@ -9,9 +9,9 @@ import {healthRoutes} from './routes/health'
 const mapErrorResponse = (code: string | number, error: unknown) => {
   const codeStr = String(code)
   const errorMap = {
-    VALIDATION: { status: 400, error: 'Validation failed' },
-    NOT_FOUND: { status: 404, error: 'Not found' },
-    DEFAULT: { status: 500, error: 'Internal server error' },
+    VALIDATION: {status: 400, error: 'Validation failed'},
+    NOT_FOUND: {status: 404, error: 'Not found'},
+    DEFAULT: {status: 500, error: 'Internal server error'},
   } as const
 
   const response =
@@ -23,7 +23,7 @@ const mapErrorResponse = (code: string | number, error: unknown) => {
 
   return {
     status: response.status,
-    body: { error: response.error, message },
+    body: {error: response.error, message},
   }
 }
 

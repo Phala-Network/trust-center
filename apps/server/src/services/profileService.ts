@@ -1,10 +1,10 @@
 import {
   createDbConnection,
+  type DbConnection,
   eq,
   inArray,
   profilesTable,
   sql,
-  type DbConnection,
   type UpstreamProfileData,
   UpstreamProfileDataSchema,
 } from '@phala/trust-center-db'
@@ -61,7 +61,9 @@ export function createProfileService(
     }
 
     if (validatedProfiles.length === 0) {
-      console.warn('[PROFILE] No valid profiles after validation, skipping sync')
+      console.warn(
+        '[PROFILE] No valid profiles after validation, skipping sync',
+      )
       return
     }
 

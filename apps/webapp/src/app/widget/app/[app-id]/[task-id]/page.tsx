@@ -1,7 +1,7 @@
 import {notFound} from 'next/navigation'
 
-import WidgetClient from '@/components/widget-client'
 import {type CompactReportWidgetConfig} from '@/components/visualization/compact-report-widget'
+import WidgetClient from '@/components/widget-client'
 import {getTask} from '@/lib/db'
 
 interface WidgetTaskPageProps {
@@ -28,7 +28,10 @@ export const generateMetadata = async ({params}: WidgetTaskPageProps) => {
   }
 }
 
-export default async function WidgetTaskPage({params, searchParams}: WidgetTaskPageProps) {
+export default async function WidgetTaskPage({
+  params,
+  searchParams,
+}: WidgetTaskPageProps) {
   const {['app-id']: appId, ['task-id']: taskId} = await params
   const {config: configParam} = await searchParams
 
@@ -63,16 +66,16 @@ export default async function WidgetTaskPage({params, searchParams}: WidgetTaskP
     }
   }
 
-  // Get task data from database
-  const task = await getTask(appId, taskId)
+  // Get app with task data from database
+  const app = await getTask(appId, taskId)
 
-  if (!task) {
+  if (!app) {
     notFound()
   }
 
   return (
     <WidgetClient
-      task={task}
+      app={app}
       appId={appId}
       taskId={taskId}
       config={{embedded: true, ...config}}

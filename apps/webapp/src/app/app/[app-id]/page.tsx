@@ -13,7 +13,7 @@ export const generateMetadata = async ({params}: AppPageProps) => {
   const app = await getApp(appId, true) // Only show public apps
 
   // Return default metadata if app not found or not completed
-  if (!app || app.status !== 'completed') {
+  if (!app || app.task.status !== 'completed') {
     return {
       title: 'Report Not Found',
       description: 'Trust report not yet generated',
@@ -36,7 +36,7 @@ export default async function AppPage({params, searchParams}: AppPageProps) {
   const app = await getApp(appId, true)
 
   // Show "check back later" message if app not found or report not completed
-  if (!app || app.status !== 'completed') {
+  if (!app || app.task.status !== 'completed') {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center space-y-4 max-w-md px-6">
@@ -50,10 +50,5 @@ export default async function AppPage({params, searchParams}: AppPageProps) {
     )
   }
 
-  return (
-    <AppLayout
-      searchParams={searchParams}
-      app={app}
-    />
-  )
+  return <AppLayout searchParams={searchParams} app={app} />
 }

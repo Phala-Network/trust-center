@@ -46,22 +46,14 @@ export const createVerificationTaskService = (
     return true
   }
 
-  // Create a single task (new tasks always have these IDs from Metabase)
+  // Create a single task
   const createTask = async (taskData: {
     id: string
-    appId: string
-    appProfileId: number // Required for new tasks
-    appName: string
-    appConfigType: 'redpill' | 'phala_cloud'
-    contractAddress: string
-    modelOrDomain: string
-    dstackVersion?: string | null
-    isPublic?: boolean
-    user?: string | null
-    workspaceId: number // Required for new tasks
-    creatorId: number // Required for new tasks
+    appId: string // References apps.id (internal UUID)
     status: 'pending' | 'active'
     bullJobId?: string | null
+    appMetadata?: any
+    verificationFlags?: any
     createdAt: Date
     startedAt?: Date | null
   }): Promise<void> => {
@@ -83,7 +75,7 @@ export const createVerificationTaskService = (
           lt(verificationTasksTable.createdAt, cutoffDate),
         ),
       )
-      .returning({ id: verificationTasksTable.id })
+      .returning({id: verificationTasksTable.id})
 
     return result.length
   }

@@ -22,5 +22,5 @@ export default async function TaskRedirectPage({
   }
 
   // Redirect to the proper app/task route
-  redirect(`/app/${task.appId}/${taskId}`)
+  redirect(`/app/${task.id}/${taskId}`)
 }

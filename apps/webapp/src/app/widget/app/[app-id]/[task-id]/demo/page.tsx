@@ -15,26 +15,29 @@ interface WidgetDemoPageProps {
 
 export const generateMetadata = async ({params}: WidgetDemoPageProps) => {
   const {['app-id']: appId, ['task-id']: taskId} = await params
-  const task = await getTask(appId, taskId)
-  if (task == null) {
+  const app = await getTask(appId, taskId)
+  if (app == null) {
     notFound()
   }
   // Use displayName if available, otherwise fallback to appName
-  const displayName = task.profile?.displayName || task.appName
+  const displayName = app.profile?.displayName || app.appName
   return {
     title: `${displayName} - Widget Demo`,
     description: `Widget demo for ${displayName}`,
   }
 }
 
-export default async function WidgetDemoPage({params, searchParams}: WidgetDemoPageProps) {
+export default async function WidgetDemoPage({
+  params,
+  searchParams,
+}: WidgetDemoPageProps) {
   const {['app-id']: appId, ['task-id']: taskId} = await params
   const {config: configParam} = await searchParams
 
-  // Get task data from database
-  const task = await getTask(appId, taskId)
+  // Get app with task data from database
+  const app = await getTask(appId, taskId)
 
-  if (!task) {
+  if (!app) {
     notFound()
   }
 

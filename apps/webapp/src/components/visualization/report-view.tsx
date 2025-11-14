@@ -6,9 +6,12 @@ import {
   type ReportItem,
   ReportItemCard,
 } from '@/components/visualization/collapsible-report-item-card'
-import {ReportHeader, SectionHeader} from '@/components/visualization/report-components'
+import {
+  ReportHeader,
+  SectionHeader,
+} from '@/components/visualization/report-components'
 import {REPORT_ITEMS} from '@/data/report-items'
-import {taskAtom} from '@/stores/app'
+import {appWithTaskAtom} from '@/stores/app'
 
 interface TrustSection {
   id: string
@@ -77,9 +80,9 @@ const TrustSection: React.FC<{
 // Main Report View Component
 const ReportView: React.FC = () => {
   const {setSelectedObjectId} = useAttestationData()
-  const [task] = useAtom(taskAtom)
+  const [app] = useAtom(appWithTaskAtom)
 
-  if (!task) {
+  if (!app) {
     return null
   }
 
@@ -92,7 +95,7 @@ const ReportView: React.FC = () => {
         setSelectedObjectId(null)
       }}
     >
-      <ReportHeader task={task} />
+      <ReportHeader app={app} />
 
       <div className="space-y-4 px-3">
         {TRUST_SECTIONS.map((section) => (

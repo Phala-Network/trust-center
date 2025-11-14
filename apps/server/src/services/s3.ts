@@ -1,4 +1,4 @@
-import { S3Client } from 'bun'
+import {S3Client} from 'bun'
 
 export interface S3Config {
   endpoint: string

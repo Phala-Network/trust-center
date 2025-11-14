@@ -43,6 +43,20 @@
       "when": 1762778138152,
       "tag": "0005_eager_tusk",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1763092590450,
+      "tag": "0006_messy_fallen_one",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1763097360991,
+      "tag": "0007_open_imperial_guard",
+      "breakpoints": true
     }
   ]
 }

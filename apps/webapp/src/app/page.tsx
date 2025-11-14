@@ -1,8 +1,4 @@
-import {
-  dehydrate,
-  HydrationBoundary,
-  QueryClient,
-} from '@tanstack/react-query'
+import {dehydrate, HydrationBoundary, QueryClient} from '@tanstack/react-query'
 import {Suspense} from 'react'
 
 import {Hero} from '@/components/hero'
@@ -34,7 +30,10 @@ export default async function HomePage() {
         </section>
 
         {/* Applications Section - Muted (darker) */}
-        <section id="verified-apps" className="bg-muted py-16 sm:py-20 lg:py-24">
+        <section
+          id="verified-apps"
+          className="bg-muted py-16 sm:py-20 lg:py-24"
+        >
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col items-center">
               <div className="text-center mb-10 sm:mb-12 lg:mb-16">

@@ -14,7 +14,8 @@ import {
   SectionHeader,
 } from '@/components/visualization/report-components'
 import {REPORT_ITEMS} from '@/data/report-items'
-import {taskAtom} from '@/stores/app'
+import type {AppWithTask} from '@/lib/db'
+import {appWithTaskAtom} from '@/stores/app'
 
 interface TrustSection {
   id: string
@@ -144,12 +145,12 @@ const TrustSection: React.FC<{
 // Main Compact Report Widget Component
 const CompactReportWidget: React.FC<{
   config?: CompactReportWidgetConfig
-  task?: any
-}> = ({config = {}, task: taskProp}) => {
-  const [taskFromAtom] = useAtom(taskAtom)
-  const task = taskProp || taskFromAtom
+  app?: AppWithTask
+}> = ({config = {}, app: appProp}) => {
+  const [appFromAtom] = useAtom(appWithTaskAtom)
+  const app = appProp || appFromAtom
 
-  if (!task) {
+  if (!app) {
     return null
   }
 
@@ -192,7 +193,7 @@ const CompactReportWidget: React.FC<{
       {/* Widget content - unified card */}
       <div className={cardClassName}>
         <ReportHeader
-          task={task}
+          app={app}
           showAttributes={finalConfig.showAttributes}
           showVerificationStatus={true}
           showBranding={true}

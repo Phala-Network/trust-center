@@ -12,10 +12,13 @@ export const cronRoutes = new Elysia()
       name: 'cleanup-failed-tasks',
       pattern: env.CLEANUP_CRON_PATTERN,
       run: async () => {
-        console.log('[CRON:CLEANUP] Running scheduled cleanup of failed tasks...')
+        console.log(
+          '[CRON:CLEANUP] Running scheduled cleanup of failed tasks...',
+        )
         try {
           const services = getServices()
-          const deletedCount = await services.verificationTask.cleanupFailedTasks(24)
+          const deletedCount =
+            await services.verificationTask.cleanupFailedTasks(24)
           console.log(
             `[CRON:CLEANUP] Cleanup completed: ${deletedCount} old failed/cancelled tasks deleted`,
           )
@@ -52,27 +55,54 @@ export const cronRoutes = new Elysia()
       },
     }),
   )
-  // App/Task sync cron - configurable via TASKS_CRON_PATTERN env
-  // Apps and verification tasks need more frequent updates
+  // App sync cron - configurable via APP_CRON_PATTERN env
+  // Syncs apps from Metabase to apps table
+  .use(
+    cron({
+      name: 'sync-apps',
+      pattern: env.APP_CRON_PATTERN,
+      run: async () => {
+        console.log('[CRON:APPS] Running scheduled app sync...')
+        try {
+          const services = getServices()
+          if (!services.sync) {
+            console.warn('[CRON:APPS] Sync service not configured, skipping...')
+            return
+          }
+
+          const appsResult = await services.sync.syncApps()
+          console.log(
+            `[CRON:APPS] Sync completed: ${appsResult.appsSynced} apps synced`,
+          )
+        } catch (error) {
+          console.error('[CRON:APPS] Sync failed:', error)
+        }
+      },
+    }),
+  )
+  // Task creation cron - configurable via TASKS_CRON_PATTERN env
+  // Creates verification tasks from apps in database
   .use(
     cron({
       name: 'sync-tasks',
       pattern: env.TASKS_CRON_PATTERN,
       run: async () => {
-        console.log('[CRON:TASKS] Running scheduled app sync...')
+        console.log('[CRON:TASKS] Running scheduled task creation...')
         try {
           const services = getServices()
           if (!services.sync) {
-            console.warn('[CRON:TASKS] Sync service not configured, skipping...')
+            console.warn(
+              '[CRON:TASKS] Sync service not configured, skipping...',
+            )
             return
           }
 
           const tasksResult = await services.sync.syncAllTasks()
           console.log(
-            `[CRON:TASKS] Sync completed: ${tasksResult.tasksCreated} tasks created`,
+            `[CRON:TASKS] Task creation completed: ${tasksResult.tasksCreated} tasks created`,
           )
         } catch (error) {
-          console.error('[CRON:TASKS] Sync failed:', error)
+          console.error('[CRON:TASKS] Task creation failed:', error)
         }
       },
     }),
@@ -98,6 +128,7 @@ export const cronRoutes = new Elysia()
             async ({store}: any) => {
               const cleanupCron = store?.cron?.['cleanup-failed-tasks']
               const profilesCron = store?.cron?.['sync-profiles']
+              const appsCron = store?.cron?.['sync-apps']
               const tasksCron = store?.cron?.['sync-tasks']
 
               return {
@@ -112,13 +143,19 @@ export const cronRoutes = new Elysia()
                   {
                     name: 'sync-profiles',
                     pattern: env.PROFILE_CRON_PATTERN,
-                    description: 'Profile synchronization',
+                    description: 'Profile synchronization from Metabase',
                     running: profilesCron?.running ?? false,
+                  },
+                  {
+                    name: 'sync-apps',
+                    pattern: env.APP_CRON_PATTERN,
+                    description: 'App synchronization from Metabase',
+                    running: appsCron?.running ?? false,
                   },
                   {
                     name: 'sync-tasks',
                     pattern: env.TASKS_CRON_PATTERN,
-                    description: 'App/Task synchronization',
+                    description: 'Task creation from database apps',
                     running: tasksCron?.running ?? false,
                   },
                 ],
@@ -204,10 +241,12 @@ export const cronRoutes = new Elysia()
             async ({store}: any) => {
               const cleanupCron = store?.cron?.['cleanup-failed-tasks']
               const profilesCron = store?.cron?.['sync-profiles']
+              const appsCron = store?.cron?.['sync-apps']
               const tasksCron = store?.cron?.['sync-tasks']
 
               if (cleanupCron) cleanupCron.start()
               if (profilesCron) profilesCron.start()
+              if (appsCron) appsCron.start()
               if (tasksCron) tasksCron.start()
 
               return {success: true, message: 'All crons started'}
@@ -226,10 +265,12 @@ export const cronRoutes = new Elysia()
             async ({store}: any) => {
               const cleanupCron = store?.cron?.['cleanup-failed-tasks']
               const profilesCron = store?.cron?.['sync-profiles']
+              const appsCron = store?.cron?.['sync-apps']
               const tasksCron = store?.cron?.['sync-tasks']
 
               if (cleanupCron) cleanupCron.stop()
               if (profilesCron) profilesCron.stop()
+              if (appsCron) appsCron.stop()
               if (tasksCron) tasksCron.stop()
 
               return {success: true, message: 'All crons stopped'}
@@ -237,6 +278,49 @@ export const cronRoutes = new Elysia()
             {
               detail: {
                 summary: 'Stop all cron jobs',
+                tags: ['Cron'],
+                security: [{bearerAuth: []}],
+              },
+            },
+          )
+          // Sync apps from Metabase - updates apps table without creating tasks
+          .post(
+            '/sync-apps',
+            async () => {
+              console.log('[CRON] Sync apps triggered...')
+              try {
+                const services = getServices()
+                if (!services.sync) {
+                  return {
+                    success: false,
+                    error: 'Sync service not configured',
+                  }
+                }
+
+                const result = await services.sync.syncApps()
+                console.log(
+                  `[CRON] Sync apps completed: ${result.appsSynced} apps synced`,
+                )
+
+                return {
+                  success: true,
+                  message: `Successfully synced ${result.appsSynced} apps`,
+                  appsSynced: result.appsSynced,
+                }
+              } catch (error) {
+                console.error('[CRON] Sync apps failed:', error)
+                const errorMessage =
+                  error instanceof Error ? error.message : 'Unknown error'
+                return {
+                  success: false,
+                  error: 'Sync apps failed',
+                  message: errorMessage,
+                }
+              }
+            },
+            {
+              detail: {
+                summary: 'Sync apps from Metabase to apps table',
                 tags: ['Cron'],
                 security: [{bearerAuth: []}],
               },

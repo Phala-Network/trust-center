@@ -6,7 +6,7 @@ import {useEffect, useState} from 'react'
 import {AttestationDataProvider as ContextProvider} from '@/components/attestation-data-context'
 import type {Data} from '@/data/schema'
 import {fetchDataFromS3Client} from '@/lib/s3-data-client'
-import {taskAtom} from '@/stores/app'
+import {appWithTaskAtom} from '@/stores/app'
 
 interface AttestationDataProviderProps {
   children: React.ReactNode
@@ -17,14 +17,14 @@ export function AttestationDataProvider({
   children,
   initialSelectedObjectId,
 }: AttestationDataProviderProps) {
-  const [task] = useAtom(taskAtom)
+  const [app] = useAtom(appWithTaskAtom)
   const [attestationData, setAttestationData] = useState<Data>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const fetchAttestationData = async () => {
-      if (!task?.s3Key) {
+      if (!app?.task.s3Key) {
         setAttestationData([])
         setLoading(false)
         return
@@ -34,7 +34,7 @@ export function AttestationDataProvider({
       setError(null)
 
       try {
-        const data = await fetchDataFromS3Client(task.s3Key)
+        const data = await fetchDataFromS3Client(app.task.s3Key)
         if (data) {
           setAttestationData(data)
         } else {
@@ -51,7 +51,7 @@ export function AttestationDataProvider({
     }
 
     fetchAttestationData()
-  }, [task?.s3Key])
+  }, [app?.task.s3Key])
 
   // Show error if data loading failed
   if (error) {

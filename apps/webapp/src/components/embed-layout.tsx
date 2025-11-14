@@ -1,16 +1,16 @@
-import {cookies} from 'next/headers'
 import {ExternalLink} from 'lucide-react'
+import {cookies} from 'next/headers'
 
 import {AttestationDataProvider} from '@/components/attestation-data-provider'
 import {HydrateProvider} from '@/components/hydrate-provider'
 import Panels from '@/components/panels'
 import {Button} from '@/components/ui/button'
+import type {AppWithTask} from '@/lib/db'
 import {PANEL_LAYOUT_STORAGE_KEY} from '@/stores/app'
-import type {AppTask} from '@/lib/db'
 
 interface EmbedLayoutProps {
   searchParams: Promise<{selected?: string}>
-  app: AppTask
+  app: AppWithTask
 }
 
 export default async function EmbedLayout({
@@ -35,19 +35,19 @@ export default async function EmbedLayout({
 
   // Extract app info from app data
   const appInfo = {
-    id: app.appId,
+    id: app.id ?? '',
     name: app.appName,
     description: `${app.appConfigType === 'phala_cloud' ? 'Phala Cloud' : 'Redpill'} Application`,
     configType: app.appConfigType,
-    user: app.user,
+    user: app.workspaceProfile?.displayName || app.customUser || undefined,
   }
 
   // Construct the Trust Center URL using app info
-  const trustCenterUrl = `/app/${app.appId}/${app.id}`
+  const trustCenterUrl = `/app/${app.id}/${app.id}`
 
   return (
     <HydrateProvider
-      appId={app.appId}
+      appId={app.id ?? undefined}
       taskId={app.id}
       task={app}
       appInfo={appInfo}
