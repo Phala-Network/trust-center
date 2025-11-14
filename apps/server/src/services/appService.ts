@@ -149,30 +149,15 @@ export const createAppService = (
   }
 
   // Get apps that need verification
-  // Returns apps that:
-  // 1. Have valid config (contractAddress, modelOrDomain, not deleted)
-  // 2. No completed task in last 24 hours
-  // 3. AND either:
-  //    a) Never been verified (no tasks at all), OR
-  //    b) Latest task is 'failed' and older than 30 minutes
+  // Returns apps that meet basic validation AND any of these conditions:
+  // 1. Latest task is 'completed' and older than 24 hours, OR
+  // 2. No tasks at all (never verified), OR
+  // 3. Latest task is 'failed' and older than 30 minutes
   const getAppsNeedingVerification = async () => {
     const oneDayAgo = subDays(new Date(), 1)
     const thirtyMinutesAgo = subMinutes(new Date(), 30)
 
-    // CTE 1: Apps with recent completed reports (to exclude)
-    const appsWithRecentReports = db.$with('apps_with_recent_reports').as(
-      db
-        .select({appId: verificationTasksTable.appId})
-        .from(verificationTasksTable)
-        .where(
-          and(
-            eq(verificationTasksTable.status, 'completed'),
-            sql`${verificationTasksTable.createdAt} >= ${oneDayAgo}`,
-          ),
-        ),
-    )
-
-    // CTE 2: Latest task for each app (with row_number approach)
+    // CTE: Latest task for each app (with row_number approach)
     const latestTaskPerApp = db.$with('latest_task_per_app').as(
       db
         .select({
@@ -188,7 +173,7 @@ export const createAppService = (
 
     // Main query - select only apps table columns
     return await db
-      .with(appsWithRecentReports, latestTaskPerApp)
+      .with(latestTaskPerApp)
       .select({
         id: appsTable.id,
         profileId: appsTable.profileId,
@@ -215,10 +200,6 @@ export const createAppService = (
       })
       .from(appsTable)
       .leftJoin(
-        appsWithRecentReports,
-        eq(appsTable.id, appsWithRecentReports.appId),
-      )
-      .leftJoin(
         latestTaskPerApp,
         and(
           eq(appsTable.id, latestTaskPerApp.appId),
@@ -233,14 +214,16 @@ export const createAppService = (
           sql`${appsTable.modelOrDomain} IS NOT NULL`,
           sql`${appsTable.modelOrDomain} != ''`,
           eq(appsTable.deleted, false),
-          // No recent completed reports
-          sql`${appsWithRecentReports.appId} IS NULL`,
-          // Either no tasks OR latest is old failed task
+          // Include if ANY of these conditions is true:
           or(
             sql`${latestTaskPerApp.appId} IS NULL`, // No tasks at all
             and(
+              eq(latestTaskPerApp.status, 'completed'),
+              sql`${latestTaskPerApp.createdAt} < ${oneDayAgo}`, // Completed but old
+            ),
+            and(
               eq(latestTaskPerApp.status, 'failed'),
-              sql`${latestTaskPerApp.createdAt} < ${thirtyMinutesAgo}`,
+              sql`${latestTaskPerApp.createdAt} < ${thirtyMinutesAgo}`, // Failed and old
             ),
           ),
         ),
