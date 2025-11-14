@@ -10,6 +10,7 @@ import {
   sql,
   verificationTasksTable,
 } from '@phala/trust-center-db'
+import {subDays, subMinutes} from 'date-fns'
 
 // App service factory function
 export const createAppService = (
@@ -147,40 +148,103 @@ export const createAppService = (
       )
   }
 
-  // Get apps that need verification (excluding apps with recent completed reports)
-  // This combines validation and 24h duplicate check in a single query
+  // Get apps that need verification
+  // Returns apps that:
+  // 1. Have valid config (contractAddress, modelOrDomain, not deleted)
+  // 2. No completed task in last 24 hours
+  // 3. AND either:
+  //    a) Never been verified (no tasks at all), OR
+  //    b) Latest task is 'failed' and older than 30 minutes
   const getAppsNeedingVerification = async () => {
-    const oneDayAgo = new Date()
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+    const oneDayAgo = subDays(new Date(), 1)
+    const thirtyMinutesAgo = subMinutes(new Date(), 30)
 
-    // Use a subquery to exclude apps with recent completed reports
-    const appsWithRecentReports = db
-      .select({appId: verificationTasksTable.appId})
-      .from(verificationTasksTable)
-      .where(
-        and(
-          eq(verificationTasksTable.status, 'completed'),
-          sql`${verificationTasksTable.createdAt} >= ${oneDayAgo}`,
+    // CTE 1: Apps with recent completed reports (to exclude)
+    const appsWithRecentReports = db.$with('apps_with_recent_reports').as(
+      db
+        .select({appId: verificationTasksTable.appId})
+        .from(verificationTasksTable)
+        .where(
+          and(
+            eq(verificationTasksTable.status, 'completed'),
+            sql`${verificationTasksTable.createdAt} >= ${oneDayAgo}`,
+          ),
         ),
-      )
-      .as('recent_reports')
+    )
 
+    // CTE 2: Latest task for each app (with row_number approach)
+    const latestTaskPerApp = db.$with('latest_task_per_app').as(
+      db
+        .select({
+          appId: verificationTasksTable.appId,
+          status: verificationTasksTable.status,
+          createdAt: verificationTasksTable.createdAt,
+          rn: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${verificationTasksTable.appId} ORDER BY ${verificationTasksTable.createdAt} DESC)`.as(
+            'rn',
+          ),
+        })
+        .from(verificationTasksTable),
+    )
+
+    // Main query - select only apps table columns
     return await db
-      .select()
+      .with(appsWithRecentReports, latestTaskPerApp)
+      .select({
+        id: appsTable.id,
+        profileId: appsTable.profileId,
+        appName: appsTable.appName,
+        appConfigType: appsTable.appConfigType,
+        contractAddress: appsTable.contractAddress,
+        modelOrDomain: appsTable.modelOrDomain,
+        dstackVersion: appsTable.dstackVersion,
+        workspaceId: appsTable.workspaceId,
+        creatorId: appsTable.creatorId,
+        chainId: appsTable.chainId,
+        kmsContractAddress: appsTable.kmsContractAddress,
+        baseImage: appsTable.baseImage,
+        tproxyBaseDomain: appsTable.tproxyBaseDomain,
+        gatewayDomainSuffix: appsTable.gatewayDomainSuffix,
+        isPublic: appsTable.isPublic,
+        deleted: appsTable.deleted,
+        createdAt: appsTable.createdAt,
+        updatedAt: appsTable.updatedAt,
+        lastSyncedAt: appsTable.lastSyncedAt,
+        username: appsTable.username,
+        email: appsTable.email,
+        customUser: appsTable.customUser,
+      })
       .from(appsTable)
       .leftJoin(
         appsWithRecentReports,
         eq(appsTable.id, appsWithRecentReports.appId),
       )
-      .where(
-        sql`${appsTable.contractAddress} IS NOT NULL
-            AND ${appsTable.contractAddress} != ''
-            AND ${appsTable.modelOrDomain} IS NOT NULL
-            AND ${appsTable.modelOrDomain} != ''
-            AND ${appsTable.deleted} = false
-            AND ${appsWithRecentReports.appId} IS NULL`,
+      .leftJoin(
+        latestTaskPerApp,
+        and(
+          eq(appsTable.id, latestTaskPerApp.appId),
+          eq(latestTaskPerApp.rn, 1), // Only latest task
+        ),
       )
-      .then((results) => results.map((r) => r.apps))
+      .where(
+        and(
+          // Basic validation
+          sql`${appsTable.contractAddress} IS NOT NULL`,
+          sql`${appsTable.contractAddress} != ''`,
+          sql`${appsTable.modelOrDomain} IS NOT NULL`,
+          sql`${appsTable.modelOrDomain} != ''`,
+          eq(appsTable.deleted, false),
+          // No recent completed reports
+          sql`${appsWithRecentReports.appId} IS NULL`,
+          // Either no tasks OR latest is old failed task
+          or(
+            sql`${latestTaskPerApp.appId} IS NULL`, // No tasks at all
+            and(
+              eq(latestTaskPerApp.status, 'failed'),
+              sql`${latestTaskPerApp.createdAt} < ${thirtyMinutesAgo}`,
+            ),
+          ),
+        ),
+      )
   }
 
   return {
