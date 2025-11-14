@@ -1,7 +1,9 @@
 import {
   appsTable,
   eq,
+  inArray,
   type NewAppRecord,
+  sql,
   type UpstreamAppData,
   UpstreamAppDataSchema,
   type UpstreamProfileData,
@@ -415,7 +417,7 @@ export function createSyncService(
       // Upsert apps to database using appService
       await appService.upsertApps(appRecords)
 
-      // Mark apps that are not in upstream as deleted
+      // Mark apps that are not in upstream as deleted (batch update)
       const upstreamProfileIds = new Set(apps.map((app) => app.app_id))
       const allApps = await appService.getAllApps()
       const appsToMarkDeleted = allApps.filter(
@@ -424,14 +426,14 @@ export function createSyncService(
 
       if (appsToMarkDeleted.length > 0) {
         const db = appService.getDb()
-        await Promise.all(
-          appsToMarkDeleted.map((app) =>
-            db
-              .update(appsTable)
-              .set({deleted: true, updatedAt: new Date()})
-              .where(eq(appsTable.id, app.id)),
-          ),
-        )
+        const idsToDelete = appsToMarkDeleted.map((app) => app.id)
+
+        // Batch update all apps to mark as deleted in a single query
+        await db
+          .update(appsTable)
+          .set({deleted: true, updatedAt: new Date()})
+          .where(inArray(appsTable.id, idsToDelete))
+
         console.log(`[SYNC] Marked ${appsToMarkDeleted.length} apps as deleted`)
       }
 
