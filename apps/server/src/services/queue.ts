@@ -404,7 +404,6 @@ export const createQueueService = (
       appId: taskData.appId,
       appMetadata: taskData.appMetadata,
       verificationFlags: taskData.verificationFlags,
-      forceRefresh: taskData.forceRefresh,
     }
 
     const job = await queue.add('verification', queueData, {
