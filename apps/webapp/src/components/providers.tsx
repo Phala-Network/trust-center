@@ -1,10 +1,6 @@
 'use client'
 
-import {
-  QueryClient,
-  QueryClientProvider,
-  isServer,
-} from '@tanstack/react-query'
+import {isServer, QueryClient, QueryClientProvider} from '@tanstack/react-query'
 import {Provider as JotaiProvider} from 'jotai'
 import {NuqsAdapter} from 'nuqs/adapters/next/app'
 

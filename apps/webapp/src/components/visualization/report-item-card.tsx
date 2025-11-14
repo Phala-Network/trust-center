@@ -41,15 +41,24 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
     <div className="flex h-full flex-col justify-start space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h4 className="font-medium text-foreground text-sm">{item.title}</h4>
-        {item.vendorIcon && (() => {
-          const icons = getVendorIconSrc(item.vendorIcon)
-          return (
-            <>
-              <img src={icons.light} alt="Vendor" className="block h-4 w-auto dark:hidden" />
-              <img src={icons.dark} alt="Vendor" className="hidden dark:block h-4 w-auto" />
-            </>
-          )
-        })()}
+        {item.vendorIcon &&
+          (() => {
+            const icons = getVendorIconSrc(item.vendorIcon)
+            return (
+              <>
+                <img
+                  src={icons.light}
+                  alt="Vendor"
+                  className="block h-4 w-auto dark:hidden"
+                />
+                <img
+                  src={icons.dark}
+                  alt="Vendor"
+                  className="hidden dark:block h-4 w-auto"
+                />
+              </>
+            )
+          })()}
       </div>
 
       <p className="text-muted-foreground text-xs">{item.intro}</p>

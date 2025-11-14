@@ -1,8 +1,8 @@
 'use client'
 
 import {ChevronDown} from 'lucide-react'
-import {useState} from 'react'
 import type React from 'react'
+import {useState} from 'react'
 
 import {useAttestationData} from '@/components/attestation-data-context'
 import type {DataObjectId} from '@/data/schema'
@@ -45,15 +45,24 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
     <div className="flex h-full flex-col justify-start space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h4 className="font-medium text-foreground text-sm">{item.title}</h4>
-        {item.vendorIcon && (() => {
-          const icons = getVendorIconSrc(item.vendorIcon)
-          return (
-            <>
-              <img src={icons.light} alt="Vendor" className="block h-4 w-auto dark:hidden" />
-              <img src={icons.dark} alt="Vendor" className="hidden dark:block h-4 w-auto" />
-            </>
-          )
-        })()}
+        {item.vendorIcon &&
+          (() => {
+            const icons = getVendorIconSrc(item.vendorIcon)
+            return (
+              <>
+                <img
+                  src={icons.light}
+                  alt="Vendor"
+                  className="block h-4 w-auto dark:hidden"
+                />
+                <img
+                  src={icons.dark}
+                  alt="Vendor"
+                  className="hidden dark:block h-4 w-auto"
+                />
+              </>
+            )
+          })()}
       </div>
 
       <p className="text-muted-foreground text-xs">{item.intro}</p>
@@ -120,7 +129,13 @@ export const ReportItemCard: React.FC<{
   defaultExpanded?: boolean
   showContent?: boolean
   selectable?: boolean
-}> = ({item, collapsible = false, defaultExpanded = false, showContent = true, selectable = false}) => {
+}> = ({
+  item,
+  collapsible = false,
+  defaultExpanded = false,
+  showContent = true,
+  selectable = false,
+}) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const {selectedObjectId, setSelectedObjectId} = useAttestationData()
   const isSelected = selectable && selectedObjectId === item.id
@@ -134,7 +149,8 @@ export const ReportItemCard: React.FC<{
     }
   }
 
-  const shouldShowContent = showContent && (defaultExpanded || isExpanded || !collapsible)
+  const shouldShowContent =
+    showContent && (defaultExpanded || isExpanded || !collapsible)
 
   // For collapsible mode - always show title row with chevron, content conditionally
   if (collapsible) {
@@ -154,20 +170,29 @@ export const ReportItemCard: React.FC<{
               {item.title}
             </h4>
             <div className="flex items-center gap-2 flex-shrink-0 h-4">
-              {item.vendorIcon && (() => {
-                const icons = getVendorIconSrc(item.vendorIcon)
-                return (
-                  <>
-                    <img src={icons.light} alt="Vendor" className="block h-4 w-auto dark:hidden" />
-                    <img src={icons.dark} alt="Vendor" className="hidden dark:block h-4 w-auto" />
-                  </>
-                )
-              })()}
+              {item.vendorIcon &&
+                (() => {
+                  const icons = getVendorIconSrc(item.vendorIcon)
+                  return (
+                    <>
+                      <img
+                        src={icons.light}
+                        alt="Vendor"
+                        className="block h-4 w-auto dark:hidden"
+                      />
+                      <img
+                        src={icons.dark}
+                        alt="Vendor"
+                        className="hidden dark:block h-4 w-auto"
+                      />
+                    </>
+                  )
+                })()}
               {!defaultExpanded && showContent && (
                 <ChevronDown
                   className={cn(
                     'h-4 w-4 text-muted-foreground transition-transform duration-200',
-                    isExpanded && 'rotate-180'
+                    isExpanded && 'rotate-180',
                   )}
                 />
               )}
@@ -178,42 +203,49 @@ export const ReportItemCard: React.FC<{
               <div className="pt-2 border-t space-y-2">
                 <p className="text-muted-foreground text-xs">{item.intro}</p>
 
-                {item.fields && item.fields.length > 0 && (() => {
-                  const {attestationData} = useAttestationData()
-                  return (
-                    <div className="space-y-2">
-                      {item.fields.map((f) => {
-                        const obj = attestationData.find((o) => o.id === f.objectId)
-                        const value = obj?.fields?.[f.field]
+                {item.fields &&
+                  item.fields.length > 0 &&
+                  (() => {
+                    const {attestationData} = useAttestationData()
+                    return (
+                      <div className="space-y-2">
+                        {item.fields.map((f) => {
+                          const obj = attestationData.find(
+                            (o) => o.id === f.objectId,
+                          )
+                          const value = obj?.fields?.[f.field]
 
-                        if (value == null || value === 'N/A') return null
-                        const valueString = String(value)
-                        return (
-                          <div key={`${f.objectId}-${f.field}`} className="relative">
-                            <p className="block font-medium text-xs text-muted-foreground">
-                              {f.label ?? f.field}
-                            </p>
-                            {valueString.startsWith('https://') ? (
-                              <a
-                                href={valueString}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block break-all text-xs/snug underline hover:underline"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {valueString}
-                              </a>
-                            ) : (
-                              <p className="line-clamp-3 break-all text-xs">
-                                {valueString}
+                          if (value == null || value === 'N/A') return null
+                          const valueString = String(value)
+                          return (
+                            <div
+                              key={`${f.objectId}-${f.field}`}
+                              className="relative"
+                            >
+                              <p className="block font-medium text-xs text-muted-foreground">
+                                {f.label ?? f.field}
                               </p>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })()}
+                              {valueString.startsWith('https://') ? (
+                                <a
+                                  href={valueString}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block break-all text-xs/snug underline hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {valueString}
+                                </a>
+                              ) : (
+                                <p className="line-clamp-3 break-all text-xs">
+                                  {valueString}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
 
                 {item.links && item.links.length > 0 && (
                   <div className="flex flex-col items-start gap-1">
@@ -245,8 +277,12 @@ export const ReportItemCard: React.FC<{
       type="button"
       className={cn(
         'w-full rounded-lg border bg-card text-left transition-all duration-200',
-        selectable && isSelected && 'border-yellow-500 ring-2 ring-yellow-500/50',
-        selectable && !isSelected && 'border-border hover:border-muted-foreground cursor-pointer',
+        selectable &&
+          isSelected &&
+          'border-yellow-500 ring-2 ring-yellow-500/50',
+        selectable &&
+          !isSelected &&
+          'border-border hover:border-muted-foreground cursor-pointer',
         !selectable && 'border-border',
       )}
       onClick={handleClick}

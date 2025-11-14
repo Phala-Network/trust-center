@@ -24,7 +24,9 @@ export interface AppBadgeInfo {
  * @param dstackVersion - e.g., "dstack-0.5.3", "dstack-dev-0.5.3"
  * @returns {fullVersion, majorMinor} or null
  */
-function parseVersion(dstackVersion?: string): {fullVersion: string; majorMinor: string} | null {
+function parseVersion(
+  dstackVersion?: string | null,
+): {fullVersion: string; majorMinor: string} | null {
   if (!dstackVersion) return null
 
   // Remove "dstack-" prefix
@@ -36,7 +38,7 @@ function parseVersion(dstackVersion?: string): {fullVersion: string; majorMinor:
 
   return {
     fullVersion: versionPart,
-    majorMinor: `${match[1]}.${match[2]}`
+    majorMinor: `${match[1]}.${match[2]}`,
   }
 }
 
@@ -44,7 +46,7 @@ function parseVersion(dstackVersion?: string): {fullVersion: string; majorMinor:
  * Check if app is onchain (has kms-quote in data objects)
  * @param dataObjects - Array of data object IDs
  */
-function isOnchain(dataObjects?: string[]): boolean {
+function isOnchain(dataObjects?: string[] | null): boolean {
   if (!dataObjects || !Array.isArray(dataObjects)) return false
   return dataObjects.includes('kms-quote')
 }
@@ -53,8 +55,8 @@ function isOnchain(dataObjects?: string[]): boolean {
  * Determine badge information for an app
  */
 export function getAppBadges(
-  dstackVersion?: string,
-  dataObjects?: string[],
+  dstackVersion?: string | null,
+  dataObjects?: string[] | null,
 ): AppBadgeInfo {
   const versionInfo = parseVersion(dstackVersion)
 

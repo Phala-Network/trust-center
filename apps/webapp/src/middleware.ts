@@ -1,5 +1,5 @@
-import {NextResponse} from 'next/server'
 import type {NextRequest} from 'next/server'
+import {NextResponse} from 'next/server'
 
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
@@ -11,7 +11,8 @@ export function middleware(request: NextRequest) {
     const host = request.headers.get('host') || ''
 
     // Allow localhost for development
-    const isDevelopment = host.includes('localhost') || host.includes('127.0.0.1')
+    const isDevelopment =
+      host.includes('localhost') || host.includes('127.0.0.1')
 
     // Check if the request is from an allowed domain
     const allowedDomains = ['.phala.com', '.phala.network']
@@ -37,7 +38,12 @@ export function middleware(request: NextRequest) {
     }
 
     // For iframe access, check if from allowed domain
-    if (!isDirectAccess && !isAllowedReferer && !isAllowedOrigin && !isDevelopment) {
+    if (
+      !isDirectAccess &&
+      !isAllowedReferer &&
+      !isAllowedOrigin &&
+      !isDevelopment
+    ) {
       return new NextResponse(
         'Forbidden: Embed only accessible via iframe from *.phala.com or *.phala.network',
         {

@@ -1,4 +1,7 @@
 import {
+  appsTable,
+  eq,
+  type NewAppRecord,
   type UpstreamAppData,
   UpstreamAppDataSchema,
   type UpstreamProfileData,
@@ -6,25 +9,57 @@ import {
 } from '@phala/trust-center-db'
 import {z} from 'zod'
 
+import type {AppService} from './appService'
 import type {ProfileService} from './profileService'
 import type {QueueService} from './queue'
 
-export interface TaskData {
-  appId: string // dstack_app_id (used for contract address)
-  appProfileId: number // app_id from Metabase (required when creating new tasks)
-  appName: string
-  appConfigType: 'phala_cloud' | 'redpill'
-  contractAddress: string
-  modelOrDomain: string
-  dstackVersion?: string
-  isPublic?: boolean
-  user?: string
-  workspaceId: number // Workspace ID from Metabase (required when creating new tasks)
-  creatorId: number // Creator user ID from Metabase (required when creating new tasks)
+// Helper function to parse version from base_image
+function parseVersion(baseImage: string): {
+  major: number
+  minor: number
+  patch: number
+  build?: number
+} {
+  // Handle formats like "dstack-dev-0.5.3" or "dstack-0.5.4.1"
+  const match = baseImage.match(/(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$/)
+  if (!match) {
+    throw new Error(`Invalid version format: ${baseImage}`)
+  }
+
+  return {
+    major: parseInt(match[1]!, 10),
+    minor: parseInt(match[2]!, 10),
+    patch: parseInt(match[3]!, 10),
+    build: match[4] ? parseInt(match[4], 10) : undefined,
+  }
 }
 
-// Helper function to determine user based on business rules
-function determineUser(app: UpstreamAppData): string | undefined {
+// Helper function to compare versions
+function isVersionGreaterOrEqual(
+  baseImage: string,
+  targetVersion: string,
+): boolean {
+  const current = parseVersion(baseImage)
+  const target = parseVersion(targetVersion)
+
+  if (current.major !== target.major) {
+    return current.major > target.major
+  }
+  if (current.minor !== target.minor) {
+    return current.minor > target.minor
+  }
+  if (current.patch !== target.patch) {
+    return current.patch > target.patch
+  }
+
+  // If patch versions are equal, check build number
+  const currentBuild = current.build ?? 0
+  const targetBuild = target.build ?? 0
+  return currentBuild >= targetBuild
+}
+
+// Helper function to determine custom user label based on business rules
+function determineUser(app: UpstreamAppData): string | null {
   const {email, username, app_name} = app
 
   // Crossmint -> Name contains crossmint
@@ -81,59 +116,14 @@ function determineUser(app: UpstreamAppData): string | undefined {
     return 'Rift'
   }
 
-  return undefined
+  return null
 }
 
-// Helper function to parse version from base_image
-function parseVersion(baseImage: string): {
-  major: number
-  minor: number
-  patch: number
-  build?: number
-} {
-  // Handle formats like "dstack-dev-0.5.3" or "dstack-0.5.4.1"
-  const match = baseImage.match(/(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$/)
-  if (!match) {
-    throw new Error(`Invalid version format: ${baseImage}`)
-  }
-
-  return {
-    major: parseInt(match[1]!, 10),
-    minor: parseInt(match[2]!, 10),
-    patch: parseInt(match[3]!, 10),
-    build: match[4] ? parseInt(match[4], 10) : undefined,
-  }
-}
-
-// Helper function to compare versions
-function isVersionGreaterOrEqual(
-  baseImage: string,
-  targetVersion: string,
-): boolean {
-  const current = parseVersion(baseImage)
-  const target = parseVersion(targetVersion)
-
-  if (current.major !== target.major) {
-    return current.major > target.major
-  }
-  if (current.minor !== target.minor) {
-    return current.minor > target.minor
-  }
-  if (current.patch !== target.patch) {
-    return current.patch > target.patch
-  }
-
-  // If patch versions are equal, check build number
-  const currentBuild = current.build ?? 0
-  const targetBuild = target.build ?? 0
-  return currentBuild >= targetBuild
-}
-
-// Helper function to process app data and create task
-function processAppData(app: UpstreamAppData): TaskData {
+// Helper function to convert upstream app data to app record
+function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
   const {
-    app_id,
     dstack_app_id,
+    app_id,
     app_name,
     base_image,
     contract_address,
@@ -142,44 +132,49 @@ function processAppData(app: UpstreamAppData): TaskData {
     listed,
     workspace_id,
     creator_id,
+    chain_id,
+    kms_contract_address,
+    username,
+    email,
   } = app
 
   let contractAddress = ''
   let modelOrDomain = ''
-
   const defaultContractAddress = `0x${dstack_app_id}`
 
   // Determine contract address based on base_image version
   if (isVersionGreaterOrEqual(base_image, '0.5.3')) {
-    // >= 0.5.3: use dstack_app_id as hex
     contractAddress = `0x${dstack_app_id}`
   } else if (isVersionGreaterOrEqual(base_image, '0.5.1')) {
-    // 0.5.1 to 0.5.2: use contract_address field
     contractAddress = contract_address || ''
   }
-  // < 0.5.1: contract_address is empty (already initialized as empty string)
 
   // Determine domain based on base_image version
   if (isVersionGreaterOrEqual(base_image, '0.5.3')) {
-    // >= 0.5.3: use gateway_domain_suffix
     modelOrDomain = gateway_domain_suffix || ''
   } else {
-    // < 0.5.3: use tproxy_base_domain
     modelOrDomain = tproxy_base_domain || ''
   }
 
   return {
-    appId: dstack_app_id, // Used for contract address generation
-    appProfileId: app_id, // Metabase database ID for profile lookup (integer)
+    id: dstack_app_id, // dstack_app_id is now the primary key
+    profileId: app_id, // app_id is now profileId
     appName: app_name,
     appConfigType: 'phala_cloud',
     contractAddress: contractAddress || defaultContractAddress,
     modelOrDomain,
     dstackVersion: base_image,
+    workspaceId: workspace_id,
+    creatorId: creator_id,
+    chainId: chain_id,
+    kmsContractAddress: kms_contract_address,
+    baseImage: base_image,
+    tproxyBaseDomain: tproxy_base_domain,
+    gatewayDomainSuffix: gateway_domain_suffix,
     isPublic: listed,
-    user: determineUser(app),
-    workspaceId: workspace_id, // Integer ID from Metabase
-    creatorId: creator_id, // Integer ID from Metabase
+    username: username,
+    email: email,
+    customUser: determineUser(app), // Apply business rules to determine custom user label
   }
 }
 
@@ -190,6 +185,7 @@ export interface SyncServiceConfig {
 }
 
 export interface SyncService {
+  syncApps: () => Promise<{appsSynced: number; apps: UpstreamAppData[]}>
   syncAllTasks: () => Promise<{tasksCreated: number; apps: UpstreamAppData[]}>
   syncSelectedTasks: (
     appIds: string[],
@@ -210,6 +206,7 @@ export function createSyncService(
   config: SyncServiceConfig,
   queueService: QueueService,
   profileService: ProfileService,
+  appService: AppService,
 ): SyncService {
   // Fetch apps from Metabase
   const fetchApps = async (): Promise<UpstreamAppData[]> => {
@@ -259,149 +256,128 @@ export function createSyncService(
     return profiles
   }
 
-  // Sync all tasks
+  // Sync all tasks - reads from current database apps table instead of fetching from upstream
   const syncAllTasks = async (): Promise<{
     tasksCreated: number
     apps: UpstreamAppData[]
   }> => {
     try {
-      console.log('[SYNC] Syncing all tasks from Metabase...')
+      console.log('[SYNC] Creating tasks from database apps...')
 
-      const apps = await fetchApps()
+      // Get all apps from database (already synced by app cron)
+      const syncedApps = await appService.getAllApps()
 
-      // Process and filter apps
-      const tasks: TaskData[] = apps
-        .map(processAppData)
-        .filter(
-          (task) => task.contractAddress !== '' && task.modelOrDomain !== '',
-        )
+      // Filter apps with valid config and not deleted
+      const validApps = syncedApps.filter(
+        (app) =>
+          app.contractAddress !== '' &&
+          app.modelOrDomain !== '' &&
+          !app.deleted,
+      )
 
-      if (tasks.length === 0) {
+      if (validApps.length === 0) {
         console.log('[SYNC] No tasks to create')
         return {tasksCreated: 0, apps: []}
       }
 
       // Add tasks directly to queue (they will be created in DB by the worker)
-      const jobPromises = tasks.map((task) =>
+      const jobPromises = validApps.map((app) =>
         queueService.addTask({
-          appId: task.appId,
-          appProfileId: task.appProfileId,
-          appName: task.appName,
-          appConfigType: task.appConfigType,
-          contractAddress: task.contractAddress,
-          modelOrDomain: task.modelOrDomain,
-          dstackVersion: task.dstackVersion,
-          isPublic: task.isPublic,
-          user: task.user,
-          workspaceId: task.workspaceId,
-          creatorId: task.creatorId,
+          appId: app.id, // Use dstack app ID (primary key)
         }),
       )
 
       await Promise.all(jobPromises)
 
-      console.log(`[SYNC] Added ${tasks.length} tasks to queue successfully`)
-      return {tasksCreated: tasks.length, apps}
+      console.log(
+        `[SYNC] Added ${validApps.length} tasks to queue successfully`,
+      )
+      return {tasksCreated: validApps.length, apps: []}
     } catch (error) {
       console.error('[SYNC] Sync all tasks error:', error)
       throw error
     }
   }
 
-  // Sync selected tasks by app IDs
+  // Sync selected tasks by app IDs (dstack_app_id) - reads from current database
   const syncSelectedTasks = async (
     appIds: string[],
   ): Promise<{tasksCreated: number; apps: UpstreamAppData[]}> => {
     try {
-      console.log(`[SYNC] Syncing selected ${appIds.length} tasks...`)
+      console.log(`[SYNC] Creating tasks for selected ${appIds.length} apps...`)
 
-      const apps = await fetchApps()
+      // Get selected apps from database by ID (dstack_app_id is now the primary key)
+      const appPromises = appIds.map((id) => appService.getAppById(id))
+      const appResults = await Promise.all(appPromises)
+      const syncedApps = appResults.filter((app) => app !== null)
 
-      // Filter apps by selected IDs
-      const selectedApps = apps.filter((app) =>
-        appIds.includes(app.dstack_app_id),
-      )
-
-      if (selectedApps.length === 0) {
-        console.log('[SYNC] No matching apps found')
+      if (syncedApps.length === 0) {
+        console.log('[SYNC] No matching apps found in database')
         return {tasksCreated: 0, apps: []}
       }
 
-      // Process and filter apps
-      const tasks: TaskData[] = selectedApps
-        .map(processAppData)
-        .filter(
-          (task) => task.contractAddress !== '' && task.modelOrDomain !== '',
-        )
+      // Filter apps with valid config and not deleted
+      const validApps = syncedApps.filter(
+        (app) =>
+          app.contractAddress !== '' &&
+          app.modelOrDomain !== '' &&
+          !app.deleted,
+      )
 
-      if (tasks.length === 0) {
+      if (validApps.length === 0) {
         console.log('[SYNC] No tasks to create')
-        return {tasksCreated: 0, apps: selectedApps}
+        return {tasksCreated: 0, apps: []}
       }
 
       // Add tasks directly to queue (they will be created in DB by the worker)
-      const jobPromises = tasks.map((task) =>
+      const jobPromises = validApps.map((app) =>
         queueService.addTask({
-          appId: task.appId,
-          appProfileId: task.appProfileId,
-          appName: task.appName,
-          appConfigType: task.appConfigType,
-          contractAddress: task.contractAddress,
-          modelOrDomain: task.modelOrDomain,
-          dstackVersion: task.dstackVersion,
-          isPublic: task.isPublic,
-          user: task.user,
-          workspaceId: task.workspaceId,
-          creatorId: task.creatorId,
+          appId: app.id, // Use dstack app ID (primary key)
         }),
       )
 
       await Promise.all(jobPromises)
 
-      console.log(`[SYNC] Added ${tasks.length} tasks to queue successfully`)
-      return {tasksCreated: tasks.length, apps: selectedApps}
+      console.log(
+        `[SYNC] Added ${validApps.length} tasks to queue successfully`,
+      )
+      return {tasksCreated: validApps.length, apps: []}
     } catch (error) {
       console.error('[SYNC] Sync selected tasks error:', error)
       throw error
     }
   }
 
-  // Force refresh all apps - bypasses 24h duplicate check
+  // Force refresh all apps - bypasses 24h duplicate check, reads from current database
   const forceRefreshAllApps = async (): Promise<{
     tasksCreated: number
     apps: UpstreamAppData[]
   }> => {
     try {
-      console.log('[SYNC] Force refreshing all apps (bypassing 24h check)...')
+      console.log(
+        '[SYNC] Force refreshing all apps from database (bypassing 24h check)...',
+      )
 
-      const apps = await fetchApps()
+      // Get all apps from database (already synced by app cron)
+      const syncedApps = await appService.getAllApps()
 
-      // Process and filter apps
-      const tasks: TaskData[] = apps
-        .map(processAppData)
-        .filter(
-          (task) => task.contractAddress !== '' && task.modelOrDomain !== '',
-        )
+      // Filter apps with valid config and not deleted
+      const validApps = syncedApps.filter(
+        (app) =>
+          app.contractAddress !== '' &&
+          app.modelOrDomain !== '' &&
+          !app.deleted,
+      )
 
-      if (tasks.length === 0) {
+      if (validApps.length === 0) {
         console.log('[SYNC] No tasks to create')
         return {tasksCreated: 0, apps: []}
       }
 
       // Add tasks with forceRefresh flag to skip 24h check
-      const jobPromises = tasks.map((task) =>
+      const jobPromises = validApps.map((app) =>
         queueService.addTask({
-          appId: task.appId,
-          appProfileId: task.appProfileId,
-          appName: task.appName,
-          appConfigType: task.appConfigType,
-          contractAddress: task.contractAddress,
-          modelOrDomain: task.modelOrDomain,
-          dstackVersion: task.dstackVersion,
-          isPublic: task.isPublic,
-          user: task.user,
-          workspaceId: task.workspaceId,
-          creatorId: task.creatorId,
+          appId: app.id, // Use dstack app ID (primary key)
           forceRefresh: true, // Force refresh - bypass 24h check
         }),
       )
@@ -409,11 +385,60 @@ export function createSyncService(
       await Promise.all(jobPromises)
 
       console.log(
-        `[SYNC] Force refresh: Added ${tasks.length} tasks to queue (bypassing 24h check)`,
+        `[SYNC] Force refresh: Added ${validApps.length} tasks to queue (bypassing 24h check)`,
       )
-      return {tasksCreated: tasks.length, apps}
+      return {tasksCreated: validApps.length, apps: []}
     } catch (error) {
       console.error('[SYNC] Force refresh error:', error)
+      throw error
+    }
+  }
+
+  // Sync apps from Metabase to database
+  const syncApps = async (): Promise<{
+    appsSynced: number
+    apps: UpstreamAppData[]
+  }> => {
+    try {
+      console.log('[SYNC] Syncing apps from Metabase...')
+
+      const apps = await fetchApps()
+
+      if (apps.length === 0) {
+        console.log('[SYNC] No apps to sync')
+        return {appsSynced: 0, apps: []}
+      }
+
+      // Convert upstream apps to app records
+      const appRecords = apps.map(convertToAppRecord)
+
+      // Upsert apps to database using appService
+      await appService.upsertApps(appRecords)
+
+      // Mark apps that are not in upstream as deleted
+      const upstreamProfileIds = new Set(apps.map((app) => app.app_id))
+      const allApps = await appService.getAllApps()
+      const appsToMarkDeleted = allApps.filter(
+        (app) => !upstreamProfileIds.has(app.profileId) && !app.deleted,
+      )
+
+      if (appsToMarkDeleted.length > 0) {
+        const db = appService.getDb()
+        await Promise.all(
+          appsToMarkDeleted.map((app) =>
+            db
+              .update(appsTable)
+              .set({deleted: true, updatedAt: new Date()})
+              .where(eq(appsTable.id, app.id)),
+          ),
+        )
+        console.log(`[SYNC] Marked ${appsToMarkDeleted.length} apps as deleted`)
+      }
+
+      console.log(`[SYNC] Synced ${apps.length} apps successfully`)
+      return {appsSynced: apps.length, apps}
+    } catch (error) {
+      console.error('[SYNC] Sync apps error:', error)
       throw error
     }
   }
@@ -446,6 +471,7 @@ export function createSyncService(
   }
 
   return {
+    syncApps,
     syncAllTasks,
     syncSelectedTasks,
     forceRefreshAllApps,

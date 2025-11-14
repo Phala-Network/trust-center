@@ -3,17 +3,16 @@
 import {
   alias,
   and,
+  appsTable,
   createDbConnection,
   desc,
   eq,
-  gte,
   profilesTable,
   sql,
   type Task,
   type VerificationFlags,
   verificationTasksTable,
 } from '@phala/trust-center-db'
-import {subDays} from 'date-fns'
 
 import {env} from '@/env'
 
@@ -32,36 +31,40 @@ export interface ProfileDisplay {
   customDomain?: string // Only used for app profiles
 }
 
-// Extended Task with profile information for frontend
-export interface AppTask extends Task {
-  dataObjectsCount?: number
+// App with profile information (from apps table + profiles)
+export interface App {
+  // From apps table
+  id: string // dstack app ID
+  profileId: number
+  appName: string
+  appConfigType: 'redpill' | 'phala_cloud'
+  contractAddress: string
+  modelOrDomain: string
+  dstackVersion: string | null
+  workspaceId: number
+  creatorId: number
+  isPublic: boolean
+  deleted: boolean
+  customUser: string | null
+  createdAt: string
+  updatedAt: string | null
+  lastSyncedAt: string | null
+
+  // Profile information from profiles table (editable display info)
   profile?: ProfileDisplay | null
   workspaceProfile?: ProfileDisplay | null
   userProfile?: ProfileDisplay | null
 }
 
-// Common filter parameters
-interface BaseFilterParams {
-  keyword?: string
-  includeDateFilter?: boolean // If false, no date restriction
+// Task with verification results (from verification_tasks table)
+export interface TaskWithCounts extends Task {
+  dataObjectsCount?: number
 }
 
-// Build base where conditions for public completed tasks (without keyword search)
-// By default includes 2-day filter for app list, but can be disabled for detail pages
-// Note: keyword and owner filtering are done after JOIN to enable profile displayName matching
-function buildBaseWhereConditions(params?: BaseFilterParams) {
-  const conditions = [
-    eq(verificationTasksTable.status, 'completed'),
-    eq(verificationTasksTable.isPublic, true),
-  ]
-
-  // Only add date filter if explicitly requested (default true for backwards compatibility)
-  if (params?.includeDateFilter !== false) {
-    const twoDaysAgo = subDays(new Date(), 2)
-    conditions.push(gte(verificationTasksTable.createdAt, twoDaysAgo))
-  }
-
-  return conditions
+// Combined App + Task for list views (app with its latest completed task)
+export interface AppWithTask extends App {
+  // Latest completed task
+  task: TaskWithCounts
 }
 
 // Create aliases for the three profile tables using Drizzle's alias()
@@ -69,9 +72,10 @@ const appProfileTable = alias(profilesTable, 'app_profile')
 const workspaceProfileTable = alias(profilesTable, 'workspace_profile')
 const userProfileTable = alias(profilesTable, 'user_profile')
 
-// Helper: Profile selection object with JOINs for all profiles
+// Helper: Profile selection object with JOINs for all profiles and apps table
 const profileSelection = {
   task: verificationTasksTable,
+  app: appsTable,
   appProfile: appProfileTable,
   workspaceProfile: workspaceProfileTable,
   userProfile: userProfileTable,
@@ -94,53 +98,21 @@ function buildProfileDisplay(
   }
 }
 
-// Helper: Resolve owner from AppTask (priority: workspace > user > legacy)
-function resolveOwner(task: AppTask): string | null {
-  return (
-    task.workspaceProfile?.displayName ||
-    task.userProfile?.displayName ||
-    task.user ||
-    null
-  )
+// Helper: Resolve owner from App (priority: workspace > customUser)
+function resolveOwner(app: App): string | null {
+  return app.workspaceProfile?.displayName || app.customUser || null
 }
 
-// Helper: Convert database task to Task object (for frontend display)
-function taskToPublic(
-  task: typeof verificationTasksTable.$inferSelect,
-): Task {
-  return {
-    id: task.id,
-    appId: task.appId,
-    appName: task.appName,
-    appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
-    contractAddress: task.contractAddress,
-    modelOrDomain: task.modelOrDomain,
-    verificationFlags: task.verificationFlags as VerificationFlags | null,
-    status: task.status,
-    errorMessage: task.errorMessage || undefined,
-    s3Filename: task.s3Filename || undefined,
-    s3Key: task.s3Key || undefined,
-    s3Bucket: task.s3Bucket || undefined,
-    createdAt: task.createdAt.toISOString(),
-    startedAt: task.startedAt?.toISOString(),
-    finishedAt: task.finishedAt?.toISOString(),
-    user: task.user || undefined,
-    dstackVersion: task.dstackVersion || undefined,
-    dataObjects: Array.isArray(task.dataObjects)
-      ? (task.dataObjects as string[])
-      : undefined,
-    isPublic: task.isPublic,
-  }
-}
-
-// Helper: Convert query result to AppTask with profile data
-function resultToAppTask(result: {
+// Helper: Convert query result to AppWithTask with profile data
+function resultToAppWithTask(result: {
   task: typeof verificationTasksTable.$inferSelect
+  app: typeof appsTable.$inferSelect
   appProfile: typeof profilesTable.$inferSelect | null
   workspaceProfile: typeof profilesTable.$inferSelect | null
   userProfile: typeof profilesTable.$inferSelect | null
-}): AppTask {
-  const task = result.task
+}): AppWithTask {
+  const taskData = result.task
+  const appData = result.app
   const appProfile = result.appProfile
   const workspaceProfile = result.workspaceProfile
   const userProfile = result.userProfile
@@ -152,36 +124,57 @@ function resultToAppTask(result: {
     userProfile?.avatarUrl ||
     null
 
-  return {
-    id: task.id,
-    appId: task.appId,
-    appName: task.appName,
-    appConfigType: task.appConfigType as 'redpill' | 'phala_cloud',
-    contractAddress: task.contractAddress,
-    modelOrDomain: task.modelOrDomain,
-    verificationFlags: task.verificationFlags as VerificationFlags | null,
-    status: task.status,
-    errorMessage: task.errorMessage || undefined,
-    s3Filename: task.s3Filename || undefined,
-    s3Key: task.s3Key || undefined,
-    s3Bucket: task.s3Bucket || undefined,
-    createdAt: task.createdAt.toISOString(),
-    startedAt: task.startedAt?.toISOString(),
-    finishedAt: task.finishedAt?.toISOString(),
-    user: task.user || undefined,
-    dstackVersion: task.dstackVersion || undefined,
-    dataObjectsCount: Array.isArray(task.dataObjects)
-      ? task.dataObjects.length
-      : 0,
-    dataObjects: Array.isArray(task.dataObjects)
-      ? (task.dataObjects as string[])
-      : undefined,
-    isPublic: task.isPublic,
-    // Use helper to build profiles with avatar priority
+  // Build App object
+  const app: App = {
+    id: appData.id,
+    profileId: appData.profileId,
+    appName: appData.appName,
+    appConfigType: appData.appConfigType as 'redpill' | 'phala_cloud',
+    contractAddress: appData.contractAddress,
+    modelOrDomain: appData.modelOrDomain,
+    dstackVersion: appData.dstackVersion,
+    workspaceId: appData.workspaceId,
+    creatorId: appData.creatorId,
+    isPublic: appData.isPublic,
+    deleted: appData.deleted,
+    customUser: appData.customUser,
+    createdAt: appData.createdAt.toISOString(),
+    updatedAt: appData.updatedAt?.toISOString() ?? null,
+    lastSyncedAt: appData.lastSyncedAt?.toISOString() ?? null,
     profile: buildProfileDisplay(appProfile, avatarUrl),
     workspaceProfile: buildProfileDisplay(workspaceProfile),
     userProfile: buildProfileDisplay(userProfile),
   }
+
+  // Build Task object
+  const task: TaskWithCounts = {
+    id: taskData.id,
+    appId: taskData.appId,
+    appName: appData.appName,
+    appConfigType: appData.appConfigType as 'redpill' | 'phala_cloud',
+    contractAddress: appData.contractAddress,
+    modelOrDomain: appData.modelOrDomain,
+    verificationFlags: taskData.verificationFlags as VerificationFlags | null,
+    status: taskData.status,
+    errorMessage: taskData.errorMessage ?? null,
+    s3Filename: taskData.s3Filename ?? null,
+    s3Key: taskData.s3Key ?? null,
+    s3Bucket: taskData.s3Bucket ?? null,
+    createdAt: taskData.createdAt.toISOString(),
+    startedAt: taskData.startedAt?.toISOString() ?? null,
+    finishedAt: taskData.finishedAt?.toISOString() ?? null,
+    user: null,
+    dstackVersion: appData.dstackVersion ?? null,
+    dataObjectsCount: Array.isArray(taskData.dataObjects)
+      ? taskData.dataObjects.length
+      : 0,
+    dataObjects: Array.isArray(taskData.dataObjects)
+      ? (taskData.dataObjects as string[])
+      : null,
+    isPublic: appData.isPublic,
+  }
+
+  return {...app, task}
 }
 
 // Get all unique apps (latest task per app)
@@ -194,25 +187,34 @@ export async function getApps(params?: {
   sortOrder?: 'asc' | 'desc'
   page?: number
   perPage?: number
-}): Promise<AppTask[]> {
-  // Build base conditions WITHOUT isPublic filter
-  // We need to find the latest task for each app first, THEN filter by isPublic
-  const twoDaysAgo = subDays(new Date(), 2)
-  const baseConditions = [
-    eq(verificationTasksTable.status, 'completed'),
-    gte(verificationTasksTable.createdAt, twoDaysAgo),
+}): Promise<AppWithTask[]> {
+  // Build base conditions for apps
+  const appConditions = [
+    eq(appsTable.isPublic, true),
+    eq(appsTable.deleted, false),
   ]
 
+  // Add dstackVersion filter if specified
   if (params?.dstackVersions && params.dstackVersions.length > 0) {
-    baseConditions.push(
-      sql`${verificationTasksTable.dstackVersion} IN (${sql.join(
+    appConditions.push(
+      sql`${appsTable.dstackVersion} IN (${sql.join(
         params.dstackVersions.map((v) => sql`${v}`),
         sql`, `,
       )})`,
     )
   }
 
-  // Get latest task for each unique appId (regardless of isPublic status)
+  // Add appConfigType filter if specified
+  if (params?.appConfigType) {
+    appConditions.push(
+      eq(
+        appsTable.appConfigType,
+        params.appConfigType as 'redpill' | 'phala_cloud',
+      ),
+    )
+  }
+
+  // Get latest task for each app (subquery)
   const latestTasks = db.$with('latest_tasks').as(
     db
       .select({
@@ -222,17 +224,18 @@ export async function getApps(params?: {
         ),
       })
       .from(verificationTasksTable)
-      .where(baseConditions.length > 0 ? and(...baseConditions) : undefined)
+      .where(eq(verificationTasksTable.status, 'completed'))
       .groupBy(verificationTasksTable.appId),
   )
 
-  // Join with all three profile tables and filter by isPublic at query level
+  // Start from apps table, JOIN to latest tasks, then profiles
   const results = await db
     .with(latestTasks)
     .select(profileSelection)
-    .from(verificationTasksTable)
+    .from(appsTable)
+    .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
     .innerJoin(
-      latestTasks,
+      verificationTasksTable,
       and(
         eq(verificationTasksTable.appId, latestTasks.appId),
         eq(verificationTasksTable.createdAt, latestTasks.maxCreatedAt),
@@ -242,42 +245,45 @@ export async function getApps(params?: {
       appProfileTable,
       and(
         eq(appProfileTable.entityType, 'app'),
-        eq(appProfileTable.entityId, verificationTasksTable.appProfileId),
+        eq(appProfileTable.entityId, appsTable.profileId),
       ),
     )
     .leftJoin(
       workspaceProfileTable,
       and(
         eq(workspaceProfileTable.entityType, 'workspace'),
-        eq(workspaceProfileTable.entityId, verificationTasksTable.workspaceId),
+        eq(workspaceProfileTable.entityId, appsTable.workspaceId),
       ),
     )
     .leftJoin(
       userProfileTable,
       and(
         eq(userProfileTable.entityType, 'user'),
-        eq(userProfileTable.entityId, verificationTasksTable.creatorId),
+        eq(userProfileTable.entityId, appsTable.creatorId),
       ),
     )
-    .where(
-      // IMPORTANT: Filter by isPublic=true AFTER getting latest tasks
-      // This ensures we use the latest task to determine public status
-      eq(verificationTasksTable.isPublic, true),
-    )
+    .where(appConditions.length > 0 ? and(...appConditions) : undefined)
     .orderBy(
-      // Sort apps with user/owner first, then by creation time descending
-      sql`CASE WHEN ${verificationTasksTable.user} IS NULL THEN 1 ELSE 0 END`,
+      // Priority: apps with profile/custom user info first
+      sql`CASE
+        WHEN ${appsTable.customUser} IS NOT NULL THEN 0
+        WHEN ${workspaceProfileTable.displayName} IS NOT NULL THEN 1
+        WHEN ${appProfileTable.displayName} IS NOT NULL THEN 2
+        WHEN ${userProfileTable.displayName} IS NOT NULL THEN 3
+        ELSE 4
+      END`,
+      // Secondary: most recent tasks
       desc(verificationTasksTable.createdAt),
     )
 
-  // Convert to AppTask and apply post-JOIN filters
-  const appTasks = results.map(resultToAppTask)
-  let filteredTasks = appTasks
+  // Convert to AppWithTask and apply post-JOIN filters
+  const appsWithTasks = results.map(resultToAppWithTask)
+  let filteredApps = appsWithTasks
 
   // Apply owner filter after JOIN (so we can match workspace/user displayNames)
   if (params?.users && params.users.length > 0) {
-    filteredTasks = filteredTasks.filter((task) => {
-      const owner = resolveOwner(task)
+    filteredApps = filteredApps.filter((app: AppWithTask) => {
+      const owner = resolveOwner(app)
       return owner && params.users!.includes(owner)
     })
   }
@@ -285,53 +291,53 @@ export async function getApps(params?: {
   // Apply keyword filter after JOIN (so we can match profile displayNames)
   if (params?.keyword) {
     const keyword = params.keyword.toLowerCase()
-    filteredTasks = filteredTasks.filter(
-      (task) =>
-        task.appName.toLowerCase().includes(keyword) ||
-        task.appId.toLowerCase().includes(keyword) ||
-        task.profile?.displayName?.toLowerCase().includes(keyword),
+    filteredApps = filteredApps.filter(
+      (app: AppWithTask) =>
+        app.appName.toLowerCase().includes(keyword) ||
+        app.id.toLowerCase().includes(keyword) ||
+        app.profile?.displayName?.toLowerCase().includes(keyword),
     )
   }
 
-  return filteredTasks
+  return filteredApps
 }
 
 // Get all unique dstack versions from latest completed tasks (apps) with app counts
 export async function getDstackVersions(params?: {
   keyword?: string
 }): Promise<Array<{version: string; count: number}>> {
-  // Build base where conditions (status, isPublic, time filter, keyword)
-  const whereConditions = buildBaseWhereConditions(params)
-
-  // Get latest task for each unique appId
+  // Get latest task for each app (subquery)
   const latestTasks = db.$with('latest_tasks').as(
     db
       .select({
         appId: verificationTasksTable.appId,
-        dstackVersion: verificationTasksTable.dstackVersion,
         maxCreatedAt: sql<string>`max(${verificationTasksTable.createdAt})`.as(
           'maxCreatedAt',
         ),
       })
       .from(verificationTasksTable)
-      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-      .groupBy(
-        verificationTasksTable.appId,
-        verificationTasksTable.dstackVersion,
-      ),
+      .where(eq(verificationTasksTable.status, 'completed'))
+      .groupBy(verificationTasksTable.appId),
   )
 
-  // Count apps per dstack version
+  // Start from apps table, JOIN to latest tasks, count per version
   const results = await db
     .with(latestTasks)
     .select({
-      version: latestTasks.dstackVersion,
-      count: sql<number>`count(distinct ${latestTasks.appId})`.as('count'),
+      version: appsTable.dstackVersion,
+      count: sql<number>`count(distinct ${appsTable.id})`.as('count'),
     })
-    .from(latestTasks)
-    .where(sql`${latestTasks.dstackVersion} IS NOT NULL`)
-    .groupBy(latestTasks.dstackVersion)
-    .orderBy(latestTasks.dstackVersion)
+    .from(appsTable)
+    .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
+    .where(
+      and(
+        eq(appsTable.isPublic, true),
+        eq(appsTable.deleted, false),
+        sql`${appsTable.dstackVersion} IS NOT NULL`,
+      ),
+    )
+    .groupBy(appsTable.dstackVersion)
+    .orderBy(appsTable.dstackVersion)
 
   return results
     .map((r) => ({
@@ -342,67 +348,50 @@ export async function getDstackVersions(params?: {
 }
 
 // Get all unique users from latest completed tasks (apps) with app counts
-// Get all owners (including user field and profiles with displayName)
-// Returns unique owners from both legacy user field and new profile system
+// Get all owners (including profiles with displayName)
+// Returns unique owners from new profile system based on apps table
 export async function getUsers(params?: {
   keyword?: string
 }): Promise<Array<{user: string; count: number}>> {
-  // Build base where conditions (status, isPublic, time filter, keyword)
-  const whereConditions = buildBaseWhereConditions(params)
-
-  // Get latest task for each unique appId with profile information
+  // Get latest task for each app (subquery)
   const latestTasks = db.$with('latest_tasks').as(
     db
       .select({
         appId: verificationTasksTable.appId,
-        user: verificationTasksTable.user,
-        workspaceId: verificationTasksTable.workspaceId,
-        creatorId: verificationTasksTable.creatorId,
         maxCreatedAt: sql<string>`max(${verificationTasksTable.createdAt})`.as(
           'maxCreatedAt',
         ),
       })
       .from(verificationTasksTable)
-      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-      .groupBy(
-        verificationTasksTable.appId,
-        verificationTasksTable.user,
-        verificationTasksTable.workspaceId,
-        verificationTasksTable.creatorId,
-      ),
+      .where(eq(verificationTasksTable.status, 'completed'))
+      .groupBy(verificationTasksTable.appId),
   )
 
-  // Join with workspace and user profiles to get displayNames
+  // Start from apps table, JOIN to latest tasks and profiles
   const results = await db
     .with(latestTasks)
     .select({
-      legacyUser: latestTasks.user,
       workspaceDisplayName: workspaceProfileTable.displayName,
-      userDisplayName: userProfileTable.displayName,
-      appId: latestTasks.appId,
+      customUser: appsTable.customUser,
+      appId: appsTable.id,
     })
-    .from(latestTasks)
+    .from(appsTable)
+    .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
     .leftJoin(
       workspaceProfileTable,
       and(
         eq(workspaceProfileTable.entityType, 'workspace'),
-        eq(workspaceProfileTable.entityId, latestTasks.workspaceId),
+        eq(workspaceProfileTable.entityId, appsTable.workspaceId),
       ),
     )
-    .leftJoin(
-      userProfileTable,
-      and(
-        eq(userProfileTable.entityType, 'user'),
-        eq(userProfileTable.entityId, latestTasks.creatorId),
-      ),
-    )
+    .where(and(eq(appsTable.isPublic, true), eq(appsTable.deleted, false)))
 
-  // Aggregate owners: priority is workspaceDisplayName > userDisplayName > legacyUser
+  // Aggregate owners: only workspace profiles and custom user labels
+  // Priority: workspaceDisplayName > customUser
   const ownerMap = new Map<string, Set<string>>()
 
   for (const row of results) {
-    const owner =
-      row.workspaceDisplayName || row.userDisplayName || row.legacyUser
+    const owner = row.workspaceDisplayName || row.customUser
     if (owner) {
       if (!ownerMap.has(owner)) {
         ownerMap.set(owner, new Set())
@@ -426,39 +415,46 @@ export async function getUsers(params?: {
 export async function getApp(
   appId: string,
   checkPublic = false,
-): Promise<AppTask | null> {
-  const whereConditions = [eq(verificationTasksTable.appId, appId)]
-
-  // Add public check if required
+): Promise<AppWithTask | null> {
+  // Build app conditions
+  const appConditions = [eq(appsTable.id, appId)]
   if (checkPublic) {
-    whereConditions.push(eq(verificationTasksTable.isPublic, true))
+    appConditions.push(
+      eq(appsTable.isPublic, true),
+      eq(appsTable.deleted, false),
+    )
   }
 
+  // Start from apps table, JOIN to latest task and profiles
   const results = await db
     .select(profileSelection)
-    .from(verificationTasksTable)
+    .from(appsTable)
+    .innerJoin(
+      verificationTasksTable,
+      eq(verificationTasksTable.appId, appsTable.id),
+    )
     .leftJoin(
       appProfileTable,
       and(
         eq(appProfileTable.entityType, 'app'),
-        eq(appProfileTable.entityId, verificationTasksTable.appProfileId),
+        eq(appProfileTable.entityId, appsTable.profileId),
       ),
     )
     .leftJoin(
       workspaceProfileTable,
       and(
         eq(workspaceProfileTable.entityType, 'workspace'),
-        eq(workspaceProfileTable.entityId, verificationTasksTable.workspaceId),
+        eq(workspaceProfileTable.entityId, appsTable.workspaceId),
       ),
     )
     .leftJoin(
       userProfileTable,
       and(
         eq(userProfileTable.entityType, 'user'),
-        eq(userProfileTable.entityId, verificationTasksTable.creatorId),
+        eq(userProfileTable.entityId, appsTable.creatorId),
       ),
     )
-    .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+    .where(appConditions.length > 0 ? and(...appConditions) : undefined)
     .orderBy(desc(verificationTasksTable.createdAt))
     .limit(1)
 
@@ -467,51 +463,60 @@ export async function getApp(
     return null
   }
 
-  return resultToAppTask(result)
+  return resultToAppWithTask(result)
 }
 
 // Get all tasks for a specific app
-export async function getAppTasks(appId: string): Promise<Task[]> {
-  const results = await db
+// Get task by ID with profile information
+export async function getTaskById(taskId: string): Promise<AppWithTask | null> {
+  // First get the task to find its appId
+  const task = await db
     .select()
     .from(verificationTasksTable)
-    .where(eq(verificationTasksTable.appId, appId))
-    .orderBy(desc(verificationTasksTable.createdAt))
+    .where(eq(verificationTasksTable.id, taskId))
+    .limit(1)
 
-  return results.map(taskToPublic)
-}
+  if (!task[0] || !task[0].appId) {
+    return null
+  }
 
-// Get task by ID with profile information
-export async function getTaskById(taskId: string): Promise<AppTask | null> {
+  // Start from apps table, JOIN to specific task and profiles
   const results = await db
     .select(profileSelection)
-    .from(verificationTasksTable)
+    .from(appsTable)
+    .innerJoin(
+      verificationTasksTable,
+      and(
+        eq(verificationTasksTable.appId, appsTable.id),
+        eq(verificationTasksTable.id, taskId),
+      ),
+    )
     .leftJoin(
       appProfileTable,
       and(
         eq(appProfileTable.entityType, 'app'),
-        eq(appProfileTable.entityId, verificationTasksTable.appProfileId),
+        eq(appProfileTable.entityId, appsTable.profileId),
       ),
     )
     .leftJoin(
       workspaceProfileTable,
       and(
         eq(workspaceProfileTable.entityType, 'workspace'),
-        eq(workspaceProfileTable.entityId, verificationTasksTable.workspaceId),
+        eq(workspaceProfileTable.entityId, appsTable.workspaceId),
       ),
     )
     .leftJoin(
       userProfileTable,
       and(
         eq(userProfileTable.entityType, 'user'),
-        eq(userProfileTable.entityId, verificationTasksTable.creatorId),
+        eq(userProfileTable.entityId, appsTable.creatorId),
       ),
     )
-    .where(eq(verificationTasksTable.id, taskId))
+    .where(eq(appsTable.id, task[0].appId))
     .limit(1)
 
   const result = results[0]
-  return result ? resultToAppTask(result) : null
+  return result ? resultToAppWithTask(result) : null
 }
 
 // Get task by app and task ID
@@ -519,41 +524,44 @@ export async function getTaskById(taskId: string): Promise<AppTask | null> {
 export async function getTask(
   appId: string,
   taskId: string,
-): Promise<AppTask | null> {
+): Promise<AppWithTask | null> {
+  // Start from apps table, JOIN to specific task and profiles
   const results = await db
     .select(profileSelection)
-    .from(verificationTasksTable)
+    .from(appsTable)
+    .innerJoin(
+      verificationTasksTable,
+      and(
+        eq(verificationTasksTable.appId, appsTable.id),
+        eq(verificationTasksTable.id, taskId),
+      ),
+    )
     .leftJoin(
       appProfileTable,
       and(
         eq(appProfileTable.entityType, 'app'),
-        eq(appProfileTable.entityId, verificationTasksTable.appProfileId),
+        eq(appProfileTable.entityId, appsTable.profileId),
       ),
     )
     .leftJoin(
       workspaceProfileTable,
       and(
         eq(workspaceProfileTable.entityType, 'workspace'),
-        eq(workspaceProfileTable.entityId, verificationTasksTable.workspaceId),
+        eq(workspaceProfileTable.entityId, appsTable.workspaceId),
       ),
     )
     .leftJoin(
       userProfileTable,
       and(
         eq(userProfileTable.entityType, 'user'),
-        eq(userProfileTable.entityId, verificationTasksTable.creatorId),
+        eq(userProfileTable.entityId, appsTable.creatorId),
       ),
     )
-    .where(
-      and(
-        eq(verificationTasksTable.id, taskId),
-        eq(verificationTasksTable.appId, appId),
-      ),
-    )
+    .where(eq(appsTable.id, appId))
     .limit(1)
 
   const result = results[0]
-  return result ? resultToAppTask(result) : null
+  return result ? resultToAppWithTask(result) : null
 }
 
 // Re-export unified profile type for backward compatibility

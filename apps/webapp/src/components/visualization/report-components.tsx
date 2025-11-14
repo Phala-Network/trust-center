@@ -7,11 +7,11 @@ import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
 import {getAppBadges} from '@/lib/app-badges'
-import type {AppTask} from '@/lib/db'
+import type {AppWithTask} from '@/lib/db'
 
 // Shared Report Header Component
 export const ReportHeader: React.FC<{
-  task: AppTask
+  app: AppWithTask
   showAttributes?: boolean
   showVerificationStatus?: boolean
   showBranding?: boolean
@@ -19,7 +19,7 @@ export const ReportHeader: React.FC<{
   appId?: string
   taskId?: string
 }> = ({
-  task,
+  app,
   showAttributes = true,
   showVerificationStatus = true,
   showBranding = false,
@@ -27,17 +27,21 @@ export const ReportHeader: React.FC<{
   appId,
   taskId,
 }) => {
-  const badges = getAppBadges(task?.dstackVersion, task?.dataObjects)
+  const badges = getAppBadges(app?.dstackVersion, app?.task.dataObjects)
 
   // Use profile display name if available, otherwise fallback to appName
-  const displayName = task.profile?.displayName || task.appName
-  // Show workspace displayName if available, otherwise fallback to user field
-  const displayUser = task.workspaceProfile?.displayName || task.user
+  const displayName = app.profile?.displayName || app.appName
+  // Show workspace displayName if available, otherwise fallback to customUser
+  const displayUser =
+    app.workspaceProfile?.displayName || app.customUser || undefined
   // Use customDomain if available, otherwise fallback to modelOrDomain
-  const displayDomain = task.profile?.customDomain || task.modelOrDomain
+  const displayDomain = app.profile?.customDomain || app.modelOrDomain
 
   // Get avatar URL from profile (priority: app → workspace → user)
-  const avatarUrl = task.profile?.fullAvatarUrl || task.workspaceProfile?.fullAvatarUrl || task.userProfile?.fullAvatarUrl
+  const avatarUrl =
+    app.profile?.fullAvatarUrl ||
+    app.workspaceProfile?.fullAvatarUrl ||
+    app.userProfile?.fullAvatarUrl
 
   return (
     <div className="space-y-2">
@@ -45,8 +49,20 @@ export const ReportHeader: React.FC<{
       {showBranding && (
         <div className="bg-gradient-to-br from-muted/40 to-muted/20 px-5 py-3 border-b border-border/50">
           <div className="flex items-center justify-center gap-2">
-            <Image src="/logo.svg" alt="Phala" width={60} height={20} className="dark:hidden" />
-            <Image src="/logo_dark.svg" alt="Phala" width={60} height={20} className="hidden dark:block" />
+            <Image
+              src="/logo.svg"
+              alt="Phala"
+              width={60}
+              height={20}
+              className="dark:hidden"
+            />
+            <Image
+              src="/logo_dark.svg"
+              alt="Phala"
+              width={60}
+              height={20}
+              className="hidden dark:block"
+            />
             <span className="text-xs font-semibold text-muted-foreground">
               Trust Certificate
             </span>
@@ -84,16 +100,34 @@ export const ReportHeader: React.FC<{
             </h1>
             <div className="flex items-center gap-2 mt-1">
               {badges.versionBadge.show && (
-                <Badge variant="secondary" className="flex items-center gap-1.5 text-xs h-5 px-2">
-                  <Image src="/dstack.svg" alt="DStack" width={48} height={12} className="opacity-70 dark:hidden" />
-                  <Image src="/dstack_dark.svg" alt="DStack" width={48} height={12} className="opacity-70 hidden dark:block" />
+                <Badge
+                  variant="secondary"
+                  className="flex items-center gap-1.5 text-xs h-5 px-2"
+                >
+                  <Image
+                    src="/dstack.svg"
+                    alt="DStack"
+                    width={48}
+                    height={12}
+                    className="opacity-70 dark:hidden"
+                  />
+                  <Image
+                    src="/dstack_dark.svg"
+                    alt="DStack"
+                    width={48}
+                    height={12}
+                    className="opacity-70 hidden dark:block"
+                  />
                   <span className="font-semibold">
                     {badges.versionBadge.fullVersion}
                   </span>
                 </Badge>
               )}
               {badges.kmsBadge.show && (
-                <Badge variant="outline" className="text-xs h-5 px-2 font-medium">
+                <Badge
+                  variant="outline"
+                  className="text-xs h-5 px-2 font-medium"
+                >
                   {badges.kmsBadge.text}
                 </Badge>
               )}
@@ -110,7 +144,7 @@ export const ReportHeader: React.FC<{
               Type
             </span>
             <span className="flex-1 font-medium text-foreground">
-              {task.appConfigType}
+              {app.appConfigType}
             </span>
           </div>
 
@@ -128,7 +162,7 @@ export const ReportHeader: React.FC<{
               Contract
             </span>
             <span className="flex-1 truncate font-mono text-xs">
-              {task.contractAddress}
+              {app.contractAddress}
             </span>
           </div>
 
@@ -139,7 +173,7 @@ export const ReportHeader: React.FC<{
             <div className="flex items-center gap-2 flex-1">
               <Activity className="h-3.5 w-3.5 text-muted-foreground/50" />
               <span className="text-muted-foreground">
-                {new Date(task.createdAt).toLocaleDateString('en-US', {
+                {new Date(app.task.createdAt).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -153,12 +187,7 @@ export const ReportHeader: React.FC<{
       {/* View in Trust Center button - above verification status */}
       {showTrustCenterButton && appId && taskId && (
         <div className="px-5 pb-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full gap-2"
-            asChild
-          >
+          <Button variant="outline" size="sm" className="w-full gap-2" asChild>
             <a
               href={`/app/${appId}/${taskId}`}
               target="_blank"
@@ -180,10 +209,10 @@ export const ReportHeader: React.FC<{
           </div>
           <p className="mt-2 text-muted-foreground text-xs">
             We display the complete chain of trust, including server hardware,
-            operating system, application code, network infrastructure, and trust
-            authority. Each component provides verifiable attestation reports,
-            along with all the information and tools you need for independent
-            verification.
+            operating system, application code, network infrastructure, and
+            trust authority. Each component provides verifiable attestation
+            reports, along with all the information and tools you need for
+            independent verification.
           </p>
         </div>
       )}

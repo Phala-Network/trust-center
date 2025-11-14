@@ -7,17 +7,18 @@ import {AppLogo} from '@/components/app-logo'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {getAppBadges} from '@/lib/app-badges'
-import {type AppTask} from '@/lib/db'
+import {type AppWithTask} from '@/lib/db'
 import {isReportStale} from '@/lib/utils'
 
-const AppCard = memo(function AppCard({app}: {app: AppTask}) {
-  const badges = getAppBadges(app.dstackVersion, app.dataObjects)
-  const stale = isReportStale(app.createdAt)
+const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
+  const badges = getAppBadges(app.dstackVersion, app.task.dataObjects)
+  const stale = isReportStale(app.task.createdAt)
 
   // Determine display name: use profile displayName if available, fallback to appName
   const displayName = app.profile?.displayName || app.appName
-  // Show workspace displayName if available, otherwise fallback to user field
-  const displayOwner = app.workspaceProfile?.displayName || app.user
+  // Show workspace displayName if available, otherwise fallback to customUser
+  const displayOwner =
+    app.workspaceProfile?.displayName || app.customUser || undefined
   // Use customDomain if available, otherwise fallback to modelOrDomain
   const displayDomain = app.profile?.customDomain || app.modelOrDomain
 
@@ -29,7 +30,7 @@ const AppCard = memo(function AppCard({app}: {app: AppTask}) {
 
   return (
     <Link
-      href={`/app/${app.appId}`}
+      href={`/app/${app.id}`}
       className="group block bg-card rounded-xl border border-border hover:border-border/80 hover:shadow-lg transition-all duration-300 overflow-hidden"
     >
       {/* Header with gradient background */}
@@ -45,7 +46,7 @@ const AppCard = memo(function AppCard({app}: {app: AppTask}) {
             </Avatar>
           ) : (
             <AppLogo
-              user={app.user}
+              user={displayOwner}
               appName={app.appName}
               size="lg"
               className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
@@ -151,7 +152,7 @@ const AppCard = memo(function AppCard({app}: {app: AppTask}) {
 })
 
 interface AppListProps {
-  apps: AppTask[]
+  apps: AppWithTask[]
   hasFilters?: boolean
 }
 

@@ -14,7 +14,7 @@ import {
 } from '@/components/visualization/report-item-card'
 import {REPORT_ITEMS} from '@/data/report-items'
 import {getAppBadges} from '@/lib/app-badges'
-import {taskAtom} from '@/stores/app'
+import {appWithTaskAtom} from '@/stores/app'
 
 interface TrustSection {
   id: string
@@ -79,7 +79,10 @@ const ALL_TRUST_SECTIONS: TrustSection[] = [
 ]
 
 // Map section IDs to config keys
-const SECTION_CONFIG_MAP: Record<string, keyof NonNullable<ReportWidgetConfig['sections']>> = {
+const SECTION_CONFIG_MAP: Record<
+  string,
+  keyof NonNullable<ReportWidgetConfig['sections']>
+> = {
   hardware: 'hardware',
   source_code: 'sourceCode',
   zero_trust: 'zeroTrust',
@@ -92,12 +95,15 @@ const ReportHeader: React.FC<{
   showAttributes: boolean
   showVerificationStatus: boolean
 }> = ({showAttributes, showVerificationStatus}) => {
-  const [task] = useAtom(taskAtom)
-  const badges = getAppBadges(task?.dstackVersion, task?.dataObjects)
+  const [app] = useAtom(appWithTaskAtom)
+  const badges = getAppBadges(app?.dstackVersion, app?.task.dataObjects)
 
-  if (!task) {
+  if (!app) {
     return null
   }
+
+  const displayUser =
+    app.workspaceProfile?.displayName || app.customUser || undefined
 
   return (
     <div className="space-y-2">
@@ -105,19 +111,19 @@ const ReportHeader: React.FC<{
       <div className="p-5">
         <div className="flex items-center gap-4">
           <AppLogo
-            user={task.user}
-            appName={task.appName}
+            user={displayUser}
+            appName={app.appName}
             size="lg"
             className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
           />
           <div className="flex-1 min-w-0 flex flex-col justify-center">
-            {task.user && (
+            {displayUser && (
               <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
-                {task.user}
+                {displayUser}
               </p>
             )}
             <h1 className="text-lg font-semibold tracking-tight truncate leading-tight">
-              {task.appName}
+              {app.appName}
             </h1>
             <div className="flex items-center gap-2 mt-1">
               {badges.versionBadge.show && (
@@ -158,7 +164,7 @@ const ReportHeader: React.FC<{
               Type
             </span>
             <span className="flex-1 font-medium text-foreground">
-              {task.appConfigType}
+              {app.appConfigType}
             </span>
           </div>
 
@@ -167,7 +173,7 @@ const ReportHeader: React.FC<{
               Domain
             </span>
             <span className="flex-1 truncate text-foreground">
-              {task.modelOrDomain}
+              {app.modelOrDomain}
             </span>
           </div>
 
@@ -176,7 +182,7 @@ const ReportHeader: React.FC<{
               Contract
             </span>
             <span className="flex-1 truncate font-mono text-xs">
-              {task.contractAddress}
+              {app.contractAddress}
             </span>
           </div>
 
@@ -187,7 +193,7 @@ const ReportHeader: React.FC<{
             <div className="flex items-center gap-2 flex-1">
               <Activity className="h-3.5 w-3.5 text-muted-foreground/50" />
               <span className="text-muted-foreground">
-                {new Date(task.createdAt).toLocaleDateString('en-US', {
+                {new Date(app.createdAt).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',
@@ -207,10 +213,10 @@ const ReportHeader: React.FC<{
           </div>
           <p className="mt-2 text-muted-foreground text-xs">
             We display the complete chain of trust, including server hardware,
-            operating system, application code, network infrastructure, and trust
-            authority. Each component provides verifiable attestation reports,
-            along with all the information and tools you need for independent
-            verification.
+            operating system, application code, network infrastructure, and
+            trust authority. Each component provides verifiable attestation
+            reports, along with all the information and tools you need for
+            independent verification.
           </p>
         </div>
       )}

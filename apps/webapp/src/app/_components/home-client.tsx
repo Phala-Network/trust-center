@@ -14,7 +14,11 @@ export function HomeClient() {
     users: parseAsArrayOf(parseAsString).withDefault([]),
   })
 
-  const {data: apps = [], isFetching, isLoading} = useApps({
+  const {
+    data: apps = [],
+    isFetching,
+    isLoading,
+  } = useApps({
     sortBy: 'appName',
     keyword: keyword || undefined,
     dstackVersions: dstackVersions.length > 0 ? dstackVersions : undefined,
@@ -32,7 +36,9 @@ export function HomeClient() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Loading applications...</p>
+          <p className="text-sm text-muted-foreground">
+            Loading applications...
+          </p>
         </div>
       ) : (
         <div className="relative">

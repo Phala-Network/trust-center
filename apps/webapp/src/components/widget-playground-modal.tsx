@@ -1,8 +1,9 @@
 'use client'
 
-import {useState} from 'react'
 import {Copy, ExternalLink} from 'lucide-react'
+import {useState} from 'react'
 
+import {useAttestationData} from '@/components/attestation-data-context'
 import {Button} from '@/components/ui/button'
 import {
   Dialog,
@@ -11,11 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {Label} from '@/components/ui/label'
-import {Switch} from '@/components/ui/switch'
-import {Separator} from '@/components/ui/separator'
 import {Input} from '@/components/ui/input'
-import {useAttestationData} from '@/components/attestation-data-context'
+import {Label} from '@/components/ui/label'
+import {Separator} from '@/components/ui/separator'
+import {Switch} from '@/components/ui/switch'
 import CompactReportWidget, {
   type CompactReportWidgetConfig,
 } from '@/components/visualization/compact-report-widget'
@@ -28,7 +28,10 @@ interface WidgetPlaygroundModalProps {
   taskId?: string | null
 }
 
-type WidgetConfig = Omit<Required<CompactReportWidgetConfig>, 'appId' | 'taskId' | 'showTrustCenterButton'> & {
+type WidgetConfig = Omit<
+  Required<CompactReportWidgetConfig>,
+  'appId' | 'taskId' | 'showTrustCenterButton'
+> & {
   appId?: string
   taskId?: string
   showTrustCenterButton?: boolean
@@ -66,7 +69,10 @@ export default function WidgetPlaygroundModal({
   })
   const {attestationData} = useAttestationData()
 
-  const updateConfig = (key: keyof Omit<WidgetConfig, 'sections'>, value: boolean) => {
+  const updateConfig = (
+    key: keyof Omit<WidgetConfig, 'sections'>,
+    value: boolean,
+  ) => {
     setConfig((prev) => ({...prev, [key]: value}))
   }
 
@@ -106,9 +112,10 @@ export default function WidgetPlaygroundModal({
   }
 
   const optimizedConfig = getOptimizedConfig()
-  const configParam = Object.keys(optimizedConfig).length > 0
-    ? `?config=${encodeURIComponent(JSON.stringify(optimizedConfig))}`
-    : ''
+  const configParam =
+    Object.keys(optimizedConfig).length > 0
+      ? `?config=${encodeURIComponent(JSON.stringify(optimizedConfig))}`
+      : ''
 
   // Generate embed code (single line)
   const embedCode = `<iframe src="${typeof window !== 'undefined' ? window.location.origin : ''}${widgetUrl}${configParam}" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" width="100%" height="800" frameborder="0"></iframe>`
@@ -148,7 +155,9 @@ export default function WidgetPlaygroundModal({
                 <Switch
                   id="dark-mode"
                   checked={config.darkMode}
-                  onCheckedChange={(checked) => updateConfig('darkMode', checked)}
+                  onCheckedChange={(checked) =>
+                    updateConfig('darkMode', checked)
+                  }
                 />
               </div>
             </div>
@@ -245,7 +254,6 @@ export default function WidgetPlaygroundModal({
                   }
                 />
               </div>
-
             </div>
 
             <Separator />
@@ -327,7 +335,9 @@ export default function WidgetPlaygroundModal({
 
             <Separator className="mb-4" />
 
-            <div className={`${config.darkMode ? 'dark' : ''} flex-1 min-h-0 overflow-y-auto`}>
+            <div
+              className={`${config.darkMode ? 'dark' : ''} flex-1 min-h-0 overflow-y-auto`}
+            >
               {false ? (
                 <div className="border border-border rounded-lg bg-background overflow-hidden h-[600px] flex flex-col">
                   {/* AI Chat App Header */}

@@ -1,6 +1,6 @@
-import { Elysia } from 'elysia'
+import {Elysia} from 'elysia'
 
-import { getServices, type Services } from '../services'
+import {getServices, type Services} from '../services'
 
 // Pure data builders
 const buildBasicHealthResponse = () => ({
@@ -57,10 +57,10 @@ const handleDetailedHealth = async () => {
 }
 
 // Route configuration
-export const healthRoutes = new Elysia({ tags: ['Health'] })
+export const healthRoutes = new Elysia({tags: ['Health']})
   .get('/', handleBasicHealth, {
-    detail: { summary: 'Basic health check' },
+    detail: {summary: 'Basic health check'},
   })
   .get('/detailed', handleDetailedHealth, {
-    detail: { summary: 'Detailed health check with service status' },
+    detail: {summary: 'Detailed health check with service status'},
   })

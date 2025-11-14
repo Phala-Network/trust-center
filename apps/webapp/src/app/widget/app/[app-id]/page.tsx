@@ -2,7 +2,6 @@ import {notFound} from 'next/navigation'
 
 import WidgetClient from '@/components/widget-client'
 import {getApp} from '@/lib/db'
-import {appToTask} from '@/lib/db-utils'
 
 interface WidgetAppPageProps {
   params: Promise<{
@@ -27,7 +26,10 @@ export const generateMetadata = async ({params}: WidgetAppPageProps) => {
   }
 }
 
-export default async function WidgetAppPage({params, searchParams}: WidgetAppPageProps) {
+export default async function WidgetAppPage({
+  params,
+  searchParams,
+}: WidgetAppPageProps) {
   const {['app-id']: appId} = await params
   const {config: configParam} = await searchParams
 
@@ -49,11 +51,6 @@ export default async function WidgetAppPage({params, searchParams}: WidgetAppPag
   }
 
   return (
-    <WidgetClient
-      task={appToTask(app)}
-      appId={appId}
-      taskId={app.id}
-      config={config}
-    />
+    <WidgetClient app={app} appId={appId} taskId={app.id} config={config} />
   )
 }

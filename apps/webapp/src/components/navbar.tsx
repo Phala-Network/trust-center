@@ -31,9 +31,9 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { useState } from 'react'
+import {useState} from 'react'
 
-import { Button } from '@/components/ui/button'
+import {Button} from '@/components/ui/button'
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -699,7 +699,7 @@ const PhalaNavbar = () => {
                   <li key={item.id}>
                     <a href={item.href}>{item.title}</a>
                   </li>
-                ))
+                )),
               )}
             </ul>
           </li>
@@ -750,11 +750,7 @@ const PhalaNavbar = () => {
         <NavigationMenu className="min-w-full [&>div:last-child]:left-auto">
           <div className="flex w-full justify-between gap-2 py-4">
             <a href="https://phala.com" className="flex items-center gap-2">
-              <img
-                src="/logo.svg"
-                className="max-h-8"
-                alt="Phala Network"
-              />
+              <img src="/logo.svg" className="max-h-8" alt="Phala Network" />
             </a>
             <div className="flex items-center gap-2 xl:gap-8">
               <NavigationMenuList className="hidden gap-0 lg:flex">
@@ -905,4 +901,4 @@ const PhalaNavbar = () => {
   )
 }
 
-export { PhalaNavbar }
+export {PhalaNavbar}

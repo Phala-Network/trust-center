@@ -1,6 +1,6 @@
-import { env } from './env'
-import { createApp } from './app'
-import { closeServices, createServices, getServices } from './services'
+import {createApp} from './app'
+import {env} from './env'
+import {closeServices, createServices, getServices} from './services'
 
 export async function startServer() {
   console.log('[SERVER] Starting DStack Verifier Server...')

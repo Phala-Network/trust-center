@@ -376,50 +376,59 @@ const ValuesView: React.FC = () => {
         </div>
 
         {/* Calculations */}
-        {selectedObject.calculations && selectedObject.calculations.length > 0 && (
-          <div className="mt-4">
-            <h3 className="p-1 font-medium text-xs">Calculations</h3>
-            <div>
-              {selectedObject.calculations.map((calc, index) => {
-                const calcFuncDescription = getCalcFuncDescription(calc.calcFunc)
+        {selectedObject.calculations &&
+          selectedObject.calculations.length > 0 && (
+            <div className="mt-4">
+              <h3 className="p-1 font-medium text-xs">Calculations</h3>
+              <div>
+                {selectedObject.calculations.map((calc, index) => {
+                  const calcFuncDescription = getCalcFuncDescription(
+                    calc.calcFunc,
+                  )
 
-                return (
-                  <div
-                    key={`calc-${index}-${calc.inputs.join('-')}-${calc.outputs.join('-')}`}
-                  >
-                    {/* Output field name header */}
-                    <div className="flex items-center justify-between bg-muted/60 px-2 py-1">
-                      <div className="font-bold text-xs">
-                        {calc.outputs.join(', ')}
+                  return (
+                    <div
+                      key={`calc-${index}-${calc.inputs.join('-')}-${calc.outputs.join('-')}`}
+                    >
+                      {/* Output field name header */}
+                      <div className="flex items-center justify-between bg-muted/60 px-2 py-1">
+                        <div className="font-bold text-xs">
+                          {calc.outputs.join(', ')}
+                        </div>
+                      </div>
+                      {/* Calculation details */}
+                      <div className="px-2 py-1">
+                        <div className="text-xs">
+                          <span className="text-muted-foreground">
+                            Inputs:{' '}
+                          </span>
+                          <span className="font-mono">
+                            {calc.inputs.join(', ')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs">
+                          <span className="text-muted-foreground">
+                            Function:{' '}
+                          </span>
+                          <span className="font-mono">{calc.calcFunc}</span>
+                          {calcFuncDescription && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">{calcFuncDescription}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    {/* Calculation details */}
-                    <div className="px-2 py-1">
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">Inputs: </span>
-                        <span className="font-mono">{calc.inputs.join(', ')}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs">
-                        <span className="text-muted-foreground">Function: </span>
-                        <span className="font-mono">{calc.calcFunc}</span>
-                        {calcFuncDescription && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                              <p className="text-xs">{calcFuncDescription}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* What this selectedObject is measured by */}
         {measuredByRows.length > 0 && (

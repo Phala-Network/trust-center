@@ -2,13 +2,14 @@
 
 import {useHydrateAtoms} from 'jotai/utils'
 
-import {appIdAtom, taskAtom, taskIdAtom} from '@/stores/app'
+import type {AppWithTask} from '@/lib/db'
+import {appIdAtom, appWithTaskAtom, taskIdAtom} from '@/stores/app'
 
 interface HydrateProviderProps {
   children: React.ReactNode
   appId?: string
   taskId?: string
-  task?: any | null
+  task?: AppWithTask | null
   appInfo?: {
     id: string
     name: string
@@ -29,7 +30,7 @@ export function HydrateProvider({
     [
       [appIdAtom, appId || null],
       [taskIdAtom, taskId || null],
-      [taskAtom, task || null],
+      [appWithTaskAtom, task || null],
     ],
     {dangerouslyForceHydrate: true},
   )

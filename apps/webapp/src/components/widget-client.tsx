@@ -5,27 +5,27 @@ import {HydrateProvider} from '@/components/hydrate-provider'
 import CompactReportWidget, {
   type CompactReportWidgetConfig,
 } from '@/components/visualization/compact-report-widget'
-import type {AppTask} from '@/lib/db'
+import type {AppWithTask} from '@/lib/db'
 
 interface WidgetClientProps {
-  task: AppTask
+  app: AppWithTask
   appId: string
   taskId: string
   config?: Partial<CompactReportWidgetConfig>
 }
 
 export default function WidgetClient({
-  task,
+  app,
   appId,
   taskId,
   config,
 }: WidgetClientProps) {
   const appInfo = {
-    id: task.appId,
-    name: task.appName,
-    description: `${task.appConfigType === 'phala_cloud' ? 'Phala Cloud' : 'Redpill'} Application`,
-    configType: task.appConfigType,
-    user: task.user,
+    id: app.id ?? '',
+    name: app.appName,
+    description: `${app.appConfigType === 'phala_cloud' ? 'Phala Cloud' : 'Redpill'} Application`,
+    configType: app.appConfigType,
+    user: app.workspaceProfile?.displayName || app.customUser || undefined,
   }
 
   const widgetConfig = {
@@ -36,12 +36,7 @@ export default function WidgetClient({
   }
 
   return (
-    <HydrateProvider
-      appId={appId}
-      taskId={taskId}
-      task={task}
-      appInfo={appInfo}
-    >
+    <HydrateProvider appId={appId} taskId={taskId} task={app} appInfo={appInfo}>
       <AttestationDataProvider>
         <CompactReportWidget config={widgetConfig} />
       </AttestationDataProvider>

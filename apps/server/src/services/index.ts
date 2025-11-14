@@ -1,10 +1,8 @@
 import {VerificationService} from '@phala/dstack-verifier'
 
 import {env} from '../env'
-import {
-  createProfileService,
-  type ProfileService,
-} from './profileService'
+import {type AppService, createAppService} from './appService'
+import {createProfileService, type ProfileService} from './profileService'
 import {createQueueService, type QueueConfig, type QueueService} from './queue'
 import {createS3Service, type S3Config, type S3Service} from './s3'
 import {
@@ -23,6 +21,7 @@ export interface Services {
   s3: S3Service
   verificationTask: VerificationTaskService
   profile: ProfileService
+  app: AppService
   sync: SyncService | null
 }
 
@@ -76,14 +75,15 @@ const composeServices = (config: ServiceConfig): Services => {
   const s3 = createS3Service(config.s3)
   const verificationTask = createVerificationTaskService(config.databaseUrl)
   const profile = createProfileService(config.databaseUrl)
+  const app = createAppService(config.databaseUrl)
   // Note: VerificationService is now created per-task in queue worker
   // to avoid state pollution between concurrent verifications
-  const queue = createQueueService(config.queue, verificationTask, s3)
+  const queue = createQueueService(config.queue, verificationTask, s3, app)
   const sync = config.sync
-    ? createSyncService(config.sync, queue, profile)
+    ? createSyncService(config.sync, queue, profile, app)
     : null
 
-  return {queue, s3, verificationTask, profile, sync}
+  return {queue, s3, verificationTask, profile, app, sync}
 }
 
 // Service lifecycle management with functional approach
@@ -137,6 +137,7 @@ export {
   createSyncService,
   createVerificationTaskService,
   createProfileService,
+  createAppService,
 }
 export type {
   QueueConfig,
@@ -147,4 +148,5 @@ export type {
   S3Service,
   VerificationTaskService,
   ProfileService,
+  AppService,
 }

@@ -42,6 +42,7 @@ export const env = createEnv({
     // Cron patterns (configurable)
     CLEANUP_CRON_PATTERN: z.string().default('0 0 * * *'), // Default: daily at midnight
     PROFILE_CRON_PATTERN: z.string().default('*/1 * * * *'), // Default: every 1 minute
+    APP_CRON_PATTERN: z.string().default('*/1 * * * *'), // Default: every 1 minute
     TASKS_CRON_PATTERN: z.string().default('*/5 * * * *'), // Default: every 5 minutes
 
     BASE_RPC_URL: z.string().optional(),

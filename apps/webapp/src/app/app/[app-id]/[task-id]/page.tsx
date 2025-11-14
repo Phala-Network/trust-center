@@ -22,15 +22,17 @@ export const generateMetadata = async ({params}: TaskPageProps) => {
   const displayName = app.profile?.displayName || app.appName
 
   // Only allow indexing for public apps
-  const robots = app.isPublic ? undefined : {
-    index: false,
-    follow: false,
-  }
+  const robots = app.isPublic
+    ? undefined
+    : {
+        index: false,
+        follow: false,
+      }
 
   return {
     title: displayName,
     description: `Trust report for ${displayName} by Phala`,
-    ...(robots && { robots }),
+    ...(robots && {robots}),
   }
 }
 
@@ -44,10 +46,5 @@ export default async function TaskPage({params, searchParams}: TaskPageProps) {
     notFound()
   }
 
-  return (
-    <AppLayout
-      searchParams={searchParams}
-      app={app}
-    />
-  )
+  return <AppLayout searchParams={searchParams} app={app} />
 }
