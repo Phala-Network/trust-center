@@ -214,48 +214,68 @@ export function createSyncService(
   const fetchApps = async (): Promise<UpstreamAppData[]> => {
     console.log('[SYNC] Fetching apps from Metabase...')
 
-    const metabaseResponse = await fetch(config.metabaseAppQuery, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-KEY': config.metabaseApiKey,
-      },
-      body: JSON.stringify({}),
-    })
+    try {
+      const metabaseResponse = await fetch(config.metabaseAppQuery, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-KEY': config.metabaseApiKey,
+        },
+        body: JSON.stringify({}),
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      })
 
-    if (!metabaseResponse.ok) {
-      throw new Error(
-        `Metabase API error: ${metabaseResponse.status} ${metabaseResponse.statusText}`,
-      )
+      if (!metabaseResponse.ok) {
+        const errorText = await metabaseResponse.text().catch(() => 'Unknown error')
+        throw new Error(
+          `Metabase API error: ${metabaseResponse.status} ${metabaseResponse.statusText} - ${errorText}`,
+        )
+      }
+
+      const data = await metabaseResponse.json()
+      const apps = z.array(UpstreamAppDataSchema).parse(data)
+      console.log(`[SYNC] Successfully fetched and validated ${apps.length} apps from Metabase`)
+      return apps
+    } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        throw new Error('Metabase API request timed out after 30 seconds')
+      }
+      throw error
     }
-
-    const data = await metabaseResponse.json()
-    const apps = z.array(UpstreamAppDataSchema).parse(data)
-    return apps
   }
 
   // Fetch profiles from Metabase
   const fetchProfiles = async (): Promise<UpstreamProfileData[]> => {
     console.log('[SYNC] Fetching profiles from Metabase...')
 
-    const metabaseResponse = await fetch(config.metabaseProfileQuery, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-KEY': config.metabaseApiKey,
-      },
-      body: JSON.stringify({}),
-    })
+    try {
+      const metabaseResponse = await fetch(config.metabaseProfileQuery, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-KEY': config.metabaseApiKey,
+        },
+        body: JSON.stringify({}),
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      })
 
-    if (!metabaseResponse.ok) {
-      throw new Error(
-        `Metabase Profile API error: ${metabaseResponse.status} ${metabaseResponse.statusText}`,
-      )
+      if (!metabaseResponse.ok) {
+        const errorText = await metabaseResponse.text().catch(() => 'Unknown error')
+        throw new Error(
+          `Metabase Profile API error: ${metabaseResponse.status} ${metabaseResponse.statusText} - ${errorText}`,
+        )
+      }
+
+      const data = await metabaseResponse.json()
+      const profiles = z.array(UpstreamProfileDataSchema).parse(data)
+      console.log(`[SYNC] Successfully fetched and validated ${profiles.length} profiles from Metabase`)
+      return profiles
+    } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        throw new Error('Metabase Profile API request timed out after 30 seconds')
+      }
+      throw error
     }
-
-    const data = await metabaseResponse.json()
-    const profiles = z.array(UpstreamProfileDataSchema).parse(data)
-    return profiles
   }
 
   // Sync all tasks - reads from current database apps table instead of fetching from upstream
@@ -275,6 +295,7 @@ export function createSyncService(
         console.log(
           '[SYNC] No apps need verification (all have recent reports or are invalid)',
         )
+        console.log('[SYNC] Task creation completed: 0 tasks created')
         return {tasksCreated: 0, apps: []}
       }
 
@@ -294,9 +315,13 @@ export function createSyncService(
       console.log(
         `[SYNC] Added ${appsToVerify.length} tasks to queue successfully`,
       )
+      console.log(
+        `[SYNC] Task creation completed: ${appsToVerify.length} tasks created`,
+      )
       return {tasksCreated: appsToVerify.length, apps: []}
     } catch (error) {
       console.error('[SYNC] Sync all tasks error:', error)
+      console.error('[SYNC] Error details:', error instanceof Error ? error.message : String(error))
       throw error
     }
   }
@@ -390,17 +415,21 @@ export function createSyncService(
       console.log('[SYNC] Syncing apps from Metabase...')
 
       const apps = await fetchApps()
+      console.log(`[SYNC] Fetched ${apps.length} apps from Metabase`)
 
       if (apps.length === 0) {
         console.log('[SYNC] No apps to sync')
+        console.log('[SYNC] App sync completed: 0 apps synced')
         return {appsSynced: 0, apps: []}
       }
 
       // Convert upstream apps to app records
       const appRecords = apps.map(convertToAppRecord)
+      console.log(`[SYNC] Converted ${appRecords.length} app records`)
 
       // Upsert apps to database using appService
       await appService.upsertApps(appRecords)
+      console.log(`[SYNC] Upserted ${appRecords.length} apps to database`)
 
       // Mark apps that are not in upstream as deleted (batch update)
       const upstreamProfileIds = new Set(apps.map((app) => app.app_id))
@@ -422,10 +451,14 @@ export function createSyncService(
         console.log(`[SYNC] Marked ${appsToMarkDeleted.length} apps as deleted`)
       }
 
-      console.log(`[SYNC] Synced ${apps.length} apps successfully`)
+      console.log(`[SYNC] App sync completed: ${apps.length} apps synced`)
       return {appsSynced: apps.length, apps}
     } catch (error) {
       console.error('[SYNC] Sync apps error:', error)
+      console.error('[SYNC] Error details:', error instanceof Error ? error.message : String(error))
+      if (error instanceof Error && error.stack) {
+        console.error('[SYNC] Error stack:', error.stack)
+      }
       throw error
     }
   }
@@ -439,9 +472,11 @@ export function createSyncService(
       console.log('[SYNC] Syncing profiles from Metabase...')
 
       const profiles = await fetchProfiles()
+      console.log(`[SYNC] Fetched ${profiles.length} profiles from Metabase`)
 
       if (profiles.length === 0) {
         console.log('[SYNC] No profiles to sync')
+        console.log('[SYNC] Profile sync completed: 0 profiles synced')
         return {profilesSynced: 0, profiles: []}
       }
 
@@ -449,10 +484,14 @@ export function createSyncService(
       // Pass profiles directly - they already have snake_case format from Metabase
       await profileService.syncProfiles(profiles)
 
-      console.log(`[SYNC] Synced ${profiles.length} profiles successfully`)
+      console.log(`[SYNC] Profile sync completed: ${profiles.length} profiles synced`)
       return {profilesSynced: profiles.length, profiles}
     } catch (error) {
       console.error('[SYNC] Sync profiles error:', error)
+      console.error('[SYNC] Error details:', error instanceof Error ? error.message : String(error))
+      if (error instanceof Error && error.stack) {
+        console.error('[SYNC] Error stack:', error.stack)
+      }
       throw error
     }
   }

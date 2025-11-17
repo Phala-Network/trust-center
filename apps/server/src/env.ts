@@ -28,7 +28,7 @@ export const env = createEnv({
     REDIS_URL: z.string().default('redis://localhost:6379'),
     QUEUE_NAME: z.string().default('verification-queue'),
     QUEUE_CONCURRENCY: z.string().default('5'),
-    QUEUE_MAX_ATTEMPTS: z.string().default('3'),
+    QUEUE_MAX_ATTEMPTS: z.string().default('1'), // No automatic retries - we handle retries at app level with 30min cooldown
     QUEUE_BACKOFF_DELAY: z.string().default('2000'),
 
     // Sync service configuration

@@ -15,7 +15,7 @@ import {
   type NewVerificationTask,
   verificationTasksTable,
 } from '@phala/trust-center-db'
-import {type Job, Queue, Worker} from 'bullmq'
+import {type Job, Queue, UnrecoverableError, Worker} from 'bullmq'
 import IORedis from 'ioredis'
 import {isAddress} from 'viem'
 
@@ -33,14 +33,14 @@ export interface QueueConfig {
 
 export interface TaskData {
   postgresTaskId: string // PostgreSQL task ID for correlation
-  appId: string // Internal UUID from apps table
+  appId: string // App ID from apps table (dstack app ID)
   appMetadata?: any // Runtime metadata from systemInfo
   verificationFlags?: any // Verification configuration
 }
 
 // NewTaskData for queue
 export type NewTaskData = {
-  appId: string // Internal UUID from apps table
+  appId: string // App ID from apps table (dstack app ID)
   appMetadata?: any
   verificationFlags?: any
 }
@@ -61,16 +61,32 @@ export const createQueueService = (
 ) => {
   const redis = new IORedis(config.redisUrl, {
     maxRetriesPerRequest: null,
+    retryStrategy: (times) => {
+      const delay = Math.min(times * 50, 2000)
+      console.log(`[QUEUE] Redis connection retry attempt ${times}, waiting ${delay}ms`)
+      return delay
+    },
+  })
+
+  // Handle Redis connection errors
+  redis.on('error', (error) => {
+    console.error('[QUEUE] Redis connection error:', error)
+  })
+
+  redis.on('connect', () => {
+    console.log('[QUEUE] Redis connected successfully')
+  })
+
+  redis.on('reconnecting', () => {
+    console.log('[QUEUE] Redis reconnecting...')
   })
 
   const queue = new Queue(config.queueName, {
     connection: redis,
     defaultJobOptions: {
+      // Retry logic handled at application level with 30-minute cooldown
+      // (see appService.getAppsNeedingVerification). Default: 1 attempt (no retries)
       attempts: config.maxAttempts,
-      backoff: {
-        type: 'exponential',
-        delay: config.backoffDelay,
-      },
       // Auto-remove jobs from Redis after completion
       removeOnComplete: {
         age: 3600, // Keep completed jobs for 1 hour (3600 seconds)
@@ -167,15 +183,34 @@ export const createQueueService = (
         // This ensures complete isolation between concurrent verification tasks
         const verificationService = new VerificationService()
 
-        // Execute verification using VerificationService
+        // Implement timeout for verification (5 minutes)
+        const TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+
+        // Create timeout promise that rejects after timeout
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(
+              new UnrecoverableError(
+                `Verification timeout after ${TIMEOUT_MS / 1000} seconds`,
+              ),
+            )
+          }, TIMEOUT_MS)
+        })
+
+        // Execute verification using VerificationService with timeout
         // verificationFlags can be partial - VerificationService will merge with defaults
-        const verificationResult = await verificationService.verify(
-          appConfig,
-          verificationFlags,
-        )
+        // Note: This timeout will prevent the worker from hanging, but won't abort
+        // internal operations in VerificationService (requires AbortSignal support)
+        const verificationResult = await Promise.race([
+          verificationService.verify(appConfig, verificationFlags),
+          timeoutPromise,
+        ])
+
         if (!verificationResult.success) {
           throw new Error(
-            verificationResult.errors.map((error) => error.message).join(', '),
+            verificationResult.errors
+              .map((error: {message: string}) => error.message)
+              .join(', '),
           )
         }
 
@@ -270,10 +305,17 @@ export const createQueueService = (
         updateData.errorMessage = result.error
       }
 
-      await verificationTaskService.updateVerificationTask(
+      const updated = await verificationTaskService.updateVerificationTask(
         postgresTaskId,
         updateData,
       )
+
+      if (!updated) {
+        console.error(
+          `[QUEUE] Failed to update task ${postgresTaskId} - task not found in database`,
+        )
+        return
+      }
 
       if (result.success) {
         console.log(`[QUEUE] Task ${postgresTaskId} completed successfully`)
@@ -350,6 +392,19 @@ export const createQueueService = (
   worker.on('failed', handleJobFailed)
   worker.on('progress', handleJobProgress)
 
+  // Additional error event handlers for better observability
+  worker.on('error', (error) => {
+    console.error('[QUEUE] Worker error:', error)
+  })
+
+  worker.on('stalled', (jobId) => {
+    console.warn(`[QUEUE] Job ${jobId} has stalled`)
+  })
+
+  queue.on('error', (error) => {
+    console.error('[QUEUE] Queue error:', error)
+  })
+
   const getStats = async () => {
     const [waiting, active, completed, failed, delayed] = await Promise.all([
       queue.getWaiting(),
@@ -406,15 +461,27 @@ export const createQueueService = (
       verificationFlags: taskData.verificationFlags,
     }
 
-    const job = await queue.add('verification', queueData, {
-      jobId: taskId,
-    })
+    try {
+      const job = await queue.add('verification', queueData, {
+        jobId: taskId,
+      })
 
-    console.log(
-      `[QUEUE] Queued verification task ${taskId} for app ${app.id}/${app.appName}`,
-    )
+      console.log(
+        `[QUEUE] Queued verification task ${taskId} for app ${app.id}/${app.appName}`,
+      )
 
-    return taskId
+      return taskId
+    } catch (error) {
+      // Handle duplicate job ID error
+      if (error instanceof Error && error.message.includes('job')) {
+        console.warn(
+          `[QUEUE] Job with ID ${taskId} may already exist, retrying with new ID`,
+        )
+        // Retry with a new UUID
+        return addTask(taskData)
+      }
+      throw error
+    }
   }
 
   const close = async () => {

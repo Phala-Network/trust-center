@@ -120,7 +120,7 @@ export function createProfileService(
       })
 
     console.log(
-      `[PROFILE] Synced ${values.length} profiles (${toDelete.length} deleted)`,
+      `[PROFILE] Profile sync completed: ${values.length} profiles synced (${toDelete.length} deleted)`,
     )
   }
 
