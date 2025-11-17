@@ -67,7 +67,7 @@ services:
       # Queue configuration (lighter for development)
       QUEUE_NAME: ${QUEUE_NAME:-dev-verification-queue}
       QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-20}
-      QUEUE_MAX_ATTEMPTS: ${QUEUE_MAX_ATTEMPTS:-2}
+      QUEUE_MAX_ATTEMPTS: ${QUEUE_MAX_ATTEMPTS:-1}
       QUEUE_BACKOFF_DELAY: ${QUEUE_BACKOFF_DELAY:-1000}
 
       # Development debugging

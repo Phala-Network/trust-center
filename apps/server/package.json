@@ -20,7 +20,7 @@
     "@phala/dstack-verifier": "workspace:*",
     "@phala/trust-center-db": "workspace:*",
     "@t3-oss/env-core": "^0.13.8",
-    "bullmq": "^5.63.1",
+    "bullmq": "^5.63.2",
     "date-fns": "^4.1.0",
     "elysia": "^1.4.16",
     "ioredis": "^5.8.2",
