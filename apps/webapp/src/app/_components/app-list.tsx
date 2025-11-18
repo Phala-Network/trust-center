@@ -1,3 +1,6 @@
+'use client'
+
+import slugify from '@sindresorhus/slugify'
 import {AlertCircle, SearchX} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -16,9 +19,8 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
 
   // Determine display name: use profile displayName if available, fallback to appName
   const displayName = app.profile?.displayName || app.appName
-  // Show workspace displayName if available, otherwise fallback to customUser
-  const displayOwner =
-    app.workspaceProfile?.displayName || app.customUser || undefined
+  // Show workspace displayName (all apps should have featured builder workspace profile)
+  const displayOwner = app.workspaceProfile?.displayName || undefined
   // Use customDomain if available, otherwise fallback to modelOrDomain
   const displayDomain = app.profile?.customDomain || app.modelOrDomain
 
@@ -55,9 +57,9 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
           <div className="flex-1 min-w-0 flex flex-col justify-center">
             {/* Owner: show workspace displayName if available, otherwise user field */}
             {displayOwner && (
-              <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
+              <div className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
                 {displayOwner}
-              </p>
+              </div>
             )}
             <h3 className="text-lg font-semibold tracking-tight truncate leading-tight">
               {displayName}
@@ -95,15 +97,6 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
 
       {/* Attributes Section */}
       <div className="p-5 space-y-3">
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
-            Type
-          </span>
-          <span className="flex-1 font-medium text-foreground">
-            {app.appConfigType}
-          </span>
-        </div>
-
         <div className="flex items-center gap-3 text-sm">
           <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
             Domain

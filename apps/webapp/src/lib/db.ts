@@ -16,6 +16,7 @@ import {
 } from '@phala/trust-center-db'
 
 import {env} from '@/env'
+import {FEATURED_BUILDERS, FEATURED_BUILDERS_MAP} from './featured-builders'
 
 // Create database connection
 const db = createDbConnection(env.DATABASE_POSTGRES_URL)
@@ -96,18 +97,21 @@ function buildProfileDisplay(
   if (!profile) return null
 
   const avatarUrl = overrideAvatarUrl ?? profile.avatarUrl
+  // If avatarUrl starts with '/', it's a local path (e.g., /logos/...), use directly
+  // Otherwise, it's from database, add AVATAR_BASE_URL prefix
+  const fullAvatarUrl = avatarUrl
+    ? avatarUrl.startsWith('/')
+      ? avatarUrl
+      : `${AVATAR_BASE_URL}/${avatarUrl}`
+    : null
+
   return {
     displayName: profile.displayName,
     avatarUrl,
-    fullAvatarUrl: avatarUrl ? `${AVATAR_BASE_URL}/${avatarUrl}` : null,
+    fullAvatarUrl,
     description: profile.description || undefined,
     customDomain: profile.customDomain || undefined,
   }
-}
-
-// Helper: Resolve owner from App (priority: workspace > customUser)
-function resolveOwner(app: App): string | null {
-  return app.workspaceProfile?.displayName || app.customUser || null
 }
 
 // Helper: Convert query result to AppWithTask with profile data
@@ -124,10 +128,41 @@ function resultToAppWithTask(result: {
   const workspaceProfile = result.workspaceProfile
   const userProfile = result.userProfile
 
+  // New logic: If app has customUser, check featured builders first
+  // customUser is now already slugified from the server
+  let finalAppProfile = appProfile
+  let finalWorkspaceProfile = workspaceProfile
+
+  if (appData.customUser) {
+    const featuredBuilder = FEATURED_BUILDERS_MAP.get(appData.customUser)
+
+    if (featuredBuilder) {
+      if (featuredBuilder.type === 'workspace') {
+        // Workspace builder: use database workspace profile if it matches the workspaceId
+        if (workspaceProfile && appData.workspaceId === featuredBuilder.workspaceId) {
+          finalWorkspaceProfile = workspaceProfile
+        }
+      } else {
+        // Static builder: create virtual workspace profile with hardcoded data
+        finalWorkspaceProfile = {
+          id: '0',
+          entityType: 'workspace',
+          entityId: 0,
+          displayName: featuredBuilder.displayName,
+          avatarUrl: featuredBuilder.logoUrl,
+          description: null,
+          customDomain: null,
+          createdAt: new Date(),
+          updatedAt: null,
+        }
+      }
+    }
+  }
+
   // Avatar priority: app → workspace → user (for app profile override)
   const avatarUrl =
     appProfile?.avatarUrl ||
-    workspaceProfile?.avatarUrl ||
+    finalWorkspaceProfile?.avatarUrl ||
     userProfile?.avatarUrl ||
     null
 
@@ -148,8 +183,8 @@ function resultToAppWithTask(result: {
     createdAt: appData.createdAt.toISOString(),
     updatedAt: appData.updatedAt?.toISOString() ?? null,
     lastSyncedAt: appData.lastSyncedAt?.toISOString() ?? null,
-    profile: buildProfileDisplay(appProfile, avatarUrl),
-    workspaceProfile: buildProfileDisplay(workspaceProfile),
+    profile: buildProfileDisplay(finalAppProfile, avatarUrl),
+    workspaceProfile: buildProfileDisplay(finalWorkspaceProfile),
     userProfile: buildProfileDisplay(userProfile),
   }
 
@@ -198,7 +233,7 @@ export async function getApps(params?: {
   keyword?: string
   appConfigType?: string
   dstackVersions?: string[]
-  users?: string[]
+  username?: string  // Filter by username (for user pages)
   sortBy?: 'appName' | 'taskCount' | 'lastCreated'
   sortOrder?: 'asc' | 'desc'
   page?: number
@@ -230,6 +265,30 @@ export async function getApps(params?: {
     )
   }
 
+  // Add keyword filter if specified - only match app name and app id
+  if (params?.keyword) {
+    appConditions.push(
+      or(
+        sql`${appsTable.appName} ILIKE ${`%${params.keyword}%`}`,
+        sql`${appsTable.id} ILIKE ${`%${params.keyword}%`}`,
+      )!,
+    )
+  }
+
+  // Add username filter if provided - match by customUser or workspaceId based on featured builder type
+  if (params?.username) {
+    const builder = FEATURED_BUILDERS_MAP.get(params.username)
+    if (!builder) return { apps: [], total: 0, page: params?.page ?? 1, perPage: params?.perPage ?? 24, hasMore: false }
+
+    if (builder.type === 'static') {
+      // Static builder: match by customUser
+      appConditions.push(eq(appsTable.customUser, builder.slug))
+    } else {
+      // Workspace builder: match by workspaceId
+      appConditions.push(eq(appsTable.workspaceId, builder.workspaceId))
+    }
+  }
+
   // Get latest task for each app (subquery)
   const latestTasks = db.$with('latest_tasks').as(
     db
@@ -244,7 +303,35 @@ export async function getApps(params?: {
       .groupBy(verificationTasksTable.appId),
   )
 
-  // Start from apps table, JOIN to latest tasks, then profiles
+  // Pagination parameters
+  const page = params?.page ?? 1
+  const perPage = params?.perPage ?? 24
+  const offset = (page - 1) * perPage
+
+  // First, get total count for pagination metadata
+  const countResult = await db
+    .with(latestTasks)
+    .select({
+      count: sql<number>`count(distinct ${appsTable.id})`.as('count'),
+    })
+    .from(appsTable)
+    .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
+    .where(appConditions.length > 0 ? and(...appConditions) : undefined)
+
+  const total = countResult[0]?.count || 0
+
+  // If no results, return empty
+  if (total === 0) {
+    return {
+      apps: [],
+      total: 0,
+      page,
+      perPage,
+      hasMore: false,
+    }
+  }
+
+  // Then fetch paginated results with SQL LIMIT and OFFSET
   const results = await db
     .with(latestTasks)
     .select(profileSelection)
@@ -280,52 +367,63 @@ export async function getApps(params?: {
     )
     .where(appConditions.length > 0 ? and(...appConditions) : undefined)
     .orderBy(
-      // Priority: apps with profile/custom user info first
-      sql`CASE
-        WHEN ${appsTable.customUser} IS NOT NULL THEN 0
-        WHEN ${workspaceProfileTable.displayName} IS NOT NULL THEN 1
-        WHEN ${appProfileTable.displayName} IS NOT NULL THEN 2
-        WHEN ${userProfileTable.displayName} IS NOT NULL THEN 3
-        ELSE 4
-      END`,
-      // Secondary: most recent tasks
-      desc(verificationTasksTable.createdAt),
+      ...(() => {
+        // On homepage (no username filter): prioritize featured builders, then by profile presence
+        // On user pages (with username filter): sort by user's chosen sortBy parameter
+        if (!params?.username) {
+          // Homepage sorting: featured builders first, then by profile, then by time
+          return [
+            sql`CASE
+              WHEN ${appsTable.customUser} IS NOT NULL THEN 0
+              WHEN ${workspaceProfileTable.displayName} IS NOT NULL THEN 1
+              WHEN ${appProfileTable.displayName} IS NOT NULL THEN 2
+              WHEN ${userProfileTable.displayName} IS NOT NULL THEN 3
+              ELSE 4
+            END`,
+            desc(verificationTasksTable.createdAt),
+            appsTable.id,
+          ]
+        } else {
+          // User page sorting: respect sortBy parameter
+          const sortBy = params?.sortBy || 'appName'
+          const sortOrder = params?.sortOrder || 'asc'
+
+          const primarySort = (() => {
+            switch (sortBy) {
+              case 'appName':
+                // Sort by app name (case-insensitive)
+                return sortOrder === 'asc'
+                  ? sql`lower(${appsTable.appName})`
+                  : desc(sql`lower(${appsTable.appName})`)
+              case 'taskCount':
+                // Note: taskCount sorting would require a subquery to count tasks per app
+                // For now, fall back to created date
+                return sortOrder === 'asc'
+                  ? verificationTasksTable.createdAt
+                  : desc(verificationTasksTable.createdAt)
+              case 'lastCreated':
+                // Sort by task creation date
+                return sortOrder === 'asc'
+                  ? verificationTasksTable.createdAt
+                  : desc(verificationTasksTable.createdAt)
+              default:
+                return desc(verificationTasksTable.createdAt)
+            }
+          })()
+
+          return [primarySort, appsTable.id]
+        }
+      })(),
     )
+    .limit(perPage)
+    .offset(offset)
 
-  // Convert to AppWithTask and apply post-JOIN filters
-  const appsWithTasks = results.map(resultToAppWithTask)
-  let filteredApps = appsWithTasks
-
-  // Apply owner filter after JOIN (so we can match workspace/user displayNames)
-  if (params?.users && params.users.length > 0) {
-    filteredApps = filteredApps.filter((app: AppWithTask) => {
-      const owner = resolveOwner(app)
-      return owner && params.users!.includes(owner)
-    })
-  }
-
-  // Apply keyword filter after JOIN (so we can match profile displayNames)
-  if (params?.keyword) {
-    const keyword = params.keyword.toLowerCase()
-    filteredApps = filteredApps.filter(
-      (app: AppWithTask) =>
-        app.appName.toLowerCase().includes(keyword) ||
-        app.id.toLowerCase().includes(keyword) ||
-        app.profile?.displayName?.toLowerCase().includes(keyword),
-    )
-  }
-
-  // Apply pagination
-  const page = params?.page ?? 1
-  const perPage = params?.perPage ?? 24
-  const total = filteredApps.length
-  const startIndex = (page - 1) * perPage
-  const endIndex = startIndex + perPage
-  const paginatedApps = filteredApps.slice(startIndex, endIndex)
-  const hasMore = endIndex < total
+  // Convert to AppWithTask
+  const apps = results.map(resultToAppWithTask)
+  const hasMore = offset + apps.length < total
 
   return {
-    apps: paginatedApps,
+    apps,
     total,
     page,
     perPage,
@@ -336,6 +434,7 @@ export async function getApps(params?: {
 // Get all unique dstack versions from latest completed tasks (apps) with app counts
 export async function getDstackVersions(params?: {
   keyword?: string
+  username?: string  // Filter by username (for user pages)
 }): Promise<Array<{version: string; count: number}>> {
   // Get latest task for each app (subquery)
   const latestTasks = db.$with('latest_tasks').as(
@@ -358,90 +457,36 @@ export async function getDstackVersions(params?: {
     sql`${appsTable.dstackVersion} IS NOT NULL`,
   ]
 
-  // Add keyword filter if provided - match getApps logic
+  // Add keyword filter if provided - only match app name and app id
   if (params?.keyword) {
     conditions.push(
       or(
         sql`${appsTable.appName} ILIKE ${`%${params.keyword}%`}`,
         sql`${appsTable.id} ILIKE ${`%${params.keyword}%`}`,
-        sql`${appProfileTable.displayName} ILIKE ${`%${params.keyword}%`}`,
       )!,
     )
   }
 
+  // Add username filter if provided - match by customUser or workspaceId based on featured builder type
+  if (params?.username) {
+    const builder = FEATURED_BUILDERS_MAP.get(params.username)
+    if (!builder) return []
+
+    if (builder.type === 'static') {
+      // Static builder: match by customUser
+      conditions.push(eq(appsTable.customUser, builder.slug))
+    } else {
+      // Workspace builder: match by workspaceId
+      conditions.push(eq(appsTable.workspaceId, builder.workspaceId))
+    }
+  }
+
   // Start from apps table, JOIN to latest tasks and profiles, count per version
-  const results = await db
+  const query = db
     .with(latestTasks)
     .select({
       version: appsTable.dstackVersion,
       count: sql<number>`count(distinct ${appsTable.id})`.as('count'),
-    })
-    .from(appsTable)
-    .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
-    .leftJoin(
-      appProfileTable,
-      and(
-        eq(appProfileTable.entityType, 'app'),
-        eq(appProfileTable.entityId, appsTable.profileId),
-      ),
-    )
-    .where(and(...conditions))
-    .groupBy(appsTable.dstackVersion)
-    .orderBy(appsTable.dstackVersion)
-
-  return results
-    .map((r) => ({
-      version: r.version as string,
-      count: r.count,
-    }))
-    .filter((v): v is {version: string; count: number} => v.version !== null)
-}
-
-// Get all unique users from latest completed tasks (apps) with app counts
-// Get all owners (including profiles with displayName)
-// Returns unique owners from new profile system based on apps table
-export async function getUsers(params?: {
-  keyword?: string
-}): Promise<Array<{user: string; count: number; avatarUrl: string | null}>> {
-  // Get latest task for each app (subquery)
-  const latestTasks = db.$with('latest_tasks').as(
-    db
-      .select({
-        appId: verificationTasksTable.appId,
-        maxCreatedAt: sql<string>`max(${verificationTasksTable.createdAt})`.as(
-          'maxCreatedAt',
-        ),
-      })
-      .from(verificationTasksTable)
-      .where(eq(verificationTasksTable.status, 'completed'))
-      .groupBy(verificationTasksTable.appId),
-  )
-
-  // Build where conditions
-  const userConditions = [
-    eq(appsTable.isPublic, true),
-    eq(appsTable.deleted, false),
-  ]
-
-  // Add keyword filter if provided - match getApps logic
-  if (params?.keyword) {
-    userConditions.push(
-      or(
-        sql`${appsTable.appName} ILIKE ${`%${params.keyword}%`}`,
-        sql`${appsTable.id} ILIKE ${`%${params.keyword}%`}`,
-        sql`${appProfileTable.displayName} ILIKE ${`%${params.keyword}%`}`,
-      )!,
-    )
-  }
-
-  // Start from apps table, JOIN to latest tasks and profiles
-  const results = await db
-    .with(latestTasks)
-    .select({
-      workspaceDisplayName: workspaceProfileTable.displayName,
-      workspaceAvatarUrl: workspaceProfileTable.avatarUrl,
-      customUser: appsTable.customUser,
-      appId: appsTable.id,
     })
     .from(appsTable)
     .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
@@ -459,37 +504,164 @@ export async function getUsers(params?: {
         eq(workspaceProfileTable.entityId, appsTable.workspaceId),
       ),
     )
-    .where(and(...userConditions))
+    .where(and(...conditions))
+    .groupBy(appsTable.dstackVersion)
+    .orderBy(appsTable.dstackVersion)
 
-  // Aggregate owners: only workspace profiles and custom user labels
-  // Priority: workspaceDisplayName > customUser
-  const ownerMap = new Map<
-    string,
-    {appIds: Set<string>; avatarUrl: string | null}
-  >()
+  const results = await query
 
-  for (const row of results) {
-    const owner = row.workspaceDisplayName || row.customUser
-    if (owner) {
-      if (!ownerMap.has(owner)) {
-        ownerMap.set(owner, {
-          appIds: new Set(),
-          avatarUrl: row.workspaceAvatarUrl || null,
-        })
-      }
-      ownerMap.get(owner)!.appIds.add(row.appId)
+  return results.map((row) => ({
+    version: row.version!,
+    count: row.count,
+  }))
+}
+
+// Get featured builders with their app counts
+// Returns only featured builders (from FEATURED_BUILDERS list)
+export async function getUsers(): Promise<Array<{user: string; displayName: string; count: number; avatarUrl: string | null}>> {
+  // Get latest task for each app (subquery)
+  const latestTasks = db.$with('latest_tasks').as(
+    db
+      .select({
+        appId: verificationTasksTable.appId,
+        maxCreatedAt: sql<string>`max(${verificationTasksTable.createdAt})`.as(
+          'maxCreatedAt',
+        ),
+      })
+      .from(verificationTasksTable)
+      .where(eq(verificationTasksTable.status, 'completed'))
+      .groupBy(verificationTasksTable.appId),
+  )
+
+  // Collect all customUser slugs and workspaceIds from featured builders
+  const staticBuilderSlugs = FEATURED_BUILDERS
+    .filter((b) => b.type === 'static')
+    .map((b) => b.slug)
+
+  const workspaceBuilderIds = FEATURED_BUILDERS
+    .filter((b) => b.type === 'workspace')
+    .map((b) => (b as {type: 'workspace'; slug: string; workspaceId: number}).workspaceId)
+
+  // Single query to get all app counts grouped by customUser and workspaceId
+  const appCounts = await db
+    .with(latestTasks)
+    .select({
+      customUser: appsTable.customUser,
+      workspaceId: appsTable.workspaceId,
+      count: sql<number>`count(distinct ${appsTable.id})`.as('count'),
+    })
+    .from(appsTable)
+    .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
+    .where(
+      and(
+        eq(appsTable.isPublic, true),
+        eq(appsTable.deleted, false),
+        or(
+          // Match static builders by customUser
+          staticBuilderSlugs.length > 0
+            ? sql`${appsTable.customUser} IN (${sql.join(
+                staticBuilderSlugs.map((slug) => sql`${slug}`),
+                sql`, `,
+              )})`
+            : sql`false`,
+          // Match workspace builders by workspaceId
+          workspaceBuilderIds.length > 0
+            ? sql`${appsTable.workspaceId} IN (${sql.join(
+                workspaceBuilderIds.map((id) => sql`${id}`),
+                sql`, `,
+              )})`
+            : sql`false`,
+        )!,
+      ),
+    )
+    .groupBy(appsTable.customUser, appsTable.workspaceId)
+
+  // Create lookup maps for fast access
+  const customUserCountMap = new Map<string, number>()
+  const workspaceIdCountMap = new Map<number, number>()
+
+  for (const row of appCounts) {
+    if (row.customUser) {
+      customUserCountMap.set(row.customUser, row.count)
+    }
+    if (row.workspaceId) {
+      workspaceIdCountMap.set(row.workspaceId, row.count)
     }
   }
 
-  // Convert to array, filter out owners with no apps, and sort
-  return Array.from(ownerMap.entries())
-    .map(([user, data]) => ({
-      user,
-      count: data.appIds.size,
-      avatarUrl: data.avatarUrl,
-    }))
-    .filter((owner) => owner.count > 0) // Only return owners with at least 1 app
-    .sort((a, b) => a.user.localeCompare(b.user))
+  // Fetch all workspace profiles in one query
+  const workspaceProfiles = workspaceBuilderIds.length > 0
+    ? await db
+        .select({
+          entityId: profilesTable.entityId,
+          displayName: profilesTable.displayName,
+          avatarUrl: profilesTable.avatarUrl,
+        })
+        .from(profilesTable)
+        .where(
+          and(
+            eq(profilesTable.entityType, 'workspace'),
+            sql`${profilesTable.entityId} IN (${sql.join(
+              workspaceBuilderIds.map((id) => sql`${id}`),
+              sql`, `,
+            )})`,
+          ),
+        )
+    : []
+
+  // Create lookup map for workspace profiles
+  const workspaceProfileMap = new Map<number, {displayName: string; avatarUrl: string | null}>()
+  for (const profile of workspaceProfiles) {
+    if (profile.displayName) {
+      workspaceProfileMap.set(profile.entityId, {
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl,
+      })
+    }
+  }
+
+  // Build result array based on featured builders order
+  const owners: Array<{user: string; displayName: string; count: number; avatarUrl: string | null}> = []
+
+  for (const builder of FEATURED_BUILDERS) {
+    let displayName: string
+    let avatarUrl: string | null
+    let appCount: number
+
+    if (builder.type === 'static') {
+      // Static builder: use hardcoded data and lookup count
+      displayName = builder.displayName
+      avatarUrl = builder.logoUrl
+      appCount = customUserCountMap.get(builder.slug) || 0
+    } else {
+      // Workspace builder: lookup profile and count
+      const profile = workspaceProfileMap.get(builder.workspaceId)
+      if (!profile || !profile.displayName) {
+        continue // Skip if workspace profile not found
+      }
+
+      displayName = profile.displayName
+      const rawAvatarUrl = profile.avatarUrl
+      avatarUrl = rawAvatarUrl
+        ? rawAvatarUrl.startsWith('/')
+          ? rawAvatarUrl
+          : `${AVATAR_BASE_URL}/${rawAvatarUrl}`
+        : null
+      appCount = workspaceIdCountMap.get(builder.workspaceId) || 0
+    }
+
+    // Only include if has apps
+    if (appCount > 0) {
+      owners.push({
+        user: builder.slug,
+        displayName,
+        count: appCount,
+        avatarUrl,
+      })
+    }
+  }
+
+  return owners
 }
 
 // Get a single app by ID (latest task for this app)
