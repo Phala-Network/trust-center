@@ -33,15 +33,6 @@ export default async function EmbedLayout({
   // Read selected object from URL search params during SSR
   const selectedObjectId = (await searchParams).selected ?? null
 
-  // Extract app info from app data
-  const appInfo = {
-    id: app.id ?? '',
-    name: app.appName,
-    description: `${app.appConfigType === 'phala_cloud' ? 'Phala Cloud' : 'Redpill'} Application`,
-    configType: app.appConfigType,
-    user: app.workspaceProfile?.displayName || app.customUser || undefined,
-  }
-
   // Construct the Trust Center URL using app info
   const trustCenterUrl = `/app/${app.id}/${app.id}`
 
@@ -50,7 +41,6 @@ export default async function EmbedLayout({
       appId={app.id ?? undefined}
       taskId={app.id}
       task={app}
-      appInfo={appInfo}
     >
       <AttestationDataProvider initialSelectedObjectId={selectedObjectId}>
         <div className="relative flex h-screen flex-col overflow-hidden">

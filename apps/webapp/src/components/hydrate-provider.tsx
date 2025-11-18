@@ -10,13 +10,6 @@ interface HydrateProviderProps {
   appId?: string
   taskId?: string
   task?: AppWithTask | null
-  appInfo?: {
-    id: string
-    name: string
-    description?: string
-    configType?: string
-    user?: string
-  } | null
 }
 
 export function HydrateProvider({

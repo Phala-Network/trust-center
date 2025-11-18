@@ -29,21 +29,11 @@ export default async function AppLayout({searchParams, app}: AppLayoutProps) {
   // Read selected object from URL search params during SSR
   const selectedObjectId = (await searchParams).selected ?? null
 
-  // Extract app info from app data
-  const appInfo = {
-    id: app.id ?? '',
-    name: app.appName,
-    description: `${app.appConfigType === 'phala_cloud' ? 'Phala Cloud' : 'Redpill'} Application`,
-    configType: app.appConfigType,
-    user: app.workspaceProfile?.displayName || app.customUser || undefined,
-  }
-
   return (
     <HydrateProvider
       appId={app.id ?? undefined}
       taskId={app.task.id}
       task={app}
-      appInfo={appInfo}
     >
       <AttestationDataProvider initialSelectedObjectId={selectedObjectId}>
         <div className="flex h-screen flex-col overflow-hidden">

@@ -200,11 +200,11 @@ export const createAppService = (
             sql`${latestTaskPerApp.appId} IS NULL`, // No tasks at all
             and(
               eq(latestTaskPerApp.status, 'completed'),
-              sql`${latestTaskPerApp.finishedAt} < ${oneDayAgo}`, // Completed >24h ago
+              lt(latestTaskPerApp.finishedAt, sql`${oneDayAgo}::timestamp`), // Completed >24h ago
             ),
             and(
               eq(latestTaskPerApp.status, 'failed'),
-              sql`${latestTaskPerApp.finishedAt} < ${thirtyMinutesAgo}`, // Failed >30min ago
+              lt(latestTaskPerApp.finishedAt, sql`${thirtyMinutesAgo}::timestamp`), // Failed >30min ago
             ),
           ),
         ),

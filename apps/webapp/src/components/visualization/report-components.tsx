@@ -45,10 +45,10 @@ export const ReportHeader: React.FC<{
     app.userProfile?.fullAvatarUrl
 
   return (
-    <div className="space-y-2">
+    <div>
       {/* Phala Trust Certificate Branding - optional */}
       {showBranding && (
-        <div className="bg-gradient-to-br from-muted/40 to-muted/20 px-5 py-3 border-b border-border/50">
+        <div className="bg-gradient-to-br from-muted/40 to-muted/20 px-5 py-3 border-b border-border/50 mb-4">
           <div className="flex items-center justify-center gap-2">
             <Image
               src="/logo.svg"
@@ -72,11 +72,11 @@ export const ReportHeader: React.FC<{
       )}
 
       {/* Header section */}
-      <div className="p-5">
+      <div className="px-5 mb-4">
         <div className="flex items-center gap-4">
           {/* Use profile avatar if available, otherwise fallback to AppLogo */}
           {avatarUrl ? (
-            <Avatar className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm rounded-lg">
+            <Avatar className="w-14 h-14 shrink-0 ring-2 ring-background shadow-sm rounded-lg">
               <AvatarImage src={avatarUrl} alt={displayName} />
               <AvatarFallback className="rounded-lg">
                 {displayName.slice(0, 2).toUpperCase()}
@@ -87,7 +87,7 @@ export const ReportHeader: React.FC<{
               user={displayUser}
               appName={displayName}
               size="lg"
-              className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
+              className="w-14 h-14 shrink-0 ring-2 ring-background shadow-sm"
             />
           )}
           <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -99,11 +99,6 @@ export const ReportHeader: React.FC<{
             <h1 className="text-lg font-semibold tracking-tight truncate leading-tight">
               {displayName}
             </h1>
-            {app.profile?.description && (
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                {app.profile.description}
-              </p>
-            )}
             <div className="flex items-center gap-2 mt-1">
               {badges.versionBadge.show && (
                 <Badge
@@ -140,20 +135,19 @@ export const ReportHeader: React.FC<{
             </div>
           </div>
         </div>
+        {/* Description in header section */}
+        {app.profile?.description && (
+          <div className="mt-3">
+            <p className="text-sm text-muted-foreground/80 leading-relaxed">
+              {app.profile.description}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Attributes Section */}
       {showAttributes && (
-        <div className="px-5 space-y-3">
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
-              Type
-            </span>
-            <span className="flex-1 font-medium text-foreground">
-              {app.appConfigType}
-            </span>
-          </div>
-
+        <div className="px-5 mb-4 space-y-3">
           <div className="flex items-center gap-3 text-sm">
             <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
               Domain
@@ -189,7 +183,7 @@ export const ReportHeader: React.FC<{
 
       {/* View in Trust Center button - above verification status */}
       {showTrustCenterButton && appId && taskId && (
-        <div className="px-5 pb-2">
+        <div className="px-5 mb-4">
           <Button variant="outline" size="sm" className="w-full gap-2" asChild>
             <a
               href={`/app/${appId}/${taskId}`}
@@ -205,7 +199,7 @@ export const ReportHeader: React.FC<{
 
       {/* Verification Status Section */}
       {showVerificationStatus && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 px-5 py-4">
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 px-5 py-4 mb-4">
           <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
             <Check className="h-4 w-4" />
             <h2 className="font-medium">This App Has Been Verified</h2>
