@@ -9,11 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {getCalcFuncDescription} from '@/data/calcfunc-documentation'
 import {getFieldDescription} from '@/data/field-documentation'
 import {cn} from '@/lib/utils'
@@ -265,283 +261,276 @@ const ValuesView: React.FC = () => {
 
   return (
     <div className="text-xs">
-        {/* Field Value Dialog */}
-        <Dialog
-          open={isDialogOpen}
-          onOpenChange={(open) => {
-            setIsDialogOpen(open)
-          }}
-        >
-          <DialogContent className="!max-w-3xl max-h-[90vh] w-full">
-            <DialogHeader>
-              <DialogTitle className="text-sm">
-                {expandedField?.key}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="max-h-[75vh] overflow-auto whitespace-pre-wrap break-all rounded bg-gray-50 p-3 font-mono text-xs">
-              {expandedField && (
-                <pre
-                  className="hljs !bg-transparent"
-                  // biome-ignore lint/security/noDangerouslySetInnerHtml: we need to set the inner HTML to the formatted value
-                  dangerouslySetInnerHTML={{
-                    __html: formatValueForDialog(
-                      expandedField.value,
-                      getValueType(expandedField.value).type,
-                    ),
-                  }}
-                />
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-        {/* Object Header */}
-        <div className="p-2">
-          <div className="mb-1 flex items-center gap-2">
-            <h2 className="font-semibold text-sm">{selectedObject.name}</h2>
+      {/* Field Value Dialog */}
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open)
+        }}
+      >
+        <DialogContent className="!max-w-3xl max-h-[90vh] w-full">
+          <DialogHeader>
+            <DialogTitle className="text-sm">{expandedField?.key}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[75vh] overflow-auto whitespace-pre-wrap break-all rounded bg-gray-50 p-3 font-mono text-xs">
+            {expandedField && (
+              <pre
+                className="hljs !bg-transparent"
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: we need to set the inner HTML to the formatted value
+                dangerouslySetInnerHTML={{
+                  __html: formatValueForDialog(
+                    expandedField.value,
+                    getValueType(expandedField.value).type,
+                  ),
+                }}
+              />
+            )}
           </div>
-          {selectedObject.description && (
-            <div className="text-muted-foreground text-xs">
-              {selectedObject.description}
-            </div>
-          )}
+        </DialogContent>
+      </Dialog>
+      {/* Object Header */}
+      <div className="p-2">
+        <div className="mb-1 flex items-center gap-2">
+          <h2 className="font-semibold text-sm">{selectedObject.name}</h2>
         </div>
-
-        {/* Object Fields */}
-        <div className="mt-4">
-          <h3 className="p-1 font-medium text-xs">Fields</h3>
-          <div>
-            {Object.entries(selectedObject.fields).map(([key, value]) => {
-              const strValue = String(value)
-              const valueType = getValueType(value)
-              const fieldDescription = getFieldDescription(
-                selectedObject.id,
-                key,
-              )
-
-              return (
-                <div key={key}>
-                  <div className="flex items-center justify-between bg-muted/60 px-2 py-1">
-                    <div className="flex items-center gap-1">
-                      <div className="font-bold text-xs">{key}</div>
-                      {fieldDescription && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p className="text-xs">{fieldDescription}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className={cn(
-                      'w-full cursor-pointer px-2 py-1 text-left font-mono text-xs hover:bg-gray-50',
-                      valueType.color,
-                    )}
-                    onClick={() => {
-                      if (valueType.type !== 'url') {
-                        setExpandedField({key, value: value})
-                        setIsDialogOpen(true)
-                      }
-                    }}
-                  >
-                    {value === null || value === undefined || value === '' ? (
-                      <span className="text-muted-foreground italic">
-                        &lt;empty&gt;
-                      </span>
-                    ) : valueType.type === 'url' ? (
-                      <div className="break-all">
-                        <a
-                          href={strValue}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 underline hover:text-blue-800"
-                        >
-                          {strValue}
-                        </a>
-                      </div>
-                    ) : (
-                      <div className="line-clamp-3 break-all">{strValue}</div>
-                    )}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Calculations */}
-        {selectedObject.calculations &&
-          selectedObject.calculations.length > 0 && (
-            <div className="mt-4">
-              <h3 className="p-1 font-medium text-xs">Calculations</h3>
-              <div>
-                {selectedObject.calculations.map((calc, index) => {
-                  const calcFuncDescription = getCalcFuncDescription(
-                    calc.calcFunc,
-                  )
-
-                  return (
-                    <div
-                      key={`calc-${index}-${calc.inputs.join('-')}-${calc.outputs.join('-')}`}
-                    >
-                      {/* Output field name header */}
-                      <div className="flex items-center justify-between bg-muted/60 px-2 py-1">
-                        <div className="font-bold text-xs">
-                          {calc.outputs.join(', ')}
-                        </div>
-                      </div>
-                      {/* Calculation details */}
-                      <div className="px-2 py-1">
-                        <div className="text-xs">
-                          <span className="text-muted-foreground">
-                            Inputs:{' '}
-                          </span>
-                          <span className="font-mono">
-                            {calc.inputs.join(', ')}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs">
-                          <span className="text-muted-foreground">
-                            Function:{' '}
-                          </span>
-                          <span className="font-mono">{calc.calcFunc}</span>
-                          {calcFuncDescription && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <p className="text-xs">{calcFuncDescription}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-        {/* What this selectedObject is measured by */}
-        {measuredByRows.length > 0 && (
-          <div className="mt-4">
-            <h3 className="p-1 font-medium text-xs">Measured By</h3>
-            <div className="border-t border-b">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-muted/60">
-                    <th className="p-1 text-left font-medium">Source</th>
-                    <th className="p-1 text-left font-medium"></th>
-                    <th className="p-1 text-left font-medium">Target</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {measuredByRows.map((row, index) => (
-                    <tr
-                      key={`measured-by-${row.sourceObjectId}-${row.sourceField}-${index}`}
-                      className="border-t"
-                    >
-                      {measuredByObjectRowSpans[index] > 0 && (
-                        <td
-                          className="p-1 align-middle"
-                          rowSpan={measuredByObjectRowSpans[index]}
-                        >
-                          <button
-                            type="button"
-                            className="text-left text-blue-600 underline hover:text-blue-800"
-                            onClick={() =>
-                              setSelectedObjectId(row.sourceObjectId)
-                            }
-                          >
-                            {row.sourceObjectName}
-                          </button>
-                        </td>
-                      )}
-                      {measuredByFieldRowSpans[index] > 0 && (
-                        <td
-                          className="p-1 align-middle"
-                          rowSpan={measuredByFieldRowSpans[index]}
-                        >
-                          <span>{row.sourceField}</span>
-                        </td>
-                      )}
-                      {measuredByTargetRowSpans[index] > 0 && (
-                        <td
-                          className="p-1 align-middle"
-                          rowSpan={measuredByTargetRowSpans[index]}
-                        >
-                          <span>{row.targetField}</span>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* What this selectedObject measures */}
-        {measurementsRows.length > 0 && (
-          <div className="mt-4">
-            <h3 className="p-1 font-medium text-xs">Measurements</h3>
-            <div className="border-t border-b">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-muted/60">
-                    <th className="p-1 text-left font-medium">Self Field</th>
-                    <th className="p-1 text-left font-medium">Target</th>
-                    <th className="p-1 text-left font-medium">Field</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {measurementsRows.map((row, index) => (
-                    <tr
-                      key={`measurement-${row.targetObjectId}-${row.sourceField}-${index}`}
-                      className="border-t"
-                    >
-                      <td className="p-1 align-middle">
-                        <span>{row.targetField}</span>
-                      </td>
-
-                      {measurementsObjectRowSpans[index] > 0 && (
-                        <td
-                          className="p-1 align-middle"
-                          rowSpan={measurementsObjectRowSpans[index]}
-                        >
-                          <button
-                            type="button"
-                            className="text-left text-blue-600 underline hover:text-blue-800"
-                            onClick={() =>
-                              setSelectedObjectId(row.targetObjectId)
-                            }
-                          >
-                            {row.targetObjectName}
-                          </button>
-                        </td>
-                      )}
-                      {measurementsSourceFieldRowSpans[index] > 0 && (
-                        <td
-                          className="p-1 align-middle"
-                          rowSpan={measurementsSourceFieldRowSpans[index]}
-                        >
-                          <span>{row.sourceField}</span>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {selectedObject.description && (
+          <div className="text-muted-foreground text-xs">
+            {selectedObject.description}
           </div>
         )}
       </div>
+
+      {/* Object Fields */}
+      <div className="mt-4">
+        <h3 className="p-1 font-medium text-xs">Fields</h3>
+        <div>
+          {Object.entries(selectedObject.fields).map(([key, value]) => {
+            const strValue = String(value)
+            const valueType = getValueType(value)
+            const fieldDescription = getFieldDescription(selectedObject.id, key)
+
+            return (
+              <div key={key}>
+                <div className="flex items-center justify-between bg-muted/60 px-2 py-1">
+                  <div className="flex items-center gap-1">
+                    <div className="font-bold text-xs">{key}</div>
+                    {fieldDescription && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-xs">{fieldDescription}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={cn(
+                    'w-full cursor-pointer px-2 py-1 text-left font-mono text-xs hover:bg-gray-50',
+                    valueType.color,
+                  )}
+                  onClick={() => {
+                    if (valueType.type !== 'url') {
+                      setExpandedField({key, value: value})
+                      setIsDialogOpen(true)
+                    }
+                  }}
+                >
+                  {value === null || value === undefined || value === '' ? (
+                    <span className="text-muted-foreground italic">
+                      &lt;empty&gt;
+                    </span>
+                  ) : valueType.type === 'url' ? (
+                    <div className="break-all">
+                      <a
+                        href={strValue}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 underline hover:text-blue-800"
+                      >
+                        {strValue}
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="line-clamp-3 break-all">{strValue}</div>
+                  )}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Calculations */}
+      {selectedObject.calculations &&
+        selectedObject.calculations.length > 0 && (
+          <div className="mt-4">
+            <h3 className="p-1 font-medium text-xs">Calculations</h3>
+            <div>
+              {selectedObject.calculations.map((calc, index) => {
+                const calcFuncDescription = getCalcFuncDescription(
+                  calc.calcFunc,
+                )
+
+                return (
+                  <div
+                    key={`calc-${index}-${calc.inputs.join('-')}-${calc.outputs.join('-')}`}
+                  >
+                    {/* Output field name header */}
+                    <div className="flex items-center justify-between bg-muted/60 px-2 py-1">
+                      <div className="font-bold text-xs">
+                        {calc.outputs.join(', ')}
+                      </div>
+                    </div>
+                    {/* Calculation details */}
+                    <div className="px-2 py-1">
+                      <div className="text-xs">
+                        <span className="text-muted-foreground">Inputs: </span>
+                        <span className="font-mono">
+                          {calc.inputs.join(', ')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <span className="text-muted-foreground">
+                          Function:{' '}
+                        </span>
+                        <span className="font-mono">{calc.calcFunc}</span>
+                        {calcFuncDescription && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-xs">{calcFuncDescription}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+      {/* What this selectedObject is measured by */}
+      {measuredByRows.length > 0 && (
+        <div className="mt-4">
+          <h3 className="p-1 font-medium text-xs">Measured By</h3>
+          <div className="border-t border-b">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/60">
+                  <th className="p-1 text-left font-medium">Source</th>
+                  <th className="p-1 text-left font-medium"></th>
+                  <th className="p-1 text-left font-medium">Target</th>
+                </tr>
+              </thead>
+              <tbody>
+                {measuredByRows.map((row, index) => (
+                  <tr
+                    key={`measured-by-${row.sourceObjectId}-${row.sourceField}-${index}`}
+                    className="border-t"
+                  >
+                    {measuredByObjectRowSpans[index] > 0 && (
+                      <td
+                        className="p-1 align-middle"
+                        rowSpan={measuredByObjectRowSpans[index]}
+                      >
+                        <button
+                          type="button"
+                          className="text-left text-blue-600 underline hover:text-blue-800"
+                          onClick={() =>
+                            setSelectedObjectId(row.sourceObjectId)
+                          }
+                        >
+                          {row.sourceObjectName}
+                        </button>
+                      </td>
+                    )}
+                    {measuredByFieldRowSpans[index] > 0 && (
+                      <td
+                        className="p-1 align-middle"
+                        rowSpan={measuredByFieldRowSpans[index]}
+                      >
+                        <span>{row.sourceField}</span>
+                      </td>
+                    )}
+                    {measuredByTargetRowSpans[index] > 0 && (
+                      <td
+                        className="p-1 align-middle"
+                        rowSpan={measuredByTargetRowSpans[index]}
+                      >
+                        <span>{row.targetField}</span>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* What this selectedObject measures */}
+      {measurementsRows.length > 0 && (
+        <div className="mt-4">
+          <h3 className="p-1 font-medium text-xs">Measurements</h3>
+          <div className="border-t border-b">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/60">
+                  <th className="p-1 text-left font-medium">Self Field</th>
+                  <th className="p-1 text-left font-medium">Target</th>
+                  <th className="p-1 text-left font-medium">Field</th>
+                </tr>
+              </thead>
+              <tbody>
+                {measurementsRows.map((row, index) => (
+                  <tr
+                    key={`measurement-${row.targetObjectId}-${row.sourceField}-${index}`}
+                    className="border-t"
+                  >
+                    <td className="p-1 align-middle">
+                      <span>{row.targetField}</span>
+                    </td>
+
+                    {measurementsObjectRowSpans[index] > 0 && (
+                      <td
+                        className="p-1 align-middle"
+                        rowSpan={measurementsObjectRowSpans[index]}
+                      >
+                        <button
+                          type="button"
+                          className="text-left text-blue-600 underline hover:text-blue-800"
+                          onClick={() =>
+                            setSelectedObjectId(row.targetObjectId)
+                          }
+                        >
+                          {row.targetObjectName}
+                        </button>
+                      </td>
+                    )}
+                    {measurementsSourceFieldRowSpans[index] > 0 && (
+                      <td
+                        className="p-1 align-middle"
+                        rowSpan={measurementsSourceFieldRowSpans[index]}
+                      >
+                        <span>{row.sourceField}</span>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

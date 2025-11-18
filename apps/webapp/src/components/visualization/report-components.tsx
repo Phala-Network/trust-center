@@ -6,11 +6,7 @@ import {AppLogo} from '@/components/app-logo'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {getAppBadges} from '@/lib/app-badges'
 import type {AppWithTask} from '@/lib/db'
 

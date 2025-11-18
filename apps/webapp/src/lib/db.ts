@@ -418,7 +418,10 @@ export async function getUsers(params?: {
   )
 
   // Build where conditions
-  const userConditions = [eq(appsTable.isPublic, true), eq(appsTable.deleted, false)]
+  const userConditions = [
+    eq(appsTable.isPublic, true),
+    eq(appsTable.deleted, false),
+  ]
 
   // Add keyword filter if provided - match getApps logic
   if (params?.keyword) {

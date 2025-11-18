@@ -226,7 +226,9 @@ export function createSyncService(
       })
 
       if (!metabaseResponse.ok) {
-        const errorText = await metabaseResponse.text().catch(() => 'Unknown error')
+        const errorText = await metabaseResponse
+          .text()
+          .catch(() => 'Unknown error')
         throw new Error(
           `Metabase API error: ${metabaseResponse.status} ${metabaseResponse.statusText} - ${errorText}`,
         )
@@ -234,7 +236,9 @@ export function createSyncService(
 
       const data = await metabaseResponse.json()
       const apps = z.array(UpstreamAppDataSchema).parse(data)
-      console.log(`[SYNC] Successfully fetched and validated ${apps.length} apps from Metabase`)
+      console.log(
+        `[SYNC] Successfully fetched and validated ${apps.length} apps from Metabase`,
+      )
       return apps
     } catch (error) {
       if (error instanceof Error && error.name === 'TimeoutError') {
@@ -260,7 +264,9 @@ export function createSyncService(
       })
 
       if (!metabaseResponse.ok) {
-        const errorText = await metabaseResponse.text().catch(() => 'Unknown error')
+        const errorText = await metabaseResponse
+          .text()
+          .catch(() => 'Unknown error')
         throw new Error(
           `Metabase Profile API error: ${metabaseResponse.status} ${metabaseResponse.statusText} - ${errorText}`,
         )
@@ -268,11 +274,15 @@ export function createSyncService(
 
       const data = await metabaseResponse.json()
       const profiles = z.array(UpstreamProfileDataSchema).parse(data)
-      console.log(`[SYNC] Successfully fetched and validated ${profiles.length} profiles from Metabase`)
+      console.log(
+        `[SYNC] Successfully fetched and validated ${profiles.length} profiles from Metabase`,
+      )
       return profiles
     } catch (error) {
       if (error instanceof Error && error.name === 'TimeoutError') {
-        throw new Error('Metabase Profile API request timed out after 30 seconds')
+        throw new Error(
+          'Metabase Profile API request timed out after 30 seconds',
+        )
       }
       throw error
     }
@@ -321,7 +331,10 @@ export function createSyncService(
       return {tasksCreated: appsToVerify.length, apps: []}
     } catch (error) {
       console.error('[SYNC] Sync all tasks error:', error)
-      console.error('[SYNC] Error details:', error instanceof Error ? error.message : String(error))
+      console.error(
+        '[SYNC] Error details:',
+        error instanceof Error ? error.message : String(error),
+      )
       throw error
     }
   }
@@ -455,7 +468,10 @@ export function createSyncService(
       return {appsSynced: apps.length, apps}
     } catch (error) {
       console.error('[SYNC] Sync apps error:', error)
-      console.error('[SYNC] Error details:', error instanceof Error ? error.message : String(error))
+      console.error(
+        '[SYNC] Error details:',
+        error instanceof Error ? error.message : String(error),
+      )
       if (error instanceof Error && error.stack) {
         console.error('[SYNC] Error stack:', error.stack)
       }
@@ -484,11 +500,16 @@ export function createSyncService(
       // Pass profiles directly - they already have snake_case format from Metabase
       await profileService.syncProfiles(profiles)
 
-      console.log(`[SYNC] Profile sync completed: ${profiles.length} profiles synced`)
+      console.log(
+        `[SYNC] Profile sync completed: ${profiles.length} profiles synced`,
+      )
       return {profilesSynced: profiles.length, profiles}
     } catch (error) {
       console.error('[SYNC] Sync profiles error:', error)
-      console.error('[SYNC] Error details:', error instanceof Error ? error.message : String(error))
+      console.error(
+        '[SYNC] Error details:',
+        error instanceof Error ? error.message : String(error),
+      )
       if (error instanceof Error && error.stack) {
         console.error('[SYNC] Error stack:', error.stack)
       }

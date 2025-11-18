@@ -63,7 +63,9 @@ export const createQueueService = (
     maxRetriesPerRequest: null,
     retryStrategy: (times) => {
       const delay = Math.min(times * 50, 2000)
-      console.log(`[QUEUE] Redis connection retry attempt ${times}, waiting ${delay}ms`)
+      console.log(
+        `[QUEUE] Redis connection retry attempt ${times}, waiting ${delay}ms`,
+      )
       return delay
     },
   })
