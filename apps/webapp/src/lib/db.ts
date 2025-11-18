@@ -16,7 +16,12 @@ import {
 } from '@phala/trust-center-db'
 
 import {env} from '@/env'
-import {FEATURED_BUILDERS, FEATURED_BUILDERS_MAP} from './featured-builders'
+import {
+  FEATURED_BUILDERS,
+  FEATURED_BUILDERS_MAP,
+  isStaticBuilder,
+  isWorkspaceBuilder,
+} from './featured-builders'
 
 // Create database connection
 const db = createDbConnection(env.DATABASE_POSTGRES_URL)
@@ -137,12 +142,15 @@ function resultToAppWithTask(result: {
     const featuredBuilder = FEATURED_BUILDERS_MAP.get(appData.customUser)
 
     if (featuredBuilder) {
-      if (featuredBuilder.type === 'workspace') {
+      if (isWorkspaceBuilder(featuredBuilder)) {
         // Workspace builder: use database workspace profile if it matches the workspaceId
-        if (workspaceProfile && appData.workspaceId === featuredBuilder.workspaceId) {
+        if (
+          workspaceProfile &&
+          appData.workspaceId === featuredBuilder.workspaceId
+        ) {
           finalWorkspaceProfile = workspaceProfile
         }
-      } else {
+      } else if (isStaticBuilder(featuredBuilder)) {
         // Static builder: create virtual workspace profile with hardcoded data
         finalWorkspaceProfile = {
           id: '0',
@@ -233,7 +241,7 @@ export async function getApps(params?: {
   keyword?: string
   appConfigType?: string
   dstackVersions?: string[]
-  username?: string  // Filter by username (for user pages)
+  username?: string // Filter by username (for user pages)
   sortBy?: 'appName' | 'taskCount' | 'lastCreated'
   sortOrder?: 'asc' | 'desc'
   page?: number
@@ -278,12 +286,19 @@ export async function getApps(params?: {
   // Add username filter if provided - match by customUser or workspaceId based on featured builder type
   if (params?.username) {
     const builder = FEATURED_BUILDERS_MAP.get(params.username)
-    if (!builder) return { apps: [], total: 0, page: params?.page ?? 1, perPage: params?.perPage ?? 24, hasMore: false }
+    if (!builder)
+      return {
+        apps: [],
+        total: 0,
+        page: params?.page ?? 1,
+        perPage: params?.perPage ?? 24,
+        hasMore: false,
+      }
 
-    if (builder.type === 'static') {
+    if (isStaticBuilder(builder)) {
       // Static builder: match by customUser
       appConditions.push(eq(appsTable.customUser, builder.slug))
-    } else {
+    } else if (isWorkspaceBuilder(builder)) {
       // Workspace builder: match by workspaceId
       appConditions.push(eq(appsTable.workspaceId, builder.workspaceId))
     }
@@ -434,7 +449,7 @@ export async function getApps(params?: {
 // Get all unique dstack versions from latest completed tasks (apps) with app counts
 export async function getDstackVersions(params?: {
   keyword?: string
-  username?: string  // Filter by username (for user pages)
+  username?: string // Filter by username (for user pages)
 }): Promise<Array<{version: string; count: number}>> {
   // Get latest task for each app (subquery)
   const latestTasks = db.$with('latest_tasks').as(
@@ -472,10 +487,10 @@ export async function getDstackVersions(params?: {
     const builder = FEATURED_BUILDERS_MAP.get(params.username)
     if (!builder) return []
 
-    if (builder.type === 'static') {
+    if (isStaticBuilder(builder)) {
       // Static builder: match by customUser
       conditions.push(eq(appsTable.customUser, builder.slug))
-    } else {
+    } else if (isWorkspaceBuilder(builder)) {
       // Workspace builder: match by workspaceId
       conditions.push(eq(appsTable.workspaceId, builder.workspaceId))
     }
@@ -518,7 +533,14 @@ export async function getDstackVersions(params?: {
 
 // Get featured builders with their app counts
 // Returns only featured builders (from FEATURED_BUILDERS list)
-export async function getUsers(): Promise<Array<{user: string; displayName: string; count: number; avatarUrl: string | null}>> {
+export async function getUsers(): Promise<
+  Array<{
+    user: string
+    displayName: string
+    count: number
+    avatarUrl: string | null
+  }>
+> {
   // Get latest task for each app (subquery)
   const latestTasks = db.$with('latest_tasks').as(
     db
@@ -534,83 +556,105 @@ export async function getUsers(): Promise<Array<{user: string; displayName: stri
   )
 
   // Collect all customUser slugs and workspaceIds from featured builders
-  const staticBuilderSlugs = FEATURED_BUILDERS
-    .filter((b) => b.type === 'static')
-    .map((b) => b.slug)
+  const staticBuilderSlugs = FEATURED_BUILDERS.filter(isStaticBuilder).map(
+    (b) => b.slug,
+  )
 
-  const workspaceBuilderIds = FEATURED_BUILDERS
-    .filter((b) => b.type === 'workspace')
-    .map((b) => (b as {type: 'workspace'; slug: string; workspaceId: number}).workspaceId)
+  const workspaceBuilderIds = FEATURED_BUILDERS.filter(isWorkspaceBuilder).map(
+    (b) => b.workspaceId,
+  )
 
-  // Single query to get all app counts grouped by customUser and workspaceId
-  const appCounts = await db
-    .with(latestTasks)
-    .select({
-      customUser: appsTable.customUser,
-      workspaceId: appsTable.workspaceId,
-      count: sql<number>`count(distinct ${appsTable.id})`.as('count'),
-    })
-    .from(appsTable)
-    .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
-    .where(
-      and(
-        eq(appsTable.isPublic, true),
-        eq(appsTable.deleted, false),
-        or(
-          // Match static builders by customUser
-          staticBuilderSlugs.length > 0
-            ? sql`${appsTable.customUser} IN (${sql.join(
+  // Separate queries for static and workspace builders to avoid grouping issues
+  // Static builders: count apps by customUser
+  const staticBuilderCounts =
+    staticBuilderSlugs.length > 0
+      ? await db
+          .with(latestTasks)
+          .select({
+            customUser: appsTable.customUser,
+            count: sql<number>`count(distinct ${appsTable.id})`.as('count'),
+          })
+          .from(appsTable)
+          .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
+          .where(
+            and(
+              eq(appsTable.isPublic, true),
+              eq(appsTable.deleted, false),
+              sql`${appsTable.customUser} IN (${sql.join(
                 staticBuilderSlugs.map((slug) => sql`${slug}`),
                 sql`, `,
-              )})`
-            : sql`false`,
-          // Match workspace builders by workspaceId
-          workspaceBuilderIds.length > 0
-            ? sql`${appsTable.workspaceId} IN (${sql.join(
+              )})`,
+            ),
+          )
+          .groupBy(appsTable.customUser)
+      : []
+
+  // Workspace builders: count apps by workspaceId
+  const workspaceBuilderCounts =
+    workspaceBuilderIds.length > 0
+      ? await db
+          .with(latestTasks)
+          .select({
+            workspaceId: appsTable.workspaceId,
+            count: sql<number>`count(distinct ${appsTable.id})`.as('count'),
+          })
+          .from(appsTable)
+          .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
+          .where(
+            and(
+              eq(appsTable.isPublic, true),
+              eq(appsTable.deleted, false),
+              sql`${appsTable.workspaceId} IN (${sql.join(
                 workspaceBuilderIds.map((id) => sql`${id}`),
                 sql`, `,
-              )})`
-            : sql`false`,
-        )!,
-      ),
-    )
-    .groupBy(appsTable.customUser, appsTable.workspaceId)
+              )})`,
+            ),
+          )
+          .groupBy(appsTable.workspaceId)
+      : []
 
   // Create lookup maps for fast access
   const customUserCountMap = new Map<string, number>()
   const workspaceIdCountMap = new Map<number, number>()
 
-  for (const row of appCounts) {
+  // Populate static builder counts
+  for (const row of staticBuilderCounts) {
     if (row.customUser) {
       customUserCountMap.set(row.customUser, row.count)
     }
-    if (row.workspaceId) {
-      workspaceIdCountMap.set(row.workspaceId, row.count)
-    }
+  }
+
+  // Populate workspace builder counts
+  for (const row of workspaceBuilderCounts) {
+    workspaceIdCountMap.set(row.workspaceId, row.count)
   }
 
   // Fetch all workspace profiles in one query
-  const workspaceProfiles = workspaceBuilderIds.length > 0
-    ? await db
-        .select({
-          entityId: profilesTable.entityId,
-          displayName: profilesTable.displayName,
-          avatarUrl: profilesTable.avatarUrl,
-        })
-        .from(profilesTable)
-        .where(
-          and(
-            eq(profilesTable.entityType, 'workspace'),
-            sql`${profilesTable.entityId} IN (${sql.join(
-              workspaceBuilderIds.map((id) => sql`${id}`),
-              sql`, `,
-            )})`,
-          ),
-        )
-    : []
+  const workspaceProfiles =
+    workspaceBuilderIds.length > 0
+      ? await db
+          .select({
+            entityId: profilesTable.entityId,
+            displayName: profilesTable.displayName,
+            avatarUrl: profilesTable.avatarUrl,
+          })
+          .from(profilesTable)
+          .where(
+            and(
+              eq(profilesTable.entityType, 'workspace'),
+              sql`${profilesTable.entityId} IN (${sql.join(
+                workspaceBuilderIds.map((id) => sql`${id}`),
+                sql`, `,
+              )})`,
+            ),
+          )
+      : []
 
   // Create lookup map for workspace profiles
-  const workspaceProfileMap = new Map<number, {displayName: string; avatarUrl: string | null}>()
+  const workspaceProfileMap = new Map<
+    number,
+    {displayName: string; avatarUrl: string | null}
+  >()
   for (const profile of workspaceProfiles) {
     if (profile.displayName) {
       workspaceProfileMap.set(profile.entityId, {
@@ -621,19 +665,24 @@ export async function getUsers(): Promise<Array<{user: string; displayName: stri
   }
 
   // Build result array based on featured builders order
-  const owners: Array<{user: string; displayName: string; count: number; avatarUrl: string | null}> = []
+  const owners: Array<{
+    user: string
+    displayName: string
+    count: number
+    avatarUrl: string | null
+  }> = []
 
   for (const builder of FEATURED_BUILDERS) {
     let displayName: string
     let avatarUrl: string | null
     let appCount: number
 
-    if (builder.type === 'static') {
+    if (isStaticBuilder(builder)) {
       // Static builder: use hardcoded data and lookup count
       displayName = builder.displayName
       avatarUrl = builder.logoUrl
       appCount = customUserCountMap.get(builder.slug) || 0
-    } else {
+    } else if (isWorkspaceBuilder(builder)) {
       // Workspace builder: lookup profile and count
       const profile = workspaceProfileMap.get(builder.workspaceId)
       if (!profile || !profile.displayName) {
@@ -648,6 +697,8 @@ export async function getUsers(): Promise<Array<{user: string; displayName: stri
           : `${AVATAR_BASE_URL}/${rawAvatarUrl}`
         : null
       appCount = workspaceIdCountMap.get(builder.workspaceId) || 0
+    } else {
+      continue // Exhaustive check - should never happen
     }
 
     // Only include if has apps
