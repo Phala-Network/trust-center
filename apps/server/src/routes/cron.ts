@@ -51,6 +51,13 @@ export const cronRoutes = new Elysia()
           )
         } catch (error) {
           console.error('[CRON:PROFILES] Sync failed:', error)
+          console.error(
+            '[CRON:PROFILES] Error details:',
+            error instanceof Error ? error.message : String(error),
+          )
+          if (error instanceof Error && error.stack) {
+            console.error('[CRON:PROFILES] Error stack:', error.stack)
+          }
         }
       },
     }),
@@ -76,6 +83,13 @@ export const cronRoutes = new Elysia()
           )
         } catch (error) {
           console.error('[CRON:APPS] Sync failed:', error)
+          console.error(
+            '[CRON:APPS] Error details:',
+            error instanceof Error ? error.message : String(error),
+          )
+          if (error instanceof Error && error.stack) {
+            console.error('[CRON:APPS] Error stack:', error.stack)
+          }
         }
       },
     }),
@@ -103,6 +117,13 @@ export const cronRoutes = new Elysia()
           )
         } catch (error) {
           console.error('[CRON:TASKS] Task creation failed:', error)
+          console.error(
+            '[CRON:TASKS] Error details:',
+            error instanceof Error ? error.message : String(error),
+          )
+          if (error instanceof Error && error.stack) {
+            console.error('[CRON:TASKS] Error stack:', error.stack)
+          }
         }
       },
     }),

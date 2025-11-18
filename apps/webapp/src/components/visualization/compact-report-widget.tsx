@@ -1,7 +1,6 @@
 'use client'
 
 import {useAtom} from 'jotai'
-import {Check} from 'lucide-react'
 import type React from 'react'
 
 import {useAttestationData} from '@/components/attestation-data-context'

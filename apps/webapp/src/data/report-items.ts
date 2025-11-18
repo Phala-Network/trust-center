@@ -1,4 +1,4 @@
-import type {ReportItem} from '@/components/visualization/report-item-card'
+import type {ReportItem} from '@/components/visualization/collapsible-report-item-card'
 import type {DataObjectId} from './schema'
 
 const reportItemsIds = [

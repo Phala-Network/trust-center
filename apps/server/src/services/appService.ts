@@ -66,7 +66,8 @@ export const createAppService = (
 
   // Batch upsert apps (optimized for bulk operations)
   const upsertApps = async (appsData: NewAppRecord[]) => {
-    if (appsData.length === 0) {
+    if (!appsData || appsData.length === 0) {
+      console.warn('[APP] upsertApps called with empty array, skipping')
       return []
     }
 
@@ -151,9 +152,9 @@ export const createAppService = (
 
   // Get apps that need verification
   // Returns apps that meet basic validation AND any of these conditions:
-  // 1. Latest task is 'completed' and older than 24 hours, OR
+  // 1. Latest task is 'completed' and finished more than 24 hours ago, OR
   // 2. No tasks at all (never verified), OR
-  // 3. Latest task is 'failed' and older than 30 minutes
+  // 3. Latest task is 'failed' and finished more than 30 minutes ago
   const getAppsNeedingVerification = async () => {
     const oneDayAgo = subDays(new Date(), 1)
     const thirtyMinutesAgo = subMinutes(new Date(), 30)
@@ -164,7 +165,7 @@ export const createAppService = (
         .select({
           appId: verificationTasksTable.appId,
           status: verificationTasksTable.status,
-          createdAt: verificationTasksTable.createdAt,
+          finishedAt: verificationTasksTable.finishedAt,
           rn: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${verificationTasksTable.appId} ORDER BY ${verificationTasksTable.createdAt} DESC)`.as(
             'rn',
           ),
@@ -199,11 +200,11 @@ export const createAppService = (
             sql`${latestTaskPerApp.appId} IS NULL`, // No tasks at all
             and(
               eq(latestTaskPerApp.status, 'completed'),
-              sql`${latestTaskPerApp.createdAt} < ${oneDayAgo}`, // Completed but old
+              sql`${latestTaskPerApp.finishedAt} < ${oneDayAgo}`, // Completed >24h ago
             ),
             and(
               eq(latestTaskPerApp.status, 'failed'),
-              sql`${latestTaskPerApp.createdAt} < ${thirtyMinutesAgo}`, // Failed and old
+              sql`${latestTaskPerApp.finishedAt} < ${thirtyMinutesAgo}`, // Failed >30min ago
             ),
           ),
         ),

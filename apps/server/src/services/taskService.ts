@@ -4,6 +4,7 @@ import {
   type DbConnection,
   desc,
   eq,
+  isNotNull,
   lt,
   or,
   type VerificationTaskStatus,
@@ -38,10 +39,16 @@ export const createVerificationTaskService = (
     id: string,
     data: UpdateVerificationTaskData,
   ): Promise<boolean> => {
-    await db
+    const result = await db
       .update(verificationTasksTable)
       .set(data)
       .where(eq(verificationTasksTable.id, id))
+      .returning({id: verificationTasksTable.id})
+
+    if (result.length === 0) {
+      console.warn(`[TASK] Task ${id} not found for update`)
+      return false
+    }
 
     return true
   }
@@ -49,7 +56,7 @@ export const createVerificationTaskService = (
   // Create a single task
   const createTask = async (taskData: {
     id: string
-    appId: string // References apps.id (internal UUID)
+    appId: string // References apps.id (dstack app ID string)
     status: 'pending' | 'active'
     bullJobId?: string | null
     appMetadata?: any
@@ -57,7 +64,18 @@ export const createVerificationTaskService = (
     createdAt: Date
     startedAt?: Date | null
   }): Promise<void> => {
-    await db.insert(verificationTasksTable).values(taskData)
+    try {
+      await db.insert(verificationTasksTable).values(taskData)
+    } catch (error) {
+      // Handle duplicate key error gracefully
+      if (error instanceof Error && error.message.includes('duplicate key')) {
+        console.warn(
+          `[TASK] Task ${taskData.id} already exists, skipping creation`,
+        )
+        return
+      }
+      throw error
+    }
   }
 
   // Delete old failed/cancelled tasks (older than specified hours)
@@ -87,7 +105,12 @@ export const createVerificationTaskService = (
         finishedAt: verificationTasksTable.finishedAt,
       })
       .from(verificationTasksTable)
-      .where(eq(verificationTasksTable.status, 'completed'))
+      .where(
+        and(
+          eq(verificationTasksTable.status, 'completed'),
+          isNotNull(verificationTasksTable.finishedAt),
+        ),
+      )
       .orderBy(desc(verificationTasksTable.finishedAt))
       .limit(1)
 

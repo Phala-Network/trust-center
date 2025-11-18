@@ -1,4 +1,4 @@
-import {Activity, Check, ExternalLink} from 'lucide-react'
+import {Check, ExternalLink, HelpCircle} from 'lucide-react'
 import Image from 'next/image'
 import type React from 'react'
 
@@ -6,6 +6,7 @@ import {AppLogo} from '@/components/app-logo'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
+import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {getAppBadges} from '@/lib/app-badges'
 import type {AppWithTask} from '@/lib/db'
 
@@ -98,6 +99,11 @@ export const ReportHeader: React.FC<{
             <h1 className="text-lg font-semibold tracking-tight truncate leading-tight">
               {displayName}
             </h1>
+            {app.profile?.description && (
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                {app.profile.description}
+              </p>
+            )}
             <div className="flex items-center gap-2 mt-1">
               {badges.versionBadge.show && (
                 <Badge
@@ -161,7 +167,7 @@ export const ReportHeader: React.FC<{
             <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
               Contract
             </span>
-            <span className="flex-1 truncate font-mono text-xs">
+            <span className="flex-1 font-mono text-xs break-all">
               {app.contractAddress}
             </span>
           </div>
@@ -170,16 +176,13 @@ export const ReportHeader: React.FC<{
             <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
               Attestation Time
             </span>
-            <div className="flex items-center gap-2 flex-1">
-              <Activity className="h-3.5 w-3.5 text-muted-foreground/50" />
-              <span className="text-muted-foreground">
-                {new Date(app.task.createdAt).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </span>
-            </div>
+            <span className="text-muted-foreground">
+              {new Date(app.task.createdAt).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
           </div>
         </div>
       )}
@@ -206,14 +209,26 @@ export const ReportHeader: React.FC<{
           <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
             <Check className="h-4 w-4" />
             <h2 className="font-medium">This App Has Been Verified</h2>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="ml-1 text-emerald-600/70 dark:text-emerald-400/70 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="text-xs">
+                  We display the complete chain of trust, including server
+                  hardware, operating system, application code, network
+                  infrastructure, and trust authority. Each component provides
+                  verifiable attestation reports, along with all the information
+                  and tools you need for independent verification.
+                </p>
+              </TooltipContent>
+            </Tooltip>
           </div>
-          <p className="mt-2 text-muted-foreground text-xs">
-            We display the complete chain of trust, including server hardware,
-            operating system, application code, network infrastructure, and
-            trust authority. Each component provides verifiable attestation
-            reports, along with all the information and tools you need for
-            independent verification.
-          </p>
         </div>
       )}
     </div>
