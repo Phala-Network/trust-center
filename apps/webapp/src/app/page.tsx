@@ -9,10 +9,15 @@ import {HomeClient} from './_components/home-client'
 export default async function HomePage() {
   const queryClient = new QueryClient()
 
-  // Prefetch initial data with empty filters
-  await queryClient.prefetchQuery({
-    queryKey: ['apps', {sortBy: 'appName'}],
-    queryFn: () => getApps({sortBy: 'appName'}),
+  // Prefetch initial data with empty filters (first page)
+  await queryClient.prefetchInfiniteQuery({
+    queryKey: ['apps', {sortBy: 'appName', perPage: 24}],
+    queryFn: () => getApps({sortBy: 'appName', page: 1, perPage: 24}),
+    initialPageParam: 1,
+    pages: 1,
+    getNextPageParam: (lastPage) => {
+      return lastPage.hasMore ? lastPage.page + 1 : undefined
+    },
   })
 
   await queryClient.prefetchQuery({

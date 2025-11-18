@@ -1,4 +1,4 @@
-import {Activity, AlertCircle, SearchX} from 'lucide-react'
+import {AlertCircle, SearchX} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {memo} from 'react'
@@ -127,7 +127,6 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
             Created
           </span>
           <div className="flex items-center gap-2 flex-1 flex-wrap">
-            <Activity className="h-3.5 w-3.5 text-muted-foreground/50" />
             <span className="text-muted-foreground">
               {new Date(app.task.createdAt).toLocaleDateString('en-US', {
                 year: 'numeric',
@@ -154,9 +153,10 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
 interface AppListProps {
   apps: AppWithTask[]
   hasFilters?: boolean
+  total?: number
 }
 
-export function AppList({apps, hasFilters = false}: AppListProps) {
+export function AppList({apps, hasFilters = false, total}: AppListProps) {
   if (apps.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-24 px-4">
@@ -175,12 +175,25 @@ export function AppList({apps, hasFilters = false}: AppListProps) {
     )
   }
 
+  const displayTotal = total ?? apps.length
+
   return (
     <div className="w-full">
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {apps.length} {apps.length === 1 ? 'application' : 'applications'}{' '}
-          {hasFilters && 'found'}
+          {apps.length === displayTotal ? (
+            <>
+              {displayTotal}{' '}
+              {displayTotal === 1 ? 'application' : 'applications'}{' '}
+              {hasFilters && 'found'}
+            </>
+          ) : (
+            <>
+              Showing {apps.length} of {displayTotal}{' '}
+              {displayTotal === 1 ? 'application' : 'applications'}{' '}
+              {hasFilters && 'found'}
+            </>
+          )}
         </p>
       </div>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">

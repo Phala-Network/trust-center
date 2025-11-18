@@ -5,6 +5,7 @@ import {Check} from 'lucide-react'
 import type React from 'react'
 
 import {useAttestationData} from '@/components/attestation-data-context'
+import {TooltipProvider} from '@/components/ui/tooltip'
 import {
   type ReportItem,
   ReportItemCard,
@@ -175,58 +176,60 @@ const CompactReportWidget: React.FC<{
     : 'text-foreground max-w-sm relative mx-auto rounded-lg overflow-hidden bg-card border border-border shadow-sm'
 
   return (
-    <div
-      className={`${finalConfig.embedded ? 'relative' : 'relative p-4'} ${finalConfig.darkMode ? 'dark' : ''}`}
-    >
-      {/* Dotted background layer - only show when not embedded */}
-      {!finalConfig.embedded && (
-        <div
-          className="absolute inset-0 pointer-events-none opacity-15"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle, currentColor 1px, transparent 1px)',
-            backgroundSize: '16px 16px',
-          }}
-        />
-      )}
+    <TooltipProvider>
+      <div
+        className={`${finalConfig.embedded ? 'relative' : 'relative p-4'} ${finalConfig.darkMode ? 'dark' : ''}`}
+      >
+        {/* Dotted background layer - only show when not embedded */}
+        {!finalConfig.embedded && (
+          <div
+            className="absolute inset-0 pointer-events-none opacity-15"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle, currentColor 1px, transparent 1px)',
+              backgroundSize: '16px 16px',
+            }}
+          />
+        )}
 
-      {/* Widget content - unified card */}
-      <div className={cardClassName}>
-        <ReportHeader
-          app={app}
-          showAttributes={finalConfig.showAttributes}
-          showVerificationStatus={true}
-          showBranding={true}
-          showTrustCenterButton={finalConfig.showTrustCenterButton}
-          appId={finalConfig.appId}
-          taskId={finalConfig.taskId}
-        />
+        {/* Widget content - unified card */}
+        <div className={cardClassName}>
+          <ReportHeader
+            app={app}
+            showAttributes={finalConfig.showAttributes}
+            showVerificationStatus={true}
+            showBranding={true}
+            showTrustCenterButton={finalConfig.showTrustCenterButton}
+            appId={finalConfig.appId}
+            taskId={finalConfig.taskId}
+          />
 
-        <div>
-          {visibleSections.map((section) => (
-            <TrustSection
-              key={section.id}
-              section={section}
-              defaultExpanded={finalConfig.defaultExpanded}
-              showContent={finalConfig.showSectionContent}
-            />
-          ))}
-        </div>
+          <div>
+            {visibleSections.map((section) => (
+              <TrustSection
+                key={section.id}
+                section={section}
+                defaultExpanded={finalConfig.defaultExpanded}
+                showContent={finalConfig.showSectionContent}
+              />
+            ))}
+          </div>
 
-        {/* Powered by Phala footer */}
-        <div className="border-t border-border/50 px-5 py-3 bg-muted/20">
-          <a
-            href="https://phala.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span>Powered by</span>
-            <span className="font-semibold">Phala</span>
-          </a>
+          {/* Powered by Phala footer */}
+          <div className="border-t border-border/50 px-5 py-3 bg-muted/20">
+            <a
+              href="https://phala.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>Powered by</span>
+              <span className="font-semibold">Phala</span>
+            </a>
+          </div>
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   )
 }
 

@@ -7,6 +7,7 @@ import {
   createDbConnection,
   desc,
   eq,
+  or,
   profilesTable,
   sql,
   type Task,
@@ -183,6 +184,15 @@ function resultToAppWithTask(result: {
   return {...app, task}
 }
 
+// Paginated response type
+export interface PaginatedApps {
+  apps: AppWithTask[]
+  total: number
+  page: number
+  perPage: number
+  hasMore: boolean
+}
+
 // Get all unique apps (latest task per app)
 export async function getApps(params?: {
   keyword?: string
@@ -193,7 +203,7 @@ export async function getApps(params?: {
   sortOrder?: 'asc' | 'desc'
   page?: number
   perPage?: number
-}): Promise<AppWithTask[]> {
+}): Promise<PaginatedApps> {
   // Build base conditions for apps
   const appConditions = [
     eq(appsTable.isPublic, true),
@@ -305,7 +315,22 @@ export async function getApps(params?: {
     )
   }
 
-  return filteredApps
+  // Apply pagination
+  const page = params?.page ?? 1
+  const perPage = params?.perPage ?? 24
+  const total = filteredApps.length
+  const startIndex = (page - 1) * perPage
+  const endIndex = startIndex + perPage
+  const paginatedApps = filteredApps.slice(startIndex, endIndex)
+  const hasMore = endIndex < total
+
+  return {
+    apps: paginatedApps,
+    total,
+    page,
+    perPage,
+    hasMore,
+  }
 }
 
 // Get all unique dstack versions from latest completed tasks (apps) with app counts
@@ -326,7 +351,25 @@ export async function getDstackVersions(params?: {
       .groupBy(verificationTasksTable.appId),
   )
 
-  // Start from apps table, JOIN to latest tasks, count per version
+  // Build where conditions
+  const conditions = [
+    eq(appsTable.isPublic, true),
+    eq(appsTable.deleted, false),
+    sql`${appsTable.dstackVersion} IS NOT NULL`,
+  ]
+
+  // Add keyword filter if provided - match getApps logic
+  if (params?.keyword) {
+    conditions.push(
+      or(
+        sql`${appsTable.appName} ILIKE ${`%${params.keyword}%`}`,
+        sql`${appsTable.id} ILIKE ${`%${params.keyword}%`}`,
+        sql`${appProfileTable.displayName} ILIKE ${`%${params.keyword}%`}`,
+      )!,
+    )
+  }
+
+  // Start from apps table, JOIN to latest tasks and profiles, count per version
   const results = await db
     .with(latestTasks)
     .select({
@@ -335,13 +378,14 @@ export async function getDstackVersions(params?: {
     })
     .from(appsTable)
     .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
-    .where(
+    .leftJoin(
+      appProfileTable,
       and(
-        eq(appsTable.isPublic, true),
-        eq(appsTable.deleted, false),
-        sql`${appsTable.dstackVersion} IS NOT NULL`,
+        eq(appProfileTable.entityType, 'app'),
+        eq(appProfileTable.entityId, appsTable.profileId),
       ),
     )
+    .where(and(...conditions))
     .groupBy(appsTable.dstackVersion)
     .orderBy(appsTable.dstackVersion)
 
@@ -358,7 +402,7 @@ export async function getDstackVersions(params?: {
 // Returns unique owners from new profile system based on apps table
 export async function getUsers(params?: {
   keyword?: string
-}): Promise<Array<{user: string; count: number}>> {
+}): Promise<Array<{user: string; count: number; avatarUrl: string | null}>> {
   // Get latest task for each app (subquery)
   const latestTasks = db.$with('latest_tasks').as(
     db
@@ -373,16 +417,38 @@ export async function getUsers(params?: {
       .groupBy(verificationTasksTable.appId),
   )
 
+  // Build where conditions
+  const userConditions = [eq(appsTable.isPublic, true), eq(appsTable.deleted, false)]
+
+  // Add keyword filter if provided - match getApps logic
+  if (params?.keyword) {
+    userConditions.push(
+      or(
+        sql`${appsTable.appName} ILIKE ${`%${params.keyword}%`}`,
+        sql`${appsTable.id} ILIKE ${`%${params.keyword}%`}`,
+        sql`${appProfileTable.displayName} ILIKE ${`%${params.keyword}%`}`,
+      )!,
+    )
+  }
+
   // Start from apps table, JOIN to latest tasks and profiles
   const results = await db
     .with(latestTasks)
     .select({
       workspaceDisplayName: workspaceProfileTable.displayName,
+      workspaceAvatarUrl: workspaceProfileTable.avatarUrl,
       customUser: appsTable.customUser,
       appId: appsTable.id,
     })
     .from(appsTable)
     .innerJoin(latestTasks, eq(appsTable.id, latestTasks.appId))
+    .leftJoin(
+      appProfileTable,
+      and(
+        eq(appProfileTable.entityType, 'app'),
+        eq(appProfileTable.entityId, appsTable.profileId),
+      ),
+    )
     .leftJoin(
       workspaceProfileTable,
       and(
@@ -390,27 +456,34 @@ export async function getUsers(params?: {
         eq(workspaceProfileTable.entityId, appsTable.workspaceId),
       ),
     )
-    .where(and(eq(appsTable.isPublic, true), eq(appsTable.deleted, false)))
+    .where(and(...userConditions))
 
   // Aggregate owners: only workspace profiles and custom user labels
   // Priority: workspaceDisplayName > customUser
-  const ownerMap = new Map<string, Set<string>>()
+  const ownerMap = new Map<
+    string,
+    {appIds: Set<string>; avatarUrl: string | null}
+  >()
 
   for (const row of results) {
     const owner = row.workspaceDisplayName || row.customUser
     if (owner) {
       if (!ownerMap.has(owner)) {
-        ownerMap.set(owner, new Set())
+        ownerMap.set(owner, {
+          appIds: new Set(),
+          avatarUrl: row.workspaceAvatarUrl || null,
+        })
       }
-      ownerMap.get(owner)!.add(row.appId)
+      ownerMap.get(owner)!.appIds.add(row.appId)
     }
   }
 
   // Convert to array, filter out owners with no apps, and sort
   return Array.from(ownerMap.entries())
-    .map(([user, appIds]) => ({
+    .map(([user, data]) => ({
       user,
-      count: appIds.size,
+      count: data.appIds.size,
+      avatarUrl: data.avatarUrl,
     }))
     .filter((owner) => owner.count > 0) // Only return owners with at least 1 app
     .sort((a, b) => a.user.localeCompare(b.user))

@@ -2,6 +2,7 @@ import {useAtom} from 'jotai'
 import type React from 'react'
 
 import {useAttestationData} from '@/components/attestation-data-context'
+import {TooltipProvider} from '@/components/ui/tooltip'
 import {
   type ReportItem,
   ReportItemCard,
@@ -87,22 +88,24 @@ const ReportView: React.FC = () => {
   }
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: de-select all objects when clicking on the report view
-    // biome-ignore lint/a11y/useKeyWithClickEvents: de-select all objects when clicking on the report view
-    <div
-      className="space-y-4 pb-3"
-      onClick={() => {
-        setSelectedObjectId(null)
-      }}
-    >
-      <ReportHeader app={app} />
+    <TooltipProvider>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: de-select all objects when clicking on the report view */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: de-select all objects when clicking on the report view */}
+      <div
+        className="space-y-4 pb-3"
+        onClick={() => {
+          setSelectedObjectId(null)
+        }}
+      >
+        <ReportHeader app={app} />
 
-      <div className="space-y-4 px-3">
-        {TRUST_SECTIONS.map((section) => (
-          <TrustSection key={section.id} section={section} />
-        ))}
+        <div className="space-y-4 px-3">
+          {TRUST_SECTIONS.map((section) => (
+            <TrustSection key={section.id} section={section} />
+          ))}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   )
 }
 

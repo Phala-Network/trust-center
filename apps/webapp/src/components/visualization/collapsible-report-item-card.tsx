@@ -86,7 +86,7 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
                     href={valueString}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block break-all text-xs/snug underline hover:underline"
+                    className="block break-all text-xs/snug text-muted-foreground underline hover:underline"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {valueString}
@@ -110,7 +110,7 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary text-xs underline hover:opacity-80"
+              className="text-muted-foreground text-xs underline hover:opacity-80"
               onClick={(e) => e.stopPropagation()}
             >
               {link.text}
@@ -230,7 +230,7 @@ export const ReportItemCard: React.FC<{
                                   href={valueString}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="block break-all text-xs/snug underline hover:underline"
+                                  className="block break-all text-xs/snug text-muted-foreground underline hover:underline"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   {valueString}
@@ -255,7 +255,7 @@ export const ReportItemCard: React.FC<{
                         href={link.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary text-xs underline hover:opacity-80"
+                        className="text-muted-foreground text-xs underline hover:opacity-80"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {link.text}

@@ -1,15 +1,20 @@
 'use client'
 
 import {debounce} from 'es-toolkit'
-import {Search, User, X} from 'lucide-react'
+import {Search, X} from 'lucide-react'
 import {parseAsArrayOf, parseAsString, useQueryStates} from 'nuqs'
 import {useEffect, useMemo, useState, useTransition} from 'react'
 
+import {AppLogo} from '@/components/app-logo'
+import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Button} from '@/components/ui/button'
 import {Checkbox} from '@/components/ui/checkbox'
 import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
 import {useDstackVersions, useUsers} from '@/lib/queries'
+
+// Avatar base URL for Phala Cloud R2
+const AVATAR_BASE_URL = 'https://cloud-r2.phala.com'
 
 export function AppFilters() {
   const [, startTransition] = useTransition()
@@ -138,7 +143,7 @@ export function AppFilters() {
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-medium text-muted-foreground">
-              Filter by version
+              dstack version
             </h3>
             {selectedVersions.length > 0 && (
               <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
@@ -158,7 +163,9 @@ export function AppFilters() {
                   onCheckedChange={() => toggleVersion(item.version)}
                   className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
-                <span className="text-sm font-medium">{item.version}</span>
+                <span className="text-sm font-medium">
+                  {item.version.replace(/^(dstack-|v)/, '')}
+                </span>
                 <span className="text-xs text-muted-foreground">
                   ({item.count})
                 </span>
@@ -172,7 +179,6 @@ export function AppFilters() {
       {users.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-medium text-muted-foreground">
               Filter by owner
             </h3>
@@ -183,23 +189,44 @@ export function AppFilters() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            {users.map((item) => (
-              <label
-                key={item.user}
-                className="inline-flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2 cursor-pointer hover:bg-accent hover:border-accent-foreground/20 transition-colors has-[:checked]:bg-primary/10 has-[:checked]:border-primary has-[:checked]:text-primary"
-              >
-                <Checkbox
-                  id={item.user}
-                  checked={selectedUsers.includes(item.user)}
-                  onCheckedChange={() => toggleUser(item.user)}
-                  className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                />
-                <span className="text-sm font-medium">{item.user}</span>
-                <span className="text-xs text-muted-foreground">
-                  ({item.count})
-                </span>
-              </label>
-            ))}
+            {users.map((item) => {
+              const fullAvatarUrl = item.avatarUrl
+                ? `${AVATAR_BASE_URL}/${item.avatarUrl}`
+                : null
+
+              return (
+                <label
+                  key={item.user}
+                  className="inline-flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2 cursor-pointer hover:bg-accent hover:border-accent-foreground/20 transition-colors has-[:checked]:bg-primary/10 has-[:checked]:border-primary has-[:checked]:text-primary"
+                >
+                  <Checkbox
+                    id={item.user}
+                    checked={selectedUsers.includes(item.user)}
+                    onCheckedChange={() => toggleUser(item.user)}
+                    className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  />
+                  {fullAvatarUrl ? (
+                    <Avatar className="w-5 h-5 rounded-lg">
+                      <AvatarImage src={fullAvatarUrl} alt={item.user} />
+                      <AvatarFallback className="rounded-lg text-[10px]">
+                        {item.user.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <AppLogo
+                      user={item.user}
+                      appName={item.user}
+                      size="xs"
+                      className="w-5 h-5"
+                    />
+                  )}
+                  <span className="text-sm font-medium">{item.user}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({item.count})
+                  </span>
+                </label>
+              )
+            })}
           </div>
         </div>
       )}
