@@ -32,9 +32,8 @@ export const ReportHeader: React.FC<{
 
   // Use profile display name if available, otherwise fallback to appName
   const displayName = app.profile?.displayName || app.appName
-  // Show workspace displayName if available, otherwise fallback to customUser
-  const displayUser =
-    app.workspaceProfile?.displayName || app.customUser || undefined
+  // Show workspace displayName (all apps should have featured builder workspace profile)
+  const displayUser = app.workspaceProfile?.displayName || undefined
   // Use customDomain if available, otherwise fallback to modelOrDomain
   const displayDomain = app.profile?.customDomain || app.modelOrDomain
 

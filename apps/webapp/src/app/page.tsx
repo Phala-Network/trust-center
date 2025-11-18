@@ -3,7 +3,8 @@ import {Suspense} from 'react'
 
 import {Hero} from '@/components/hero'
 import {PhalaNavbar} from '@/components/navbar'
-import {getApps, getDstackVersions} from '@/lib/db'
+import {UserGallery} from '@/components/user-gallery'
+import {getApps, getDstackVersions, getUsers} from '@/lib/db'
 import {HomeClient} from './_components/home-client'
 
 export default async function HomePage() {
@@ -25,6 +26,12 @@ export default async function HomePage() {
     queryFn: () => getDstackVersions(),
   })
 
+  // Prefetch featured builders for gallery
+  await queryClient.prefetchQuery({
+    queryKey: ['users'],
+    queryFn: () => getUsers(),
+  })
+
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <PhalaNavbar />
@@ -34,17 +41,29 @@ export default async function HomePage() {
           <Hero />
         </section>
 
-        {/* Applications Section - Muted (darker) */}
+        {/* Featured Builders Section - Muted background */}
+        <section className="bg-muted pt-16 pb-8 sm:pt-20 sm:pb-10 lg:pt-24 lg:pb-12">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <Suspense fallback={<div className="w-full h-64" />}>
+              <UserGallery />
+            </Suspense>
+          </div>
+        </section>
+
+        {/* Applications Section - Muted background */}
         <section
           id="verified-apps"
-          className="bg-muted py-16 sm:py-20 lg:py-24"
+          className="bg-muted pt-8 pb-16 sm:pt-10 sm:pb-20 lg:pt-12 lg:pb-24"
         >
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col items-center">
-              <div className="text-center mb-10 sm:mb-12 lg:mb-16">
-                <h2 className="text-2xl font-bold sm:text-3xl lg:text-4xl">
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <h2 className="text-2xl font-bold tracking-tight">
                   Verified Applications
                 </h2>
+                <p className="text-sm text-muted-foreground">
+                  Browse all verified TEE applications on dstack
+                </p>
               </div>
               <Suspense fallback={<div className="w-full h-96" />}>
                 <HomeClient />

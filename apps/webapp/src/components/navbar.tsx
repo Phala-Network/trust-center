@@ -749,8 +749,10 @@ const PhalaNavbar = () => {
       <div className="container">
         <NavigationMenu className="min-w-full [&>div:last-child]:left-auto">
           <div className="flex w-full justify-between gap-2 py-4">
-            <a href="https://phala.com" className="flex items-center gap-2">
+            <a href="/" className="flex items-center gap-3">
               <img src="/logo.svg" className="max-h-8" alt="Phala Network" />
+              <hr className="h-6 border-r" />
+              <h1 className="text-sm font-semibold">Trust Center</h1>
             </a>
             <div className="flex items-center gap-2 xl:gap-8">
               <NavigationMenuList className="hidden gap-0 lg:flex">

@@ -61,22 +61,23 @@ function isVersionGreaterOrEqual(
 }
 
 // Helper function to determine custom user label based on business rules
+// Returns slugified values to ensure consistency with featured builders
 function determineUser(app: UpstreamAppData): string | null {
   const {email, username, app_name} = app
 
   // Crossmint -> Name contains crossmint
   if (app_name.toLowerCase().includes('crossmint')) {
-    return 'Crossmint'
+    return 'crossmint'
   }
 
   // Vana -> User == volod@opendatalabs.xyz
   if (email && email === 'volod@opendatalabs.xyz') {
-    return 'Vana'
+    return 'vana'
   }
 
   // Rena Labs -> user == Renalabs (with or without trailing space)
   if (username?.trim() === 'Renalabs') {
-    return 'Rena Labs'
+    return 'rena-labs'
   }
 
   // Blormy -> User == tint@blorm.xyz
@@ -90,32 +91,32 @@ function determineUser(app: UpstreamAppData): string | null {
     username === 'kaku5555' ||
     username === 'robertyan'
   ) {
-    return 'NEAR'
+    return 'near'
   }
 
   // Sahara -> Name contains sahara
   if (app_name.toLowerCase().includes('sahara')) {
-    return 'Sahara'
+    return 'sahara'
   }
 
   // Lit -> User == chris@litprotocol.com
   if (email && email === 'chris@litprotocol.com') {
-    return 'Lit'
+    return 'lit'
   }
 
   // Magic Link -> User == infra@magic.link
   if (email && email === 'infra@magic.link') {
-    return 'Magic Link'
+    return 'magic-link'
   }
 
   // Vijil -> User == vele-vijil
   if (username === 'vele-vijil') {
-    return 'Vijil'
+    return 'vijil'
   }
 
   // Rift -> User == alpinevm
   if (username === 'alpinevm') {
-    return 'Rift'
+    return 'rift'
   }
 
   return null

@@ -11,7 +11,7 @@ export function useApps(
     keyword?: string
     appConfigType?: string
     dstackVersions?: string[]
-    users?: string[]
+    username?: string
     sortBy?: 'appName' | 'taskCount' | 'lastCreated'
     sortOrder?: 'asc' | 'desc'
     perPage?: number
@@ -40,16 +40,16 @@ export function useApps(
   })
 }
 
-export function useDstackVersions(params?: {keyword?: string}) {
+export function useDstackVersions(params?: {keyword?: string; username?: string}) {
   return useQuery({
     queryKey: ['dstack-versions', params],
     queryFn: () => getDstackVersions(params),
   })
 }
 
-export function useUsers(params?: {keyword?: string}) {
+export function useUsers() {
   return useQuery({
-    queryKey: ['users', params],
-    queryFn: () => getUsers(params),
+    queryKey: ['users'],
+    queryFn: () => getUsers(),
   })
 }

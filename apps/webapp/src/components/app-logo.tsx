@@ -1,17 +1,16 @@
 import {Package} from 'lucide-react'
 
-import {getUserLogoUrl} from '@/lib/app-logos'
 import {cn} from '@/lib/utils'
 
 interface AppLogoProps {
-  /** User/owner name to lookup logo */
+  /** User/owner name (not used anymore, kept for compatibility) */
   user?: string
-  /** App logo URL if available (overrides user lookup) */
+  /** App logo URL if available */
   logoUrl?: string
   /** App name for alt text */
   appName?: string
-  /** Size variant */
-  size?: 'xs' | 'sm' | 'md' | 'lg'
+  /** Size variant (string or number for compatibility) */
+  size?: 'xs' | 'sm' | 'md' | 'lg' | number
   /** Additional CSS classes */
   className?: string
 }
@@ -31,20 +30,20 @@ const iconSizeClasses = {
 }
 
 export function AppLogo({
-  user,
   logoUrl,
   appName = 'Application',
   size = 'md',
   className,
 }: AppLogoProps) {
-  // Use provided logoUrl, or lookup from user, or fallback to icon
-  const finalLogoUrl = logoUrl || (user ? getUserLogoUrl(user) : undefined)
+  // Normalize size to string if it's a number
+  const normalizedSize = typeof size === 'number' ? 'md' : size
+  const finalLogoUrl = logoUrl
 
   return (
     <div
       className={cn(
         'bg-muted rounded-lg flex items-center justify-center flex-shrink-0',
-        sizeClasses[size],
+        sizeClasses[normalizedSize],
         className,
       )}
     >
@@ -56,7 +55,7 @@ export function AppLogo({
         />
       ) : (
         <Package
-          className={cn('text-muted-foreground', iconSizeClasses[size])}
+          className={cn('text-muted-foreground', iconSizeClasses[normalizedSize])}
         />
       )}
     </div>

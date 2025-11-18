@@ -5,28 +5,21 @@ import {Search, X} from 'lucide-react'
 import {parseAsArrayOf, parseAsString, useQueryStates} from 'nuqs'
 import {useEffect, useMemo, useState, useTransition} from 'react'
 
-import {AppLogo} from '@/components/app-logo'
-import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Button} from '@/components/ui/button'
 import {Checkbox} from '@/components/ui/checkbox'
 import {Input} from '@/components/ui/input'
-import {Label} from '@/components/ui/label'
-import {useDstackVersions, useUsers} from '@/lib/queries'
+import {useDstackVersions} from '@/lib/queries'
 
-// Avatar base URL for Phala Cloud R2
-const AVATAR_BASE_URL = 'https://cloud-r2.phala.com'
-
-export function AppFilters() {
+export function AppFilters({username}: {username?: string} = {}) {
   const [, startTransition] = useTransition()
 
   const [
-    {keyword, dstackVersions: selectedVersions, users: selectedUsers},
+    {keyword, dstackVersions: selectedVersions},
     setQuery,
   ] = useQueryStates(
     {
       keyword: parseAsString.withDefault(''),
       dstackVersions: parseAsArrayOf(parseAsString).withDefault([]),
-      users: parseAsArrayOf(parseAsString).withDefault([]),
     },
     {
       // shallow: true (default) only updates URL without triggering server re-render
@@ -36,9 +29,11 @@ export function AppFilters() {
     },
   )
 
-  // Fetch dstack versions and users with react-query
-  const {data: dstackVersions = []} = useDstackVersions({keyword})
-  const {data: users = []} = useUsers({keyword})
+  // Fetch dstack versions with react-query (filtered by username if on user page)
+  const {data: dstackVersions = []} = useDstackVersions({
+    keyword,
+    username,
+  })
 
   // Local state only for debounced search input
   const [searchValue, setSearchValue] = useState(keyword)
@@ -73,21 +68,8 @@ export function AppFilters() {
     setQuery({dstackVersions: newVersions.length > 0 ? newVersions : null})
   }
 
-  const toggleUser = (user: string) => {
-    const newUsers = selectedUsers.includes(user)
-      ? selectedUsers.filter((u) => u !== user)
-      : [...selectedUsers, user]
-
-    // nuqs handles optimistic updates automatically
-    setQuery({users: newUsers.length > 0 ? newUsers : null})
-  }
-
   const clearVersions = () => {
     setQuery({dstackVersions: null})
-  }
-
-  const clearUsers = () => {
-    setQuery({users: null})
   }
 
   const clearSearch = () => {
@@ -96,7 +78,7 @@ export function AppFilters() {
   }
 
   const hasActiveFilters =
-    keyword || selectedVersions.length > 0 || selectedUsers.length > 0
+    keyword || selectedVersions.length > 0
 
   return (
     <div className="w-full space-y-6">
@@ -129,7 +111,6 @@ export function AppFilters() {
             onClick={() => {
               clearSearch()
               clearVersions()
-              clearUsers()
             }}
             className="whitespace-nowrap"
           >
@@ -175,67 +156,6 @@ export function AppFilters() {
         </div>
       )}
 
-      {/* Owner Filters */}
-      {users.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Filter by owner
-            </h3>
-            {selectedUsers.length > 0 && (
-              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                {selectedUsers.length} selected
-              </span>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {users.map(
-              (item: {
-                user: string
-                count: number
-                avatarUrl: string | null
-              }) => {
-                const fullAvatarUrl = item.avatarUrl
-                  ? `${AVATAR_BASE_URL}/${item.avatarUrl}`
-                  : null
-
-                return (
-                  <label
-                    key={item.user}
-                    className="inline-flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2 cursor-pointer hover:bg-accent hover:border-accent-foreground/20 transition-colors has-[:checked]:bg-primary/10 has-[:checked]:border-primary has-[:checked]:text-primary"
-                  >
-                    <Checkbox
-                      id={item.user}
-                      checked={selectedUsers.includes(item.user)}
-                      onCheckedChange={() => toggleUser(item.user)}
-                      className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                    />
-                    {fullAvatarUrl ? (
-                      <Avatar className="w-5 h-5 rounded-lg">
-                        <AvatarImage src={fullAvatarUrl} alt={item.user} />
-                        <AvatarFallback className="rounded-lg text-[10px]">
-                          {item.user.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    ) : (
-                      <AppLogo
-                        user={item.user}
-                        appName={item.user}
-                        size="xs"
-                        className="w-5 h-5"
-                      />
-                    )}
-                    <span className="text-sm font-medium">{item.user}</span>
-                    <span className="text-xs text-muted-foreground">
-                      ({item.count})
-                    </span>
-                  </label>
-                )
-              },
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

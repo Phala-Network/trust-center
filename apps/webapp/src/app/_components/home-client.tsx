@@ -11,11 +11,10 @@ import type {PaginatedApps} from '@/lib/db'
 import {useApps} from '@/lib/queries'
 import {AppList} from './app-list'
 
-export function HomeClient() {
-  const [{keyword, dstackVersions, users}] = useQueryStates({
+export function HomeClient({username}: {username?: string} = {}) {
+  const [{keyword, dstackVersions}] = useQueryStates({
     keyword: parseAsString.withDefault(''),
     dstackVersions: parseAsArrayOf(parseAsString).withDefault([]),
-    users: parseAsArrayOf(parseAsString).withDefault([]),
   })
 
   const {
@@ -30,7 +29,7 @@ export function HomeClient() {
       sortBy: 'appName',
       keyword: keyword || undefined,
       dstackVersions: dstackVersions.length > 0 ? dstackVersions : undefined,
-      users: users.length > 0 ? users : undefined,
+      username: username || undefined,
       perPage: 24,
     },
     {
@@ -46,7 +45,7 @@ export function HomeClient() {
   const total = data?.total ?? 0
 
   const hasFilters =
-    Boolean(keyword) || dstackVersions.length > 0 || users.length > 0
+    Boolean(keyword) || dstackVersions.length > 0
 
   // Set up intersection observer for infinite scroll
   const {ref: loadMoreRef, inView} = useInView({
@@ -63,7 +62,7 @@ export function HomeClient() {
 
   return (
     <div className="w-full space-y-8">
-      <AppFilters />
+      <AppFilters username={username} />
 
       {/* Loading state for initial load */}
       {isLoading ? (
