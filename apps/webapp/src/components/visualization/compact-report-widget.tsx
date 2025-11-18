@@ -5,7 +5,6 @@ import {Check} from 'lucide-react'
 import type React from 'react'
 
 import {useAttestationData} from '@/components/attestation-data-context'
-import {TooltipProvider} from '@/components/ui/tooltip'
 import {
   type ReportItem,
   ReportItemCard,
@@ -176,10 +175,9 @@ const CompactReportWidget: React.FC<{
     : 'text-foreground max-w-sm relative mx-auto rounded-lg overflow-hidden bg-card border border-border shadow-sm'
 
   return (
-    <TooltipProvider>
-      <div
-        className={`${finalConfig.embedded ? 'relative' : 'relative p-4'} ${finalConfig.darkMode ? 'dark' : ''}`}
-      >
+    <div
+      className={`${finalConfig.embedded ? 'relative' : 'relative p-4'} ${finalConfig.darkMode ? 'dark' : ''}`}
+    >
         {/* Dotted background layer - only show when not embedded */}
         {!finalConfig.embedded && (
           <div
@@ -229,7 +227,6 @@ const CompactReportWidget: React.FC<{
           </div>
         </div>
       </div>
-    </TooltipProvider>
   )
 }
 

@@ -189,44 +189,50 @@ export function AppFilters() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            {users.map((item) => {
-              const fullAvatarUrl = item.avatarUrl
-                ? `${AVATAR_BASE_URL}/${item.avatarUrl}`
-                : null
+            {users.map(
+              (item: {
+                user: string
+                count: number
+                avatarUrl: string | null
+              }) => {
+                const fullAvatarUrl = item.avatarUrl
+                  ? `${AVATAR_BASE_URL}/${item.avatarUrl}`
+                  : null
 
-              return (
-                <label
-                  key={item.user}
-                  className="inline-flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2 cursor-pointer hover:bg-accent hover:border-accent-foreground/20 transition-colors has-[:checked]:bg-primary/10 has-[:checked]:border-primary has-[:checked]:text-primary"
-                >
-                  <Checkbox
-                    id={item.user}
-                    checked={selectedUsers.includes(item.user)}
-                    onCheckedChange={() => toggleUser(item.user)}
-                    className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                  />
-                  {fullAvatarUrl ? (
-                    <Avatar className="w-5 h-5 rounded-lg">
-                      <AvatarImage src={fullAvatarUrl} alt={item.user} />
-                      <AvatarFallback className="rounded-lg text-[10px]">
-                        {item.user.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  ) : (
-                    <AppLogo
-                      user={item.user}
-                      appName={item.user}
-                      size="xs"
-                      className="w-5 h-5"
+                return (
+                  <label
+                    key={item.user}
+                    className="inline-flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2 cursor-pointer hover:bg-accent hover:border-accent-foreground/20 transition-colors has-[:checked]:bg-primary/10 has-[:checked]:border-primary has-[:checked]:text-primary"
+                  >
+                    <Checkbox
+                      id={item.user}
+                      checked={selectedUsers.includes(item.user)}
+                      onCheckedChange={() => toggleUser(item.user)}
+                      className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                     />
-                  )}
-                  <span className="text-sm font-medium">{item.user}</span>
-                  <span className="text-xs text-muted-foreground">
-                    ({item.count})
-                  </span>
-                </label>
-              )
-            })}
+                    {fullAvatarUrl ? (
+                      <Avatar className="w-5 h-5 rounded-lg">
+                        <AvatarImage src={fullAvatarUrl} alt={item.user} />
+                        <AvatarFallback className="rounded-lg text-[10px]">
+                          {item.user.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <AppLogo
+                        user={item.user}
+                        appName={item.user}
+                        size="xs"
+                        className="w-5 h-5"
+                      />
+                    )}
+                    <span className="text-sm font-medium">{item.user}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({item.count})
+                    </span>
+                  </label>
+                )
+              },
+            )}
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "./theme/colors.css";
-@import "./theme/typography.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './theme/colors.css';
+@import './theme/typography.css';
 
 @custom-variant dark (&:is(.dark *));
 /* @plugin '@tailwindcss/typography'; */
@@ -26,5 +26,14 @@
 
   ::selection {
     @apply bg-primary/40;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }

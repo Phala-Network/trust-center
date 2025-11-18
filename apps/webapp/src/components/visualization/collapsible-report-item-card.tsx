@@ -211,7 +211,7 @@ export const ReportItemCard: React.FC<{
                       <div className="space-y-2">
                         {item.fields.map((f) => {
                           const obj = attestationData.find(
-                            (o) => o.id === f.objectId,
+                            (o: {id: string}) => o.id === f.objectId,
                           )
                           const value = obj?.fields?.[f.field]
 

@@ -12,7 +12,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import {getCalcFuncDescription} from '@/data/calcfunc-documentation'
@@ -265,8 +264,7 @@ const ValuesView: React.FC = () => {
   }
 
   return (
-    <TooltipProvider>
-      <div className="text-xs">
+    <div className="text-xs">
         {/* Field Value Dialog */}
         <Dialog
           open={isDialogOpen}
@@ -544,7 +542,6 @@ const ValuesView: React.FC = () => {
           </div>
         )}
       </div>
-    </TooltipProvider>
   )
 }
 
