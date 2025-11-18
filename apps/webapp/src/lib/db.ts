@@ -16,7 +16,12 @@ import {
 } from '@phala/trust-center-db'
 
 import {env} from '@/env'
-import {FEATURED_BUILDERS, FEATURED_BUILDERS_MAP} from './featured-builders'
+import {
+  FEATURED_BUILDERS,
+  FEATURED_BUILDERS_MAP,
+  isStaticBuilder,
+  isWorkspaceBuilder,
+} from './featured-builders'
 
 // Create database connection
 const db = createDbConnection(env.DATABASE_POSTGRES_URL)
@@ -137,7 +142,7 @@ function resultToAppWithTask(result: {
     const featuredBuilder = FEATURED_BUILDERS_MAP.get(appData.customUser)
 
     if (featuredBuilder) {
-      if (featuredBuilder.type === 'workspace') {
+      if (isWorkspaceBuilder(featuredBuilder)) {
         // Workspace builder: use database workspace profile if it matches the workspaceId
         if (
           workspaceProfile &&
@@ -145,7 +150,7 @@ function resultToAppWithTask(result: {
         ) {
           finalWorkspaceProfile = workspaceProfile
         }
-      } else {
+      } else if (isStaticBuilder(featuredBuilder)) {
         // Static builder: create virtual workspace profile with hardcoded data
         finalWorkspaceProfile = {
           id: '0',
@@ -290,10 +295,10 @@ export async function getApps(params?: {
         hasMore: false,
       }
 
-    if (builder.type === 'static') {
+    if (isStaticBuilder(builder)) {
       // Static builder: match by customUser
       appConditions.push(eq(appsTable.customUser, builder.slug))
-    } else {
+    } else if (isWorkspaceBuilder(builder)) {
       // Workspace builder: match by workspaceId
       appConditions.push(eq(appsTable.workspaceId, builder.workspaceId))
     }
@@ -482,10 +487,10 @@ export async function getDstackVersions(params?: {
     const builder = FEATURED_BUILDERS_MAP.get(params.username)
     if (!builder) return []
 
-    if (builder.type === 'static') {
+    if (isStaticBuilder(builder)) {
       // Static builder: match by customUser
       conditions.push(eq(appsTable.customUser, builder.slug))
-    } else {
+    } else if (isWorkspaceBuilder(builder)) {
       // Workspace builder: match by workspaceId
       conditions.push(eq(appsTable.workspaceId, builder.workspaceId))
     }
@@ -551,15 +556,12 @@ export async function getUsers(): Promise<
   )
 
   // Collect all customUser slugs and workspaceIds from featured builders
-  const staticBuilderSlugs = FEATURED_BUILDERS.filter(
-    (b) => b.type === 'static',
-  ).map((b) => b.slug)
+  const staticBuilderSlugs = FEATURED_BUILDERS.filter(isStaticBuilder).map(
+    (b) => b.slug,
+  )
 
-  const workspaceBuilderIds = FEATURED_BUILDERS.filter(
-    (b) => b.type === 'workspace',
-  ).map(
-    (b) =>
-      (b as {type: 'workspace'; slug: string; workspaceId: number}).workspaceId,
+  const workspaceBuilderIds = FEATURED_BUILDERS.filter(isWorkspaceBuilder).map(
+    (b) => b.workspaceId,
   )
 
   // Separate queries for static and workspace builders to avoid grouping issues
@@ -675,12 +677,12 @@ export async function getUsers(): Promise<
     let avatarUrl: string | null
     let appCount: number
 
-    if (builder.type === 'static') {
+    if (isStaticBuilder(builder)) {
       // Static builder: use hardcoded data and lookup count
       displayName = builder.displayName
       avatarUrl = builder.logoUrl
       appCount = customUserCountMap.get(builder.slug) || 0
-    } else {
+    } else if (isWorkspaceBuilder(builder)) {
       // Workspace builder: lookup profile and count
       const profile = workspaceProfileMap.get(builder.workspaceId)
       if (!profile || !profile.displayName) {
@@ -695,6 +697,8 @@ export async function getUsers(): Promise<
           : `${AVATAR_BASE_URL}/${rawAvatarUrl}`
         : null
       appCount = workspaceIdCountMap.get(builder.workspaceId) || 0
+    } else {
+      continue // Exhaustive check - should never happen
     }
 
     // Only include if has apps

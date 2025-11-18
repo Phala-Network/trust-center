@@ -3,20 +3,29 @@
 // 1. Static builders: Have displayName and logoUrl defined here (matched by customUser in database)
 // 2. Workspace builders: Have workspaceId, fetch profile from database (matched by workspaceId in database)
 
-type StaticBuilder = {
+export type StaticBuilder = {
   type: 'static'
   slug: string
   displayName: string
   logoUrl: string
 }
 
-type WorkspaceBuilder = {
+export type WorkspaceBuilder = {
   type: 'workspace'
   slug: string
   workspaceId: number
 }
 
 export type FeaturedBuilder = StaticBuilder | WorkspaceBuilder
+
+// Type guards for Featured Builders
+export function isStaticBuilder(builder: FeaturedBuilder): builder is StaticBuilder {
+  return builder.type === 'static'
+}
+
+export function isWorkspaceBuilder(builder: FeaturedBuilder): builder is WorkspaceBuilder {
+  return builder.type === 'workspace'
+}
 
 export const FEATURED_BUILDERS: FeaturedBuilder[] = [
   {
