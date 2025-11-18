@@ -20,14 +20,6 @@ export default function WidgetClient({
   taskId,
   config,
 }: WidgetClientProps) {
-  const appInfo = {
-    id: app.id ?? '',
-    name: app.appName,
-    description: `${app.appConfigType === 'phala_cloud' ? 'Phala Cloud' : 'Redpill'} Application`,
-    configType: app.appConfigType,
-    user: app.workspaceProfile?.displayName || app.customUser || undefined,
-  }
-
   const widgetConfig = {
     ...config,
     showTrustCenterButton: true,
@@ -36,7 +28,7 @@ export default function WidgetClient({
   }
 
   return (
-    <HydrateProvider appId={appId} taskId={taskId} task={app} appInfo={appInfo}>
+    <HydrateProvider appId={appId} taskId={taskId} task={app}>
       <AttestationDataProvider>
         <CompactReportWidget config={widgetConfig} />
       </AttestationDataProvider>

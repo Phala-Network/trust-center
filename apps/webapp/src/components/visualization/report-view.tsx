@@ -65,10 +65,10 @@ const TrustSection: React.FC<{
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mb-6">
       <SectionHeader title={section.title} />
 
-      <div className="space-y-3">
+      <div className="space-y-3 mt-3">
         {filteredItems.map((item) => (
           <ReportItemCard key={item.id} item={item} selectable={true} />
         ))}
@@ -90,14 +90,14 @@ const ReportView: React.FC = () => {
     // biome-ignore lint/a11y/noStaticElementInteractions: de-select all objects when clicking on the report view
     // biome-ignore lint/a11y/useKeyWithClickEvents: de-select all objects when clicking on the report view
     <div
-      className="space-y-4 pb-3"
+      className="pt-4 pb-6"
       onClick={() => {
         setSelectedObjectId(null)
       }}
     >
       <ReportHeader app={app} />
 
-      <div className="space-y-4 px-3">
+      <div className="px-3">
         {TRUST_SECTIONS.map((section) => (
           <TrustSection key={section.id} section={section} />
         ))}
