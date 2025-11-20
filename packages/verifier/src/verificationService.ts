@@ -7,7 +7,6 @@
 
 import type {
   PhalaCloudConfig,
-  RedpillConfig,
   VerificationFlags,
 } from './config'
 import { DEFAULT_VERIFICATION_FLAGS } from './config'
@@ -25,7 +24,6 @@ import {
 } from './utils/metadataUtils'
 import { createVerifiers, executeVerifiers } from './verifierChain'
 import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
-import { RedpillVerifier } from './verifiers/redpillVerifier'
 
 /**
  * Service class for orchestrating verification operations
@@ -45,7 +43,7 @@ export class VerificationService {
    * Execute verification based on app configuration and flags
    */
   async verify(
-    appConfig: RedpillConfig | PhalaCloudConfig,
+    appConfig: PhalaCloudConfig,
     flags?: Partial<VerificationFlags>,
   ): Promise<VerificationResponse> {
     this.errors = []
@@ -64,7 +62,7 @@ export class VerificationService {
       const systemInfo = await this.getSystemInfo(appConfig)
 
       // Extract git commit from instance image version if available (Phala Cloud only)
-      if ('domain' in appConfig && systemInfo.instances[0]?.image_version) {
+      if (systemInfo.instances[0]?.image_version) {
         const imageVersion = systemInfo.instances[0].image_version
         const gitCommit = await getGitCommitFromImageVersion(imageVersion)
         if (!appConfig.metadata) {
@@ -169,18 +167,9 @@ export class VerificationService {
    * Get DStack info using verifier static methods
    */
   private async getSystemInfo(
-    appConfig: RedpillConfig | PhalaCloudConfig,
+    appConfig: PhalaCloudConfig,
   ): Promise<SystemInfo> {
-    if ('model' in appConfig) {
-      // RedpillConfig
-      return await RedpillVerifier.getSystemInfo(
-        appConfig.contractAddress,
-        appConfig.model,
-      )
-    } else {
-      // PhalaCloudConfig
-      return await PhalaCloudVerifier.getSystemInfo(appConfig.appId)
-    }
+    return await PhalaCloudVerifier.getSystemInfo(appConfig.appId)
   }
 
   /**

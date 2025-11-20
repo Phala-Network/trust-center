@@ -10,6 +10,3 @@ export { GatewayVerifier } from './gatewayVerifier'
 export { KmsVerifier } from './kmsVerifier'
 export { PhalaCloudKmsVerifier } from './phalaCloudKmsVerifier'
 export { PhalaCloudVerifier } from './phalaCloudVerifier'
-export { RedpillKmsVerifier } from './redpillKmsVerifier'
-// Application verifiers
-export { RedpillVerifier } from './redpillVerifier'
