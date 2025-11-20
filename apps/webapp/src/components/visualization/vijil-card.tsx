@@ -29,9 +29,10 @@ const getScoreLevel = (score: number): 'good' | 'warning' => {
 
 interface VijilCardProps {
   evaluation: VijilEvaluation
+  appId?: string
 }
 
-export const VijilCard: React.FC<VijilCardProps> = ({ evaluation }) => {
+export const VijilCard: React.FC<VijilCardProps> = ({ evaluation, appId }) => {
   const [isLoadingReport, setIsLoadingReport] = useState(false)
   const [isLoadingDome, setIsLoadingDome] = useState(false)
   const [domeConfig, setDomeConfig] = useState<VijilDomeConfig | null>(null)
@@ -84,7 +85,7 @@ export const VijilCard: React.FC<VijilCardProps> = ({ evaluation }) => {
   const handleViewDomeConfig = async () => {
     setIsLoadingDome(true)
     try {
-      const config = await getVijilDomeConfig(evaluation.id)
+      const config = await getVijilDomeConfig(evaluation.id, undefined, appId)
       if (config) {
         setDomeConfig(config)
         setIsDomeDialogOpen(true)

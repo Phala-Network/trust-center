@@ -27,8 +27,10 @@ let refreshPromise: Promise<string> | null = null
 /**
  * Get a valid Vijil API token
  * Automatically refreshes if expired or about to expire
+ *
+ * @param appId - Optional app ID to determine authentication method
  */
-export async function getVijilToken(): Promise<string | null> {
+export async function getVijilToken(appId?: string): Promise<string | null> {
   const {
     VIJIL_API_URL,
     VIJIL_CLIENT_ID,
@@ -36,6 +38,17 @@ export async function getVijilToken(): Promise<string | null> {
     VIJIL_CLIENT_TOKEN,
     VIJIL_API_TOKEN,
   } = env
+
+  // Special case: Use static API token for specific app
+  const LEGACY_APP_ID = '22b30e8e1b01d732e7dae67d7b0c2dfd67dfeb53'
+  if (appId === LEGACY_APP_ID) {
+    if (VIJIL_API_TOKEN) {
+      console.log(`[VIJIL] Using static API token for legacy app: ${appId}`)
+      return VIJIL_API_TOKEN
+    }
+    console.warn(`[VIJIL] No static API token configured for legacy app: ${appId}`)
+    return null
+  }
 
   // Check if we have client credentials for auto-refresh
   const hasCredentials =

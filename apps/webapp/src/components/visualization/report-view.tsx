@@ -96,10 +96,10 @@ const ReportView: React.FC = () => {
     useState<VijilEvaluation | null>(null)
 
   // Check if Vijil integration is enabled for this app
-  const vijilEnabled = app?.app?.id ? isVijilEnabled(app.app.id) : false
+  const vijilEnabled = app?.id ? isVijilEnabled(app.id) : false
 
   console.log('[VijilCard] Initial state:', {
-    appId: app?.app?.id,
+    appId: app?.id,
     vijilEnabled,
     attestationDataLength: attestationData?.length,
     taskExists: !!app?.task,
@@ -110,7 +110,7 @@ const ReportView: React.FC = () => {
     console.log('[VijilCard] useEffect triggered:', {
       vijilEnabled,
       attestationDataLength: attestationData?.length,
-      appId: app?.app?.id,
+      appId: app?.id,
       taskId: app?.task?.id,
     })
 
@@ -133,7 +133,7 @@ const ReportView: React.FC = () => {
       try {
         // Build endpoint from app-id and domain
         // Format: https://{app-id}-8000.{domain}/v1
-        const appId = app.app?.id
+        const appId = app.id
         if (!appId) {
           console.log('[VijilCard] No appId available')
           return
@@ -207,7 +207,7 @@ const ReportView: React.FC = () => {
           vijilEndpoint,
         )
 
-        const evaluation = await getLatestVijilEvaluation(vijilEndpoint)
+        const evaluation = await getLatestVijilEvaluation(vijilEndpoint, appId)
         console.log('[VijilCard] Received evaluation:', {
           id: evaluation?.id,
           score: evaluation?.score,
@@ -250,7 +250,7 @@ const ReportView: React.FC = () => {
         {vijilEnabled && vijilEvaluation && (
           <div className="space-y-4">
             <SectionHeader title="AI Agent Verified" />
-            <VijilCard evaluation={vijilEvaluation} />
+            <VijilCard evaluation={vijilEvaluation} appId={app.id ?? undefined} />
           </div>
         )}
 

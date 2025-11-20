@@ -43,14 +43,18 @@ export async function isVijilEnabled(appId: string): Promise<boolean> {
 /**
  * Get the latest completed evaluation for an agent endpoint
  * Server Action - runs on the server to protect API credentials
+ *
+ * @param agentEndpoint - The agent endpoint URL
+ * @param appId - Optional app ID to determine authentication method
  */
 export async function getLatestVijilEvaluation(
   agentEndpoint: string,
+  appId?: string,
 ): Promise<VijilEvaluation | null> {
   const VIJIL_API_URL = env.VIJIL_API_URL
 
   // Get a fresh token (will auto-refresh if needed)
-  const token = await getVijilToken()
+  const token = await getVijilToken(appId)
 
   if (!token) {
     console.warn('[VIJIL] No API token available')
@@ -108,16 +112,20 @@ export async function getLatestVijilEvaluation(
  * Generate PDF report for a completed evaluation
  * Server Action - runs on the server to protect API credentials
  * Uses Puppeteer (headless Chrome) to generate PDF from HTML
+ *
+ * @param evaluationId - The evaluation ID
+ * @param appId - Optional app ID to determine authentication method
  */
 export async function generateVijilReportPdf(
   evaluationId: string,
+  appId?: string,
 ): Promise<string | null> {
   const VIJIL_API_URL = env.VIJIL_API_URL
 
   console.log(`[VIJIL] Generating PDF report for evaluation: ${evaluationId}`)
 
   // Get a fresh token (will auto-refresh if needed)
-  const token = await getVijilToken()
+  const token = await getVijilToken(appId)
 
   if (!token) {
     console.warn('[VIJIL] No API token available')
@@ -252,15 +260,20 @@ async function getVijilReportHtml(
 /**
  * Get recommended Vijil Dome configuration for an evaluation
  * Server Action - runs on the server to protect API credentials
+ *
+ * @param evaluationId - The evaluation ID
+ * @param latencyThreshold - Optional latency threshold in milliseconds
+ * @param appId - Optional app ID to determine authentication method
  */
 export async function getVijilDomeConfig(
   evaluationId: string,
   latencyThreshold?: number,
+  appId?: string,
 ): Promise<VijilDomeConfig | null> {
   const VIJIL_API_URL = env.VIJIL_API_URL
 
   // Get a fresh token (will auto-refresh if needed)
-  const token = await getVijilToken()
+  const token = await getVijilToken(appId)
 
   if (!token) {
     console.warn('[VIJIL] No API token available')
