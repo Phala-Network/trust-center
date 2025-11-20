@@ -37,18 +37,6 @@ export const GatewayConfigSchema = z.object({
 })
 
 /**
- * Configuration for Redpill verifier
- */
-export const RedpillConfigSchema = z.object({
-  /** Redpill smart contract address */
-  contractAddress: ContractAddressSchema,
-  /** Model identifier */
-  model: z.string().min(1),
-  /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
-  metadata: AppMetadataSchema.optional(),
-})
-
-/**
  * Configuration for PhalaCloud verifier
  */
 export const PhalaCloudConfigSchema = z.object({
@@ -93,7 +81,6 @@ export const ServerConfigSchema = z.object({
 // Export TypeScript types from Zod schemas
 export type KmsConfig = z.infer<typeof KmsConfigSchema>
 export type GatewayConfig = z.infer<typeof GatewayConfigSchema>
-export type RedpillConfig = z.infer<typeof RedpillConfigSchema>
 export type PhalaCloudConfig = z.infer<typeof PhalaCloudConfigSchema>
 export type VerificationFlags = z.infer<typeof VerificationFlagsSchema>
 export type ServerConfig = z.infer<typeof ServerConfigSchema>

@@ -15,7 +15,6 @@ export type { AppId, ContractAddress } from './types/utils'
 
 // Config types
 export type {
-  RedpillConfig,
   PhalaCloudConfig,
   VerificationFlags,
 } from './config'
