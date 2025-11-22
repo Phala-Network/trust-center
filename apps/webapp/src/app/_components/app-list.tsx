@@ -127,7 +127,7 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
                 day: 'numeric',
               })}
             </span>
-            {stale && (
+            {/* {stale && (
               <Badge
                 variant="outline"
                 className="flex items-center gap-1 text-xs h-5 px-2 text-amber-600 border-amber-600/30 bg-amber-50/50 dark:bg-amber-950/20"
@@ -135,7 +135,7 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
                 <AlertCircle className="h-3 w-3" />
                 May be outdated
               </Badge>
-            )}
+            )} */}
           </div>
         </div>
       </div>
