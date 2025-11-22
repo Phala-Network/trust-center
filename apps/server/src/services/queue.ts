@@ -1,11 +1,9 @@
 import type {
   PhalaCloudConfig,
-  RedpillConfig,
   VerificationResponse,
 } from '@phala/dstack-verifier'
 import {
   toAppId,
-  toContractAddress,
   VerificationService,
 } from '@phala/dstack-verifier'
 import {
@@ -168,18 +166,12 @@ export const createQueueService = (
         // Create app config for VerificationService
         // Note: VerificationService will generate complete metadata from systemInfo
         // if the provided metadata is incomplete
-        const appConfig: RedpillConfig | PhalaCloudConfig =
-          app.appConfigType === 'redpill'
-            ? {
-                contractAddress: toContractAddress(app.contractAddress),
-                model: app.modelOrDomain,
-                metadata: appMetadata,
-              }
-            : {
-                appId: toAppId(app.id),
-                domain: app.modelOrDomain,
-                metadata: appMetadata,
-              }
+        // We only support PhalaCloudConfig now as Redpill support has been removed
+        const appConfig: PhalaCloudConfig = {
+          appId: toAppId(app.id),
+          domain: app.modelOrDomain,
+          metadata: appMetadata,
+        }
 
         // Create a new VerificationService instance for each task to avoid state pollution
         // This ensures complete isolation between concurrent verification tasks

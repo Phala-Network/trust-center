@@ -3,11 +3,14 @@ import { z } from 'zod'
 import { AppDataObjectGenerator } from '../dataObjects/appDataObjectGenerator'
 import {
   BasicVmConfigSchema,
+  EventLogSchema,
   KeyProviderSchema,
   LegacyTcbInfoSchema,
+  NvidiaPayloadSchema,
   SystemInfoSchema,
   TcbInfoSchema,
   VmConfigSchema,
+  AppInfoSchema,
 } from '../schemas'
 import {
   type AppId,
@@ -16,6 +19,7 @@ import {
   type CompleteAppMetadata,
   convertLegacyAppInfo,
   type LegacyAppInfo,
+  parseAttestationBundle,
   parseJsonFields,
   type QuoteData,
   type SystemInfo,
@@ -46,6 +50,10 @@ export class PhalaCloudVerifier extends Verifier {
   private dataObjectGenerator: AppDataObjectGenerator
   private appMetadata: CompleteAppMetadata
   private systemInfo: SystemInfo
+
+  // Cache for Redpill models
+  private static modelCache: { models: any[]; timestamp: number } | null = null
+  private static readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   constructor(
     systemInfo: SystemInfo,
@@ -280,14 +288,81 @@ export class PhalaCloudVerifier extends Verifier {
     }
   }
 
+  /**
+   * Fetches the list of running models from Redpill API with caching
+   */
+  private static async getRunningModels(): Promise<any[]> {
+    const now = Date.now()
+    if (
+      PhalaCloudVerifier.modelCache &&
+      now - PhalaCloudVerifier.modelCache.timestamp <
+        PhalaCloudVerifier.CACHE_TTL
+    ) {
+      return PhalaCloudVerifier.modelCache.models
+    }
+
+    try {
+      const response = await fetch('https://api.redpill.ai/v1/models')
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.statusText}`)
+      }
+      const data = await response.json()
+      // The API returns { data: [...] }
+      const models = (data as any).data || []
+      PhalaCloudVerifier.modelCache = { models, timestamp: now }
+      return models
+    } catch (error) {
+      console.warn('Failed to fetch Redpill models:', error)
+      return []
+    }
+  }
+
   public async verifyHardware(): Promise<boolean> {
     const quoteData = await this.getQuote()
     const verificationResult = await verifyTeeQuote(quoteData)
 
-    // Generate DataObjects for Gateway hardware verification
+    let attestationBundle: AttestationBundle | undefined
+
+    // Check for GPU support via Redpill API
+    try {
+      const models = await PhalaCloudVerifier.getRunningModels()
+      const matchingModel = models.find(
+        (m: any) => m.metadata?.appid === this.appId,
+      )
+
+      if (matchingModel) {
+        const attestationUrl = `https://api.redpill.ai/v1/attestation/report?model=${matchingModel.id}`
+        const response = await fetch(attestationUrl, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer test`,
+          },
+        })
+
+        if (response.ok) {
+          const rawAppInfo = await response.json()
+          attestationBundle = parseAttestationBundle(
+            rawAppInfo as Record<string, unknown>,
+            {
+              nvidiaPayloadSchema: NvidiaPayloadSchema,
+              eventLogSchema: EventLogSchema,
+              appInfoSchema: AppInfoSchema,
+            },
+          )
+        }
+      }
+    } catch (error) {
+      console.warn(
+        `Failed to fetch GPU attestation for app ${this.appId}:`,
+        error,
+      )
+    }
+
+    // Generate DataObjects for App hardware verification
     const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
       quoteData,
       verificationResult,
+      attestationBundle,
     )
     dataObjects.forEach((obj) => {
       this.createDataObject(obj)
