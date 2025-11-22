@@ -7,7 +7,7 @@ import type {
   QuoteData,
   VerifyQuoteResult,
 } from '../types'
-import { BaseDataObjectGenerator } from './baseDataObjectGenerator'
+import {BaseDataObjectGenerator} from './baseDataObjectGenerator'
 
 /**
  * Data object generator specific to App verifier.
@@ -122,8 +122,7 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
     const app: DataObject = {
       id: this.generateObjectId('main'),
       name: 'App',
-      description:
-        'Deepseek V3 model running in TEE GPU, powered by the vllm project',
+      description: '',
       fields: {
         app_id: appInfo.app_id,
         instance_id: appInfo.instance_id || '',

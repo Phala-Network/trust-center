@@ -17,7 +17,7 @@ import 'highlight.js/styles/github.css'
 import hljs from 'highlight.js'
 
 const ValuesView: React.FC = () => {
-  const {selectedObject, setSelectedObjectId, attestationData} =
+  const {selectedObject, setSelectedObjectId, attestationData, appProfile} =
     useAttestationData()
   const [expandedField, setExpandedField] = React.useState<{
     key: string
@@ -293,9 +293,13 @@ const ValuesView: React.FC = () => {
         <div className="mb-1 flex items-center gap-2">
           <h2 className="font-semibold text-sm">{selectedObject.name}</h2>
         </div>
-        {selectedObject.description && (
+        {(selectedObject.id === 'app-main'
+          ? appProfile?.description
+          : selectedObject.description) && (
           <div className="text-muted-foreground text-xs">
-            {selectedObject.description}
+            {selectedObject.id === 'app-main'
+              ? appProfile?.description
+              : selectedObject.description}
           </div>
         )}
       </div>

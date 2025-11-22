@@ -9,6 +9,7 @@ import {
 } from 'react'
 
 import type {Data} from '@/data/schema'
+import type {ProfileDisplay} from '@/lib/db'
 import type {CompactMode, ViewType} from '@/stores/app'
 
 interface AttestationDataContextType {
@@ -16,6 +17,7 @@ interface AttestationDataContextType {
   attestationData: Data
   loading: boolean
   error: string | null
+  appProfile: ProfileDisplay | null // App profile for app-main description
 
   // UI State (isolated per report)
   selectedObjectId: string | null
@@ -44,6 +46,7 @@ interface AttestationDataProviderProps {
   attestationData: Data
   loading: boolean
   error: string | null
+  appProfile?: ProfileDisplay | null
   initialSelectedObjectId?: string | null
 }
 
@@ -52,6 +55,7 @@ export function AttestationDataProvider({
   attestationData,
   loading,
   error,
+  appProfile = null,
   initialSelectedObjectId = null,
 }: AttestationDataProviderProps) {
   // UI State
@@ -83,6 +87,7 @@ export function AttestationDataProvider({
         attestationData,
         loading,
         error,
+        appProfile,
         selectedObjectId,
         setSelectedObjectId,
         selectedObject,

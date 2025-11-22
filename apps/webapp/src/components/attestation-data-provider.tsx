@@ -85,6 +85,7 @@ export function AttestationDataProvider({
       attestationData={attestationData}
       loading={loading}
       error={error}
+      appProfile={app?.profile ?? null}
       initialSelectedObjectId={initialSelectedObjectId}
     >
       {children}
