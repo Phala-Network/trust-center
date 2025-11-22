@@ -35,8 +35,18 @@ const buildDetailedHealthResponse = async (services: Services) => {
 const handleBasicHealth = async () => buildBasicHealthResponse()
 
 const handleDetailedHealth = async () => {
-  const services = getServices()
-  return await buildDetailedHealthResponse(services)
+  try {
+    const services = getServices()
+    return await buildDetailedHealthResponse(services)
+  } catch (error) {
+    console.error('[HEALTH] Error getting services:', error)
+    const baseHealth = buildBasicHealthResponse()
+    return {
+      ...baseHealth,
+      latestCompletedReportTime: null,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
 }
 
 // Route configuration
