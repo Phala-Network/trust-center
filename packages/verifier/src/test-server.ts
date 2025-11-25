@@ -147,23 +147,11 @@ export class DStackVerifierServer {
 
     try {
       // Create app config from request
-      // Redpill uses contractAddress, PhalaCloud uses appId
-      let appConfig: any
-
-      if ('model' in verificationRequest.app) {
-        // RedpillConfig
-        appConfig = {
-          contractAddress: verificationRequest.app.contractAddress,
-          model: verificationRequest.app.model,
-          metadata: verificationRequest.app.metadata,
-        }
-      } else {
-        // PhalaCloudConfig
-        appConfig = {
-          appId: verificationRequest.app.appId,
-          domain: verificationRequest.app.domain,
-          metadata: verificationRequest.app.metadata,
-        }
+      // PhalaCloud uses appId
+      const appConfig = {
+        appId: verificationRequest.app.appId,
+        domain: verificationRequest.app.domain,
+        metadata: verificationRequest.app.metadata,
       }
 
       // Execute verification with app config and flags

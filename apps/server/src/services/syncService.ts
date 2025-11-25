@@ -142,7 +142,7 @@ function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
   } = app
 
   let contractAddress = ''
-  let modelOrDomain = ''
+  let domain = ''
   const defaultContractAddress = `0x${dstack_app_id}`
 
   // Determine contract address based on base_image version
@@ -154,9 +154,9 @@ function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
 
   // Determine domain based on base_image version
   if (isVersionGreaterOrEqual(base_image, '0.5.3')) {
-    modelOrDomain = gateway_domain_suffix || ''
+    domain = gateway_domain_suffix || ''
   } else {
-    modelOrDomain = tproxy_base_domain || ''
+    domain = tproxy_base_domain || ''
   }
 
   return {
@@ -165,7 +165,7 @@ function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
     appName: app_name,
     appConfigType: 'phala_cloud',
     contractAddress: contractAddress || defaultContractAddress,
-    modelOrDomain,
+    domain,
     dstackVersion: base_image,
     workspaceId: workspace_id,
     creatorId: creator_id,

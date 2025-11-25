@@ -13,19 +13,6 @@ import type { AppMetadata } from './metadata'
 import type { AppId, ContractAddress } from './utils'
 
 /**
- * Verification request payload for Redpill verifier
- */
-export interface RedpillVerificationRequest {
-  app: {
-    contractAddress: ContractAddress
-    model: string
-    metadata?: AppMetadata
-  }
-  /** Verification flags to control which steps to execute */
-  flags?: VerificationFlags
-}
-
-/**
  * Verification request payload for PhalaCloud verifier
  */
 export interface PhalaCloudVerificationRequest {
@@ -41,9 +28,7 @@ export interface PhalaCloudVerificationRequest {
 /**
  * Union type for verification requests
  */
-export type VerificationRequest =
-  | RedpillVerificationRequest
-  | PhalaCloudVerificationRequest
+export type VerificationRequest = PhalaCloudVerificationRequest
 
 /**
  * Verification error information
@@ -66,13 +51,6 @@ export interface VerificationResponse {
   /** Overall success status */
   success: boolean
 }
-
-/**
- * Zod schema for hex string validation
- */
-const HexStringSchema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string')
 
 /**
  * Zod schema for app ID (without 0x prefix, defensive - strips if present)
@@ -155,19 +133,6 @@ const VerificationFlagsSchema = z
     ctLog: z.boolean(),
   })
   .optional()
-
-/**
- * Zod schema for Redpill verification request
- */
-const RedpillVerificationRequestSchema = z.object({
-  app: z.object({
-    contractAddress: HexStringSchema,
-    model: z.string(),
-    metadata: StructuredMetadataInputSchema,
-  }),
-  flags: VerificationFlagsSchema,
-})
-
 /**
  * Zod schema for PhalaCloud verification request
  */
@@ -183,10 +148,7 @@ const PhalaCloudVerificationRequestSchema = z.object({
 /**
  * Zod schema for verification request (discriminated union)
  */
-export const VerificationRequestSchema = z.union([
-  RedpillVerificationRequestSchema,
-  PhalaCloudVerificationRequestSchema,
-])
+export const VerificationRequestSchema = PhalaCloudVerificationRequestSchema
 
 /**
  * Zod schema for verification error

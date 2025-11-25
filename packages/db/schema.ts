@@ -65,7 +65,7 @@ export const TaskSchema = z.object({
   appName: z.string(), // From apps table
   appConfigType: AppConfigTypeSchema, // From apps table
   contractAddress: z.string(), // From apps table
-  modelOrDomain: z.string(), // From apps table
+  domain: z.string(), // From apps table
   dstackVersion: z.string().nullable(), // From apps table
   isPublic: z.boolean(), // From apps table
   verificationFlags: VerificationFlagsSchema.nullable(),
@@ -132,7 +132,7 @@ export const AppSchema = z.object({
   appName: z.string(),
   appConfigType: AppConfigTypeSchema,
   contractAddress: z.string(),
-  modelOrDomain: z.string(),
+  domain: z.string(),
   dstackVersion: z.string().nullable(),
   workspaceId: z.number(),
   creatorId: z.number(),
@@ -165,7 +165,7 @@ export const appsTable = pgTable(
 
     // App configuration
     contractAddress: text().notNull(),
-    modelOrDomain: text().notNull(), // Model for redpill, domain for phala_cloud
+    domain: text().notNull(),
     dstackVersion: text(), // DStack version (e.g., 'v0.5.3')
 
     // Upstream metadata

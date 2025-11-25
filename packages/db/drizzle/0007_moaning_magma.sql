@@ -1,0 +1,1 @@
+ALTER TABLE "apps" RENAME COLUMN "model_or_domain" TO "domain";

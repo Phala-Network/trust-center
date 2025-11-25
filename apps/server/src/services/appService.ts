@@ -89,7 +89,7 @@ export const createAppService = (
           appName: sql`EXCLUDED.app_name`,
           appConfigType: sql`EXCLUDED.app_config_type`,
           contractAddress: sql`EXCLUDED.contract_address`,
-          modelOrDomain: sql`EXCLUDED.model_or_domain`,
+          domain: sql`EXCLUDED.domain`,
           dstackVersion: sql`EXCLUDED.dstack_version`,
           workspaceId: sql`EXCLUDED.workspace_id`,
           creatorId: sql`EXCLUDED.creator_id`,
@@ -125,8 +125,8 @@ export const createAppService = (
       .where(
         sql`${appsTable.contractAddress} IS NOT NULL
             AND ${appsTable.contractAddress} != ''
-            AND ${appsTable.modelOrDomain} IS NOT NULL
-            AND ${appsTable.modelOrDomain} != ''
+            AND ${appsTable.domain} IS NOT NULL
+            AND ${appsTable.domain} != ''
             AND ${appsTable.deleted} = false`,
       )
   }
@@ -144,8 +144,8 @@ export const createAppService = (
         sql`${appsTable.id} = ANY(${ids})
             AND ${appsTable.contractAddress} IS NOT NULL
             AND ${appsTable.contractAddress} != ''
-            AND ${appsTable.modelOrDomain} IS NOT NULL
-            AND ${appsTable.modelOrDomain} != ''
+            AND ${appsTable.domain} IS NOT NULL
+            AND ${appsTable.domain} != ''
             AND ${appsTable.deleted} = false`,
       )
   }
@@ -156,8 +156,8 @@ export const createAppService = (
   // 2. No tasks at all (never verified), OR
   // 3. Latest task is 'failed' and finished more than 30 minutes ago
   const getAppsNeedingVerification = async () => {
-    const oneDayAgo = subDays(new Date(), 1)
-    const thirtyMinutesAgo = subMinutes(new Date(), 30)
+    const oneDayAgo = subDays(new Date(), 1).toISOString()
+    const thirtyMinutesAgo = subMinutes(new Date(), 30).toISOString()
 
     // CTE: Latest task for each app (with row_number approach)
     const latestTaskPerApp = db.$with('latest_task_per_app').as(
@@ -192,8 +192,8 @@ export const createAppService = (
           // Basic validation
           sql`${appsTable.contractAddress} IS NOT NULL`,
           sql`${appsTable.contractAddress} != ''`,
-          sql`${appsTable.modelOrDomain} IS NOT NULL`,
-          sql`${appsTable.modelOrDomain} != ''`,
+          sql`${appsTable.domain} IS NOT NULL`,
+          sql`${appsTable.domain} != ''`,
           eq(appsTable.deleted, false),
           // Include if ANY of these conditions is true:
           or(

@@ -5,9 +5,9 @@
 /**
  * Types of KMS verifiers available
  */
-export type KmsVerifierType = 'redpill' | 'phala-cloud'
+export type KmsVerifierType = 'phala-cloud'
 
 /**
  * Types of application verifiers available
  */
-export type AppVerifierType = 'redpill' | 'phala-cloud'
+export type AppVerifierType = 'phala-cloud'

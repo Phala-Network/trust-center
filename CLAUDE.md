@@ -121,14 +121,14 @@ Core verification engine for TEE attestation validation.
 
 **Exports:**
 - `VerificationService`: Main verification orchestration class
-- Config types: `RedpillConfig`, `PhalaCloudConfig`, `VerificationFlags`
+- Config types: `PhalaCloudConfig`, `VerificationFlags`
 - API types: `VerificationResponse`, `VerificationError`
 - Metadata types: `AppMetadata`, `OSSourceInfo`, `AppSourceInfo`, `HardwareInfo`, `GovernanceInfo`
 - Schema: `AppMetadataSchema` (Zod validation)
 
 **Architecture:**
 - `VerificationService` (src/verificationService.ts): Top-level orchestration with DataObjectCollector instance per verification
-- `Verifier Chain` (src/verifierChain.ts): Creates appropriate verifiers based on app type (Redpill vs Phala Cloud)
+- `Verifier Chain` (src/verifierChain.ts): Creates appropriate verifiers for Phala Cloud apps
 - `Verifiers` (src/verifiers/): Entity-specific verifiers (App, KMS, Gateway) with legacy support
 - `Verification Modules` (src/verification/): Isolated verification logic
   - `hardwareVerification.ts`: Intel DCAP-QVL integration
@@ -428,10 +428,10 @@ import { VerificationService } from '@phala/dstack-verifier'
 // Create a new service instance (important: one per verification task)
 const service = new VerificationService()
 
-// Redpill app verification
+// Phala Cloud app verification
 const result = await service.verify({
-  contractAddress: '0x1234...',
-  model: 'phala/llama-3.1-8b',
+  appId: '0x1234567890abcdef',
+  domain: 'myapp.phala.network',
   metadata: {
     osSource: {
       github_repo: 'https://github.com/Dstack-TEE/meta-dstack',
@@ -447,12 +447,6 @@ const result = await service.verify({
   certificateKey: true,
   dnsCAA: false,
   ctLog: false  // Skip slow CT log queries
-})
-
-// Phala Cloud app verification
-const result2 = await service.verify({
-  contractAddress: '0x5678...',
-  domain: 'myapp.phala.network',
 })
 ```
 
@@ -503,7 +497,7 @@ Each entity (App, KMS, Gateway) follows this verification chain:
    ├─ Extract quote data using DCAP-QVL (Rust binary)
    ├─ Validate certificate chain against Intel root CA
    ├─ Extract MRTD, RTMR0-3, and event log
-   └─ For Redpill: Validate NVIDIA GPU attestation
+   └─ For GPU apps: Validate NVIDIA GPU attestation via Redpill API
 
 2. OS Integrity Verification
    ├─ Determine dstack OS version from systemInfo
@@ -545,9 +539,6 @@ Each entity (App, KMS, Gateway) follows this verification chain:
 The system uses a chain-of-responsibility pattern:
 
 ```typescript
-// For Redpill apps (GPU-based LLM inference)
-RedpillKmsVerifier → GatewayVerifier → RedpillVerifier
-
 // For Phala Cloud apps (current versions)
 PhalaCloudKmsVerifier → GatewayVerifier → PhalaCloudVerifier
 
