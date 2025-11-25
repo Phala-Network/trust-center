@@ -63,7 +63,7 @@ function isVersionGreaterOrEqual(
 // Helper function to determine custom user label based on business rules
 // Returns slugified values to ensure consistency with featured builders
 function determineUser(app: UpstreamAppData): string | null {
-  const {email, username, app_name} = app
+  const {email, username, app_name, docker_compose_file} = app
 
   // Crossmint -> Name contains crossmint
   if (app_name.toLowerCase().includes('crossmint')) {
@@ -117,6 +117,10 @@ function determineUser(app: UpstreamAppData): string | null {
   // Rift -> User == alpinevm
   if (username === 'alpinevm') {
     return 'rift'
+  }
+
+  if (docker_compose_file?.includes('primuslabs/attestor-node')) {
+    return 'primus'
   }
 
   return null

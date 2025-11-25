@@ -111,6 +111,7 @@ export const UpstreamAppDataSchema = z.object({
   email: z.string().nullable(),
   app_created_at: z.string(),
   vm_created_at: z.string(),
+  docker_compose_file: z.string().nullable(),
 })
 
 // Upstream profile data schema (from Metabase) - for validation

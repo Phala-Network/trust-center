@@ -19,11 +19,15 @@ export type WorkspaceBuilder = {
 export type FeaturedBuilder = StaticBuilder | WorkspaceBuilder
 
 // Type guards for Featured Builders
-export function isStaticBuilder(builder: FeaturedBuilder): builder is StaticBuilder {
+export function isStaticBuilder(
+  builder: FeaturedBuilder,
+): builder is StaticBuilder {
   return builder.type === 'static'
 }
 
-export function isWorkspaceBuilder(builder: FeaturedBuilder): builder is WorkspaceBuilder {
+export function isWorkspaceBuilder(
+  builder: FeaturedBuilder,
+): builder is WorkspaceBuilder {
   return builder.type === 'workspace'
 }
 
@@ -123,6 +127,12 @@ export const FEATURED_BUILDERS: FeaturedBuilder[] = [
     slug: 'propellerheads',
     displayName: 'PropellerHeads',
     logoUrl: '/logos/propeller-heads.jpg',
+  },
+  {
+    type: 'static',
+    slug: 'primus',
+    displayName: 'Primus',
+    logoUrl: '/logos/primus.svg',
   },
   {
     type: 'workspace',
