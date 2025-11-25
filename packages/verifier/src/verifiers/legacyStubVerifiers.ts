@@ -9,10 +9,11 @@ import type {
   DataObject,
   QuoteData,
   SystemInfo,
+  VerificationFailure,
 } from '../types'
-import type { DataObjectCollector } from '../utils/dataObjectCollector'
-import { kmsVersionToSourceInfo } from '../utils/metadataUtils'
-import { Verifier } from '../verifier'
+import type {DataObjectCollector} from '../utils/dataObjectCollector'
+import {kmsVersionToSourceInfo} from '../utils/metadataUtils'
+import {Verifier} from '../verifier'
 
 /**
  * Legacy KMS stub verifier - generates hardcoded KMS data objects for legacy versions
@@ -109,16 +110,25 @@ export class LegacyKmsStubVerifier extends Verifier {
     this.createDataObject(kmsHardware)
   }
 
-  public async verifyHardware(): Promise<boolean> {
-    return true // Legacy versions cannot be verified
+  public async verifyHardware(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
+    return {isValid: true, failures: []} // Legacy versions cannot be verified
   }
 
-  public async verifyOperatingSystem(): Promise<boolean> {
-    return true // Legacy versions cannot be verified
+  public async verifyOperatingSystem(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
+    return {isValid: true, failures: []} // Legacy versions cannot be verified
   }
 
-  public async verifySourceCode(): Promise<boolean> {
-    return true // Legacy versions cannot be verified
+  public async verifySourceCode(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
+    return {isValid: true, failures: []} // Legacy versions cannot be verified
   }
 
   public async getQuote(): Promise<QuoteData> {
@@ -232,16 +242,25 @@ export class LegacyGatewayStubVerifier extends Verifier {
     this.createDataObject(gatewayHardware)
   }
 
-  public async verifyHardware(): Promise<boolean> {
-    return true // Legacy versions cannot be verified
+  public async verifyHardware(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
+    return {isValid: true, failures: []} // Legacy versions cannot be verified
   }
 
-  public async verifyOperatingSystem(): Promise<boolean> {
-    return true // Legacy versions cannot be verified
+  public async verifyOperatingSystem(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
+    return {isValid: true, failures: []} // Legacy versions cannot be verified
   }
 
-  public async verifySourceCode(): Promise<boolean> {
-    return true // Legacy versions cannot be verified
+  public async verifySourceCode(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
+    return {isValid: true, failures: []} // Legacy versions cannot be verified
   }
 
   public async getQuote(): Promise<QuoteData> {

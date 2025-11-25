@@ -1,8 +1,9 @@
-import { createHash, X509Certificate } from 'node:crypto'
+import {createHash, X509Certificate} from 'node:crypto'
 
-import { safeParseQuoteExt } from '../schemas'
-import type { AcmeInfo, CTLogEntry, CTResult } from '../types'
-import { verifyQuote } from '../utils/dcap-qvl'
+import {safeParseQuoteExt} from '../schemas'
+import type {AcmeInfo, CTLogEntry, CTResult} from '../types'
+import {verifyQuote} from '../utils/dcap-qvl'
+import {isUpToDate} from './hardwareVerification'
 
 /** HTTP headers that mimic Chrome browser requests for external API calls */
 const CHROME_USER_AGENT_HEADERS = {
@@ -17,20 +18,24 @@ const CHROME_USER_AGENT_HEADERS = {
  */
 export async function verifyTeeControlledKey(
   acmeInfo: AcmeInfo,
-): Promise<boolean> {
+): Promise<{isValid: boolean; error?: string}> {
   const accountUri = acmeInfo.account_uri
   const accountQuote = acmeInfo.account_quote
 
   if (!accountUri) {
-    throw new Error(
-      'TEE controlled key verification failed: No ACME account URI provided',
-    )
+    return {
+      isValid: false,
+      error:
+        'TEE controlled key verification failed: No ACME account URI provided',
+    }
   }
 
   if (!accountQuote) {
-    throw new Error(
-      'TEE controlled key verification failed: No account quote provided',
-    )
+    return {
+      isValid: false,
+      error:
+        'TEE controlled key verification failed: No account quote provided',
+    }
   }
 
   try {
@@ -42,10 +47,11 @@ export async function verifyTeeControlledKey(
       },
     )
 
-    if (verificationResult.status !== 'UpToDate') {
-      throw new Error(
-        `TEE controlled key verification failed: Quote verification status is '${verificationResult.status}', expected 'UpToDate'`,
-      )
+    if (!isUpToDate(verificationResult)) {
+      return {
+        isValid: false,
+        error: `TEE controlled key verification failed: Quote verification status is '${verificationResult.status}', expected 'UpToDate'`,
+      }
     }
 
     const reportData = verificationResult.report.TD10.report_data
@@ -55,39 +61,50 @@ export async function verifyTeeControlledKey(
       .digest('hex')
 
     if (reportData !== expectedAccountHash) {
-      throw new Error(
-        `TEE controlled key verification failed: Report data mismatch. Expected hash for account '${accountUri}' but got different report data`,
-      )
+      return {
+        isValid: false,
+        error: `TEE controlled key verification failed: Report data mismatch. Expected hash for account '${accountUri}' but got different report data`,
+      }
     }
 
-    return true
+    return {isValid: true}
   } catch (error) {
     const errorMessage =
       error instanceof Error
         ? error.message
         : `Unknown error verifying TEE controlled key for account URI '${accountUri}'`
     console.error('TEE controlled key verification error:', errorMessage)
-    throw new Error(`TEE controlled key verification failed: ${errorMessage}`)
+    return {
+      isValid: false,
+      error: `TEE controlled key verification failed: ${errorMessage}`,
+    }
   }
 }
 
 /**
  * Verifies certificate chain integrity and trust.
  */
-export function verifyCertificateKey(acmeInfo: AcmeInfo): boolean {
-  const { active_cert: activeCertificate, hist_keys: historicalKeys } = acmeInfo
+export function verifyCertificateKey(acmeInfo: AcmeInfo): {
+  isValid: boolean
+  error?: string
+} {
+  const {active_cert: activeCertificate, hist_keys: historicalKeys} = acmeInfo
   const teePublicKey = historicalKeys[0]
 
   if (!activeCertificate) {
-    throw new Error(
-      'Certificate verification failed: No active certificate provided in ACME info',
-    )
+    return {
+      isValid: false,
+      error:
+        'Certificate verification failed: No active certificate provided in ACME info',
+    }
   }
 
   if (!teePublicKey) {
-    throw new Error(
-      'Certificate verification failed: No TEE public key found in historical keys',
-    )
+    return {
+      isValid: false,
+      error:
+        'Certificate verification failed: No TEE public key found in historical keys',
+    }
   }
 
   try {
@@ -95,16 +112,20 @@ export function verifyCertificateKey(acmeInfo: AcmeInfo): boolean {
     const leafCertificate = certificateChain[0]
 
     if (!leafCertificate) {
-      throw new Error(
-        'Certificate verification failed: Unable to parse leaf certificate from certificate chain',
-      )
+      return {
+        isValid: false,
+        error:
+          'Certificate verification failed: Unable to parse leaf certificate from certificate chain',
+      }
     }
 
     // Verify certificate chain integrity
     if (!verifyCertificateChain(certificateChain)) {
-      throw new Error(
-        'Certificate verification failed: Certificate chain validation failed',
-      )
+      return {
+        isValid: false,
+        error:
+          'Certificate verification failed: Certificate chain validation failed',
+      }
     }
 
     // Verify root certificate trust
@@ -114,23 +135,26 @@ export function verifyCertificateKey(acmeInfo: AcmeInfo): boolean {
       rootCertificate &&
       !isRootCertificateTrusted(rootCertificate)
     ) {
-      throw new Error(
-        `Certificate verification failed: Root certificate is not trusted (issuer: ${rootCertificate.issuer})`,
-      )
+      return {
+        isValid: false,
+        error: `Certificate verification failed: Root certificate is not trusted (issuer: ${rootCertificate.issuer})`,
+      }
     }
 
     // Check certificate validity period
     const currentTime = new Date()
     if (new Date(leafCertificate.validFrom) > currentTime) {
-      throw new Error(
-        `Certificate verification failed: Certificate is not yet valid (valid from: ${leafCertificate.validFrom})`,
-      )
+      return {
+        isValid: false,
+        error: `Certificate verification failed: Certificate is not yet valid (valid from: ${leafCertificate.validFrom})`,
+      }
     }
 
     if (new Date(leafCertificate.validTo) < currentTime) {
-      throw new Error(
-        `Certificate verification failed: Certificate has expired (valid to: ${leafCertificate.validTo})`,
-      )
+      return {
+        isValid: false,
+        error: `Certificate verification failed: Certificate has expired (valid to: ${leafCertificate.validTo})`,
+      }
     }
 
     // Compare public keys
@@ -141,19 +165,24 @@ export function verifyCertificateKey(acmeInfo: AcmeInfo): boolean {
     const teePublicKeyBuffer = Buffer.from(teePublicKey, 'hex')
 
     if (!leafCertificatePublicKey.equals(teePublicKeyBuffer)) {
-      throw new Error(
-        'Certificate verification failed: Certificate public key does not match TEE-controlled key',
-      )
+      return {
+        isValid: false,
+        error:
+          'Certificate verification failed: Certificate public key does not match TEE-controlled key',
+      }
     }
 
-    return true
+    return {isValid: true}
   } catch (error) {
     const errorMessage =
       error instanceof Error
         ? error.message
         : 'Unknown certificate verification error'
     console.error('Certificate verification error:', errorMessage)
-    throw new Error(`Certificate verification failed: ${errorMessage}`)
+    return {
+      isValid: false,
+      error: `Certificate verification failed: ${errorMessage}`,
+    }
   }
 }
 
@@ -163,46 +192,52 @@ export function verifyCertificateKey(acmeInfo: AcmeInfo): boolean {
 export async function verifyDnsCAA(
   domainName: string,
   acmeAccountUri: string,
-): Promise<boolean> {
+): Promise<{isValid: boolean; error?: string}> {
   const dnsUrl = `https://dns.google/resolve?name=${domainName}&type=CAA`
   try {
     const dnsResponse = await fetch(dnsUrl)
 
     if (!dnsResponse.ok) {
-      throw new Error(
-        `DNS CAA query failed for domain '${domainName}': ${dnsResponse.status} ${dnsResponse.statusText} (URL: ${dnsUrl})`,
-      )
+      return {
+        isValid: false,
+        error: `DNS CAA query failed for domain '${domainName}': ${dnsResponse.status} ${dnsResponse.statusText} (URL: ${dnsUrl})`,
+      }
     }
 
-    const { Answer: dnsRecords } = (await dnsResponse.json()) as {
-      Answer?: Array<{ type: number; data?: string }>
+    const {Answer: dnsRecords} = (await dnsResponse.json()) as {
+      Answer?: Array<{type: number; data?: string}>
     }
 
     const caaRecords = dnsRecords?.filter((record) => record.type === 257) ?? []
 
     if (caaRecords.length === 0) {
-      throw new Error(
-        `No CAA records found for domain '${domainName}' - domain does not have Certificate Authority Authorization configured`,
-      )
+      return {
+        isValid: false,
+        error: `No CAA records found for domain '${domainName}' - domain does not have Certificate Authority Authorization configured`,
+      }
     }
 
     const hasMatchingRecord = caaRecords.every((record) =>
       record.data?.includes(acmeAccountUri),
     )
     if (!hasMatchingRecord) {
-      throw new Error(
-        `CAA records for domain '${domainName}' do not authorize ACME account '${acmeAccountUri}' - found records: ${JSON.stringify(caaRecords.map((r) => r.data))}`,
-      )
+      return {
+        isValid: false,
+        error: `CAA records for domain '${domainName}' do not authorize ACME account '${acmeAccountUri}' - found records: ${JSON.stringify(caaRecords.map((r) => r.data))}`,
+      }
     }
 
-    return true
+    return {isValid: true}
   } catch (error) {
     const errorMessage =
       error instanceof Error
         ? error.message
         : `Unknown DNS CAA verification error for domain '${domainName}'`
     console.error('DNS CAA verification error:', errorMessage)
-    throw new Error(`DNS CAA verification failed: ${errorMessage}`)
+    return {
+      isValid: false,
+      error: `DNS CAA verification failed: ${errorMessage}`,
+    }
   }
 }
 
@@ -210,7 +245,7 @@ export async function verifyDnsCAA(
  * Verifies complete TEE control through Certificate Transparency logs.
  */
 export async function verifyCTLog(acmeInfo: AcmeInfo): Promise<CTResult> {
-  const { base_domain: domainName, hist_keys: teePublicKeys } = acmeInfo
+  const {base_domain: domainName, hist_keys: teePublicKeys} = acmeInfo
   const certificateHistory = await queryCTLogs(domainName)
 
   let teeControlledCertificateCount = 0
@@ -396,7 +431,7 @@ async function queryCTLogs(domainName: string): Promise<CTLogEntry[]> {
 async function processCertificate(
   certificateEntry: CTLogEntry,
   teeControlledKeys: string[],
-): Promise<{ publicKeyHex: string; isTeeControlled: boolean } | null> {
+): Promise<{publicKeyHex: string; isTeeControlled: boolean} | null> {
   const certificatePem = await fetchCertificateById(certificateEntry.id)
   if (!certificatePem) {
     return null
@@ -413,7 +448,7 @@ async function processCertificate(
     teeControlledKeys,
   )
 
-  return { publicKeyHex, isTeeControlled }
+  return {publicKeyHex, isTeeControlled}
 }
 
 async function fetchCertificateById(

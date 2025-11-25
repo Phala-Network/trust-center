@@ -5,25 +5,23 @@
  * configuration and flags, collecting DataObjects and tracking execution metadata.
  */
 
-import type {
-  PhalaCloudConfig,
-  VerificationFlags,
-} from './config'
-import { DEFAULT_VERIFICATION_FLAGS } from './config'
+import type {PhalaCloudConfig, VerificationFlags} from './config'
+import {DEFAULT_VERIFICATION_FLAGS} from './config'
 import type {
   ObjectRelationship,
   SystemInfo,
   VerificationError,
+  VerificationFailure,
   VerificationResponse,
 } from './types'
-import { DataObjectCollector } from './utils/dataObjectCollector'
-import { maskSensitiveDataObjects } from './utils/maskSensitiveData'
+import {DataObjectCollector} from './utils/dataObjectCollector'
+import {maskSensitiveDataObjects} from './utils/maskSensitiveData'
 import {
   getGitCommitFromImageVersion,
   supportsOnchainKms,
 } from './utils/metadataUtils'
-import { createVerifiers, executeVerifiers } from './verifierChain'
-import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
+import {createVerifiers, executeVerifiers} from './verifierChain'
+import {PhalaCloudVerifier} from './verifiers/phalaCloudVerifier'
 
 /**
  * Service class for orchestrating verification operations
@@ -31,6 +29,7 @@ import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
  * data pollution between concurrent verifications.
  */
 export class VerificationService {
+  private failures: VerificationFailure[] = []
   private errors: VerificationError[] = []
   private collector: DataObjectCollector
 
@@ -47,6 +46,7 @@ export class VerificationService {
     flags?: Partial<VerificationFlags>,
   ): Promise<VerificationResponse> {
     this.errors = []
+    this.failures = []
 
     // Merge provided flags with default flags
     const mergedFlags: VerificationFlags = {
@@ -82,7 +82,8 @@ export class VerificationService {
       this.configureVerifierRelationships(systemInfo)
 
       // Convert errors to the expected format
-      this.errors = result.errors.map((error) => ({ message: error }))
+      this.errors = result.errors.map((error) => ({message: error}))
+      this.failures = result.failures
 
       return this.buildResponse()
     } catch (error) {
@@ -160,7 +161,7 @@ export class VerificationService {
       },
     ]
 
-    this.collector.configureVerifierRelationships({ relationships })
+    this.collector.configureVerifierRelationships({relationships})
   }
 
   /**
@@ -188,6 +189,7 @@ export class VerificationService {
       dataObjects: maskedDataObjects,
       completedAt: new Date().toISOString(),
       errors: [...this.errors],
+      failures: [...this.failures],
       success,
     }
   }

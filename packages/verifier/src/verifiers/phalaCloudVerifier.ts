@@ -1,6 +1,6 @@
-import { z } from 'zod'
+import {z} from 'zod'
 
-import { AppDataObjectGenerator } from '../dataObjects/appDataObjectGenerator'
+import {AppDataObjectGenerator} from '../dataObjects/appDataObjectGenerator'
 import {
   BasicVmConfigSchema,
   EventLogSchema,
@@ -23,25 +23,23 @@ import {
   parseJsonFields,
   type QuoteData,
   type SystemInfo,
+  type VerificationFailure,
 } from '../types'
-import type { DataObjectCollector } from '../utils/dataObjectCollector'
-import { DstackApp } from '../utils/dstackContract'
+import type {DataObjectCollector} from '../utils/dataObjectCollector'
+import {DstackApp} from '../utils/dstackContract'
 import {
   createImageVersion,
   createKmsVersion,
   supportsInfoRpcEndpoint,
   supportsOnchainKms,
 } from '../utils/metadataUtils'
-import {
-  isUpToDate,
-  verifyTeeQuote,
-} from '../verification/hardwareVerification'
+import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
 import {
   verifyOSIntegrity,
   verifyOSIntegrityLegacy,
 } from '../verification/osVerification'
-import { verifyComposeHash } from '../verification/sourceCodeVerification'
-import { Verifier } from '../verifier'
+import {verifyComposeHash} from '../verification/sourceCodeVerification'
+import {Verifier} from '../verifier'
 
 export class PhalaCloudVerifier extends Verifier {
   public registrySmartContract?: DstackApp
@@ -52,7 +50,7 @@ export class PhalaCloudVerifier extends Verifier {
   private systemInfo: SystemInfo
 
   // Cache for Redpill models
-  private static modelCache: { models: any[]; timestamp: number } | null = null
+  private static modelCache: {models: any[]; timestamp: number} | null = null
   private static readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   constructor(
@@ -214,9 +212,7 @@ export class PhalaCloudVerifier extends Verifier {
   /**
    * Static method to fetch system info from Phala Cloud API without instantiating the verifier
    */
-  public static async getSystemInfo(
-    appId: AppId,
-  ): Promise<SystemInfo> {
+  public static async getSystemInfo(appId: AppId): Promise<SystemInfo> {
     const apiUrl = `https://cloud-api.phala.network/api/v1/apps/${appId}/attestations`
 
     try {
@@ -309,7 +305,7 @@ export class PhalaCloudVerifier extends Verifier {
       const data = await response.json()
       // The API returns { data: [...] }
       const models = (data as any).data || []
-      PhalaCloudVerifier.modelCache = { models, timestamp: now }
+      PhalaCloudVerifier.modelCache = {models, timestamp: now}
       return models
     } catch (error) {
       console.warn('Failed to fetch Redpill models:', error)
@@ -317,9 +313,13 @@ export class PhalaCloudVerifier extends Verifier {
     }
   }
 
-  public async verifyHardware(): Promise<boolean> {
+  public async verifyHardware(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
     const quoteData = await this.getQuote()
     const verificationResult = await verifyTeeQuote(quoteData)
+    const failures: VerificationFailure[] = []
 
     let attestationBundle: AttestationBundle | undefined
 
@@ -368,11 +368,24 @@ export class PhalaCloudVerifier extends Verifier {
       this.createDataObject(obj)
     })
 
-    return isUpToDate(verificationResult)
+    // Check hardware verification result
+    const isValid = isUpToDate(verificationResult)
+    if (!isValid) {
+      failures.push({
+        componentId: 'app-main',
+        error: `Hardware verification failed: TEE attestation status is '${verificationResult.status}' (expected 'UpToDate')`,
+      })
+    }
+
+    return {isValid, failures}
   }
 
-  public async verifyOperatingSystem(): Promise<boolean> {
+  public async verifyOperatingSystem(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
     const appInfo = await this.getAppInfo()
+    const failures: VerificationFailure[] = []
 
     // Get image version from first instance
     const imageFolderName = this.systemInfo.instances[0]?.image_version
@@ -381,7 +394,7 @@ export class PhalaCloudVerifier extends Verifier {
     }
 
     // Ensure image is downloaded
-    const { ensureDstackImage } = await import('../utils/imageDownloader')
+    const {ensureDstackImage} = await import('../utils/imageDownloader')
     await ensureDstackImage(imageFolderName)
 
     const isValid = supportsOnchainKms(this.systemInfo.kms_info.version)
@@ -397,14 +410,26 @@ export class PhalaCloudVerifier extends Verifier {
       this.createDataObject(obj)
     })
 
-    return isValid
+    if (!isValid) {
+      failures.push({
+        componentId: 'app-main',
+        error:
+          'Operating system verification failed: Measurement registers (MRTD, RTMR0-2) do not match expected values',
+      })
+    }
+
+    return {isValid, failures}
   }
 
-  public async verifySourceCode(): Promise<boolean> {
+  public async verifySourceCode(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
     const appInfo = await this.getAppInfo()
     const quoteData = await this.getQuote()
+    const failures: VerificationFailure[] = []
 
-    const { isValid, calculatedHash, isRegistered } = await verifyComposeHash(
+    const {isValid, calculatedHash, isRegistered} = await verifyComposeHash(
       appInfo,
       quoteData,
       this.registrySmartContract,
@@ -423,6 +448,22 @@ export class PhalaCloudVerifier extends Verifier {
       this.createDataObject(obj)
     })
 
-    return isValid
+    if (!isValid) {
+      if (this.registrySmartContract && !isRegistered) {
+        failures.push({
+          componentId: 'app-main',
+          error:
+            'Source code verification failed: Compose hash is not registered in the on-chain registry',
+        })
+      } else {
+        failures.push({
+          componentId: 'app-main',
+          error:
+            'Source code verification failed: Calculated compose hash does not match the hash in RTMR3 event log',
+        })
+      }
+    }
+
+    return {isValid, failures}
   }
 }
