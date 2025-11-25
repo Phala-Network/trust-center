@@ -34,8 +34,8 @@ export const ReportHeader: React.FC<{
   const displayName = app.profile?.displayName || app.appName
   // Show workspace displayName (all apps should have featured builder workspace profile)
   const displayUser = app.workspaceProfile?.displayName || undefined
-  // Use customDomain if available, otherwise fallback to modelOrDomain
-  const displayDomain = app.profile?.customDomain || app.modelOrDomain
+  // Use customDomain if available, otherwise fallback to domain
+  const displayDomain = app.profile?.customDomain || app.domain
 
   // Get avatar URL from profile (priority: app → workspace → user)
   const avatarUrl =

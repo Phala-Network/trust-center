@@ -124,9 +124,9 @@ export const createQueueService = (
           )
         }
 
-        if (!app.modelOrDomain) {
+        if (!app.domain) {
           throw new Error(
-            `Missing modelOrDomain for app ${app.id}. This should have been filtered earlier.`,
+            `Missing domain for app ${app.id}. This should have been filtered earlier.`,
           )
         }
 
@@ -154,7 +154,7 @@ export const createQueueService = (
           JSON.stringify(
             {
               contractAddress: app.contractAddress,
-              modelOrDomain: app.modelOrDomain,
+              domain: app.domain,
               metadata: appMetadata,
             },
             null,
@@ -169,7 +169,7 @@ export const createQueueService = (
         // We only support PhalaCloudConfig now as Redpill support has been removed
         const appConfig: PhalaCloudConfig = {
           appId: toAppId(app.id),
-          domain: app.modelOrDomain,
+          domain: app.domain,
           metadata: appMetadata,
         }
 

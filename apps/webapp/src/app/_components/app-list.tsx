@@ -21,8 +21,8 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
   const displayName = app.profile?.displayName || app.appName
   // Show workspace displayName (all apps should have featured builder workspace profile)
   const displayOwner = app.workspaceProfile?.displayName || undefined
-  // Use customDomain if available, otherwise fallback to modelOrDomain
-  const displayDomain = app.profile?.customDomain || app.modelOrDomain
+  // Use customDomain if available, otherwise fallback to domain
+  const displayDomain = app.profile?.customDomain || app.domain
 
   // Avatar priority: app → workspace → user
   const avatarUrl =

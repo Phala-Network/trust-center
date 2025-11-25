@@ -52,7 +52,7 @@ export interface App {
   appName: string
   appConfigType: 'redpill' | 'phala_cloud'
   contractAddress: string
-  modelOrDomain: string
+  domain: string
   dstackVersion: string | null
   workspaceId: number
   creatorId: number
@@ -181,7 +181,7 @@ function resultToAppWithTask(result: {
     appName: appData.appName,
     appConfigType: appData.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: appData.contractAddress,
-    modelOrDomain: appData.modelOrDomain,
+    domain: appData.domain,
     dstackVersion: appData.dstackVersion,
     workspaceId: appData.workspaceId,
     creatorId: appData.creatorId,
@@ -203,7 +203,7 @@ function resultToAppWithTask(result: {
     appName: appData.appName,
     appConfigType: appData.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: appData.contractAddress,
-    modelOrDomain: appData.modelOrDomain,
+    domain: appData.domain,
     verificationFlags: taskData.verificationFlags as VerificationFlags | null,
     status: taskData.status,
     errorMessage: taskData.errorMessage ?? null,
