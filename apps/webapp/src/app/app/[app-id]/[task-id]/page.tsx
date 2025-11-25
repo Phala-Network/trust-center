@@ -12,7 +12,7 @@ interface TaskPageProps {
 }
 
 export const generateMetadata = async ({params}: TaskPageProps) => {
-  const {['app-id']: appId} = await params
+  const {['app-id']: appId, ['task-id']: taskId} = await params
   const app = await getApp(appId)
   if (app == null) {
     notFound()
@@ -20,6 +20,12 @@ export const generateMetadata = async ({params}: TaskPageProps) => {
 
   // Use displayName if available, otherwise fallback to appName
   const displayName = app.profile?.displayName || app.appName
+  const displayUser = app.workspaceProfile?.displayName || app.customUser
+  const description =
+    app.profile?.description ||
+    `Verified TEE application${displayUser ? ` by ${displayUser}` : ''} - Hardware, OS, and source code attestation verified on Phala Trust Center`
+
+  const url = `https://trust.phala.network/app/${appId}/${taskId}`
 
   // Only allow indexing for public apps
   const robots = app.isPublic
@@ -31,7 +37,22 @@ export const generateMetadata = async ({params}: TaskPageProps) => {
 
   return {
     title: displayName,
-    description: `Trust report for ${displayName} by Phala`,
+    description,
+    openGraph: {
+      title: `${displayName} - Verified on Phala Trust Center`,
+      description,
+      url,
+      siteName: 'Phala Trust Center',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${displayName} - Verified on Phala Trust Center`,
+      description,
+    },
+    alternates: {
+      canonical: url,
+    },
     ...(robots && {robots}),
   }
 }

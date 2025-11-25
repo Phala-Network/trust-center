@@ -22,10 +22,31 @@ export const generateMetadata = async ({params}: AppPageProps) => {
 
   // Use displayName if available, otherwise fallback to appName
   const displayName = app.profile?.displayName || app.appName
+  const displayUser = app.workspaceProfile?.displayName || app.customUser
+  const description =
+    app.profile?.description ||
+    `Verified TEE application${displayUser ? ` by ${displayUser}` : ''} - Hardware, OS, and source code attestation verified on Phala Trust Center`
+
+  const url = `https://trust.phala.network/app/${appId}`
 
   return {
     title: displayName,
-    description: `Trust report for ${displayName} by Phala`,
+    description,
+    openGraph: {
+      title: `${displayName} - Verified on Phala Trust Center`,
+      description,
+      url,
+      siteName: 'Phala Trust Center',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${displayName} - Verified on Phala Trust Center`,
+      description,
+    },
+    alternates: {
+      canonical: url,
+    },
   }
 }
 
