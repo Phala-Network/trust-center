@@ -156,8 +156,8 @@ export const createAppService = (
   // 2. No tasks at all (never verified), OR
   // 3. Latest task is 'failed' and finished more than 30 minutes ago
   const getAppsNeedingVerification = async () => {
-    const oneDayAgo = subDays(new Date(), 1)
-    const thirtyMinutesAgo = subMinutes(new Date(), 30)
+    const oneDayAgo = subDays(new Date(), 1).toISOString()
+    const thirtyMinutesAgo = subMinutes(new Date(), 30).toISOString()
 
     // CTE: Latest task for each app (with row_number approach)
     const latestTaskPerApp = db.$with('latest_task_per_app').as(
