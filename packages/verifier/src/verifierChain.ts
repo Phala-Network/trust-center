@@ -2,26 +2,23 @@
  * Simple verifier chain - creates and executes the right verifiers based on app config
  */
 
-import type {
-  PhalaCloudConfig,
-  VerificationFlags,
-} from './config'
-import type { AppMetadata, SystemInfo } from './types'
-import type { DataObjectCollector } from './utils/dataObjectCollector'
+import type {PhalaCloudConfig, VerificationFlags} from './config'
+import type {AppMetadata, SystemInfo, VerificationFailure} from './types'
+import type {DataObjectCollector} from './utils/dataObjectCollector'
 import {
   completeAppMetadata,
   createGatewayMetadata,
   createKmsMetadata,
   supportsOnchainKms,
 } from './utils/metadataUtils'
-import type { Verifier } from './verifier'
-import { GatewayVerifier } from './verifiers/gatewayVerifier'
+import type {Verifier} from './verifier'
+import {GatewayVerifier} from './verifiers/gatewayVerifier'
 import {
   LegacyGatewayStubVerifier,
   LegacyKmsStubVerifier,
 } from './verifiers/legacyStubVerifiers'
-import { PhalaCloudKmsVerifier } from './verifiers/phalaCloudKmsVerifier'
-import { PhalaCloudVerifier } from './verifiers/phalaCloudVerifier'
+import {PhalaCloudKmsVerifier} from './verifiers/phalaCloudKmsVerifier'
+import {PhalaCloudVerifier} from './verifiers/phalaCloudVerifier'
 
 /**
  * Creates the right verifiers based on app configuration
@@ -44,7 +41,9 @@ export function createVerifiers(
   )
 
   if (!supportsOnchainKms(systemInfo.kms_info.version)) {
-    console.log("[VerifierChain] Detected legacy KMS version (< 0.5.3), using stub verifiers")
+    console.log(
+      '[VerifierChain] Detected legacy KMS version (< 0.5.3), using stub verifiers',
+    )
     // Legacy Phala Cloud app: use stub verifiers + PhalaApp verifier
     verifiers.push(
       new LegacyKmsStubVerifier(systemInfo, collector),
@@ -78,8 +77,13 @@ export function createVerifiers(
 export async function executeVerifiers(
   verifiers: Verifier[],
   flags: VerificationFlags,
-): Promise<{ success: boolean; errors: string[] }> {
+): Promise<{
+  success: boolean
+  errors: string[]
+  failures: VerificationFailure[]
+}> {
   const errors: string[] = []
+  const failures: VerificationFailure[] = []
 
   for (const verifier of verifiers) {
     const verifierName = verifier.constructor.name
@@ -93,6 +97,9 @@ export async function executeVerifiers(
           `[VerifierChain] ${verifierName}.verifyHardware() returned:`,
           result,
         )
+        if (result.failures.length > 0) {
+          failures.push(...result.failures)
+        }
       }
       if (flags.os) {
         const result = await verifier.verifyOperatingSystem()
@@ -100,6 +107,9 @@ export async function executeVerifiers(
           `[VerifierChain] ${verifierName}.verifyOperatingSystem() returned:`,
           result,
         )
+        if (result.failures.length > 0) {
+          failures.push(...result.failures)
+        }
       }
       if (flags.sourceCode) {
         const result = await verifier.verifySourceCode()
@@ -107,6 +117,9 @@ export async function executeVerifiers(
           `[VerifierChain] ${verifierName}.verifySourceCode() returned:`,
           result,
         )
+        if (result.failures.length > 0) {
+          failures.push(...result.failures)
+        }
       }
 
       // Run domain verification for Gateway verifier
@@ -117,6 +130,14 @@ export async function executeVerifiers(
             `[VerifierChain] ${verifierName}.verifyTeeControlledKey() returned:`,
             result,
           )
+          if (!result.isValid) {
+            failures.push({
+              componentId: 'gateway-main',
+              error:
+                result.error ||
+                `${verifierName}: TEE controlled key verification failed`,
+            })
+          }
         }
         if (flags.certificateKey) {
           const result = await verifier.verifyCertificateKey()
@@ -124,6 +145,14 @@ export async function executeVerifiers(
             `[VerifierChain] ${verifierName}.verifyCertificateKey() returned:`,
             result,
           )
+          if (!result.isValid) {
+            failures.push({
+              componentId: 'gateway-main',
+              error:
+                result.error ||
+                `${verifierName}: Certificate key verification failed`,
+            })
+          }
         }
         if (flags.dnsCAA) {
           const result = await verifier.verifyDnsCAA()
@@ -131,6 +160,13 @@ export async function executeVerifiers(
             `[VerifierChain] ${verifierName}.verifyDnsCAA() returned:`,
             result,
           )
+          if (!result.isValid) {
+            failures.push({
+              componentId: 'gateway-main',
+              error:
+                result.error || `${verifierName}: DNS CAA verification failed`,
+            })
+          }
         }
         if (flags.ctLog) {
           const result = await verifier.verifyCTLog()
@@ -138,6 +174,12 @@ export async function executeVerifiers(
             `[VerifierChain] ${verifierName}.verifyCTLog() returned:`,
             result,
           )
+          if (!result.tee_controlled) {
+            failures.push({
+              componentId: 'gateway-main',
+              error: `${verifierName}: Certificate Transparency log verification failed`,
+            })
+          }
         }
       }
 
@@ -152,5 +194,6 @@ export async function executeVerifiers(
   return {
     success: errors.length === 0,
     errors,
+    failures,
   }
 }

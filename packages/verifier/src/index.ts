@@ -1,8 +1,8 @@
 // Core verifier exports
-export { VerificationService } from './verificationService'
+export {VerificationService} from './verificationService'
 
 // Utility exports
-export { maskSensitiveDataObjects } from './utils/maskSensitiveData'
+export {maskSensitiveDataObjects} from './utils/maskSensitiveData'
 export {
   AppIdSchema,
   ContractAddressSchema,
@@ -11,7 +11,7 @@ export {
   toAppId,
   toContractAddress,
 } from './types/utils'
-export type { AppId, ContractAddress } from './types/utils'
+export type {AppId, ContractAddress} from './types/utils'
 
 // Config types
 export type {
@@ -20,7 +20,11 @@ export type {
 } from './config'
 
 // API types
-export type { VerificationResponse, VerificationError } from './types/api'
+export type {
+  VerificationResponse,
+  VerificationError,
+  VerificationFailure,
+} from './types/api'
 
 // Metadata types
 export type {
@@ -33,4 +37,4 @@ export type {
 } from './types/metadata'
 
 // Schemas
-export { AppMetadataSchema } from './types/metadata'
+export {AppMetadataSchema} from './types/metadata'

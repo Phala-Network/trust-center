@@ -1,4 +1,4 @@
-import { GatewayDataObjectGenerator } from '../dataObjects/gatewayDataObjectGenerator'
+import {GatewayDataObjectGenerator} from '../dataObjects/gatewayDataObjectGenerator'
 import {
   KeyProviderSchema,
   safeParseEventLog,
@@ -16,22 +16,20 @@ import {
   type QuoteData,
   type SystemInfo,
   toContractAddress,
+  type VerificationFailure,
 } from '../types'
-import type { DataObjectCollector } from '../utils/dataObjectCollector'
-import { DstackApp } from '../utils/dstackContract'
+import type {DataObjectCollector} from '../utils/dataObjectCollector'
+import {DstackApp} from '../utils/dstackContract'
 import {
   verifyCertificateKey,
   verifyCTLog,
   verifyDnsCAA,
   verifyTeeControlledKey,
 } from '../verification/domainVerification'
-import {
-  isUpToDate,
-  verifyTeeQuote,
-} from '../verification/hardwareVerification'
-import { verifyOSIntegrity } from '../verification/osVerification'
-import { verifyComposeHash } from '../verification/sourceCodeVerification'
-import { type OwnDomain, Verifier } from '../verifier'
+import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
+import {verifyOSIntegrity} from '../verification/osVerification'
+import {verifyComposeHash} from '../verification/sourceCodeVerification'
+import {type OwnDomain, Verifier} from '../verifier'
 
 /**
  * Gateway verifier implementation for DStack TEE applications with domain verification.
@@ -125,9 +123,13 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   /**
    * Verifies the hardware attestation by validating the TDX quote.
    */
-  public async verifyHardware(): Promise<boolean> {
+  public async verifyHardware(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
     const quoteData = await this.getQuote()
     const verificationResult = await verifyTeeQuote(quoteData)
+    const failures: VerificationFailure[] = []
 
     // Generate DataObjects for Gateway hardware verification
     const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
@@ -138,17 +140,29 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       this.createDataObject(obj)
     })
 
-    return isUpToDate(verificationResult)
+    const isValid = isUpToDate(verificationResult)
+    if (!isValid) {
+      failures.push({
+        componentId: 'gateway-main',
+        error: `Hardware verification failed: TEE attestation status is '${verificationResult.status}' (expected 'UpToDate')`,
+      })
+    }
+
+    return {isValid, failures}
   }
 
   /**
    * Verifies the operating system integrity by comparing measurement registers.
    */
-  public async verifyOperatingSystem(): Promise<boolean> {
+  public async verifyOperatingSystem(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
     const appInfo = await this.getAppInfo()
+    const failures: VerificationFailure[] = []
 
     // Extract version from KMS info and construct image folder name
-    const { extractVersionNumber, ensureDstackImage } = await import(
+    const {extractVersionNumber, ensureDstackImage} = await import(
       '../utils/imageDownloader'
     )
     const version = extractVersionNumber(this.systemInfo.kms_info.version)
@@ -165,17 +179,29 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       this.createDataObject(obj)
     })
 
-    return isValid
+    if (!isValid) {
+      failures.push({
+        componentId: 'gateway-main',
+        error:
+          'Operating system verification failed: Measurement registers (MRTD, RTMR0-2) do not match expected values',
+      })
+    }
+
+    return {isValid, failures}
   }
 
   /**
    * Verifies the source code authenticity by validating the compose hash.
    */
-  public async verifySourceCode(): Promise<boolean> {
+  public async verifySourceCode(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
     const appInfo = await this.getAppInfo()
     const quoteData = await this.getQuote()
+    const failures: VerificationFailure[] = []
 
-    const { isValid, calculatedHash, isRegistered } = await verifyComposeHash(
+    const {isValid, calculatedHash, isRegistered} = await verifyComposeHash(
       appInfo,
       quoteData,
       this.registrySmartContract,
@@ -196,7 +222,23 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       this.createDataObject(obj)
     })
 
-    return isValid
+    if (!isValid) {
+      if (this.registrySmartContract && !isRegistered) {
+        failures.push({
+          componentId: 'gateway-main',
+          error:
+            'Source code verification failed: Compose hash is not registered in the on-chain registry',
+        })
+      } else {
+        failures.push({
+          componentId: 'gateway-main',
+          error:
+            'Source code verification failed: Calculated compose hash does not match the hash in RTMR3 event log',
+        })
+      }
+    }
+
+    return {isValid, failures}
   }
 
   /**
@@ -224,7 +266,10 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   /**
    * Verifies that the ACME account key is controlled by the TEE.
    */
-  public async verifyTeeControlledKey(): Promise<boolean> {
+  public async verifyTeeControlledKey(): Promise<{
+    isValid: boolean
+    error?: string
+  }> {
     const acmeInfo = await this.getAcmeInfo()
     return verifyTeeControlledKey(acmeInfo)
   }
@@ -232,7 +277,10 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   /**
    * Verifies that the TLS certificate matches the TEE-controlled public key.
    */
-  public async verifyCertificateKey(): Promise<boolean> {
+  public async verifyCertificateKey(): Promise<{
+    isValid: boolean
+    error?: string
+  }> {
     const acmeInfo = await this.getAcmeInfo()
     return verifyCertificateKey(acmeInfo)
   }
@@ -240,7 +288,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   /**
    * Verifies domain control through DNS CAA records.
    */
-  public async verifyDnsCAA(): Promise<boolean> {
+  public async verifyDnsCAA(): Promise<{isValid: boolean; error?: string}> {
     const acmeInfo = await this.getAcmeInfo()
     return verifyDnsCAA(acmeInfo.base_domain, acmeInfo.account_uri)
   }

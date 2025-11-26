@@ -5,12 +5,12 @@
  * for the HTTP REST API endpoints.
  */
 
-import { z } from 'zod'
+import {z} from 'zod'
 
-import type { VerificationFlags } from '../config'
-import type { DataObject } from './index'
-import type { AppMetadata } from './metadata'
-import type { AppId, ContractAddress } from './utils'
+import type {VerificationFlags} from '../config'
+import type {DataObject} from './index'
+import type {AppMetadata} from './metadata'
+import type {AppId, ContractAddress} from './utils'
 
 /**
  * Verification request payload for PhalaCloud verifier
@@ -39,6 +39,16 @@ export interface VerificationError {
 }
 
 /**
+ * Detailed verification failure information
+ */
+export interface VerificationFailure {
+  /** The specific component ID that failed (e.g., 'app-cpu') */
+  componentId?: string
+  /** Error message explaining the failure */
+  error: string
+}
+
+/**
  * Verification response payload
  */
 export interface VerificationResponse {
@@ -48,6 +58,8 @@ export interface VerificationResponse {
   completedAt: string
   /** Any errors that occurred during verification */
   errors: VerificationError[]
+  /** Detailed failures for verification steps that failed */
+  failures: VerificationFailure[]
   /** Overall success status */
   success: boolean
 }
@@ -158,12 +170,21 @@ export const VerificationErrorSchema = z.object({
 })
 
 /**
+ * Zod schema for verification failure
+ */
+export const VerificationFailureSchema = z.object({
+  componentId: z.string().optional(),
+  error: z.string(),
+})
+
+/**
  * Zod schema for verification response
  */
 export const VerificationResponseSchema = z.object({
   dataObjects: z.array(z.unknown()), // DataObject schema would be complex, using unknown for now
   completedAt: z.string(),
   errors: z.array(VerificationErrorSchema),
+  failures: z.array(VerificationFailureSchema),
   success: z.boolean(),
 })
 

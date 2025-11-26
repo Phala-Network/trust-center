@@ -1,21 +1,19 @@
-import { KmsDataObjectGenerator } from '../dataObjects/kmsDataObjectGenerator'
-import { safeParseEventLog } from '../schemas'
+import {KmsDataObjectGenerator} from '../dataObjects/kmsDataObjectGenerator'
+import {safeParseEventLog} from '../schemas'
 import type {
   AppInfo,
   AttestationBundle,
   KmsInfo,
   KmsMetadata,
   QuoteData,
+  VerificationFailure,
 } from '../types'
-import type { DataObjectCollector } from '../utils/dataObjectCollector'
-import { DstackKms } from '../utils/dstackContract'
-import {
-  isUpToDate,
-  verifyTeeQuote,
-} from '../verification/hardwareVerification'
-import { verifyOSIntegrity } from '../verification/osVerification'
-import { verifyComposeHash } from '../verification/sourceCodeVerification'
-import { Verifier } from '../verifier'
+import type {DataObjectCollector} from '../utils/dataObjectCollector'
+import {DstackKms} from '../utils/dstackContract'
+import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
+import {verifyOSIntegrity} from '../verification/osVerification'
+import {verifyComposeHash} from '../verification/sourceCodeVerification'
+import {Verifier} from '../verifier'
 
 /**
  * Abstract base class for KMS (Key Management Service) verifier implementations.
@@ -109,9 +107,13 @@ export abstract class KmsVerifier extends Verifier {
   /**
    * Verifies the hardware attestation by validating the TDX quote.
    */
-  public async verifyHardware(): Promise<boolean> {
+  public async verifyHardware(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
     const quoteData = await this.getQuote()
     const verificationResult = await verifyTeeQuote(quoteData)
+    const failures: VerificationFailure[] = []
 
     // Generate DataObjects for KMS hardware verification
     const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
@@ -122,17 +124,29 @@ export abstract class KmsVerifier extends Verifier {
       this.createDataObject(obj)
     })
 
-    return isUpToDate(verificationResult)
+    const isValid = isUpToDate(verificationResult)
+    if (!isValid) {
+      failures.push({
+        componentId: 'kms-main',
+        error: `Hardware verification failed: TEE attestation status is '${verificationResult.status}' (expected 'UpToDate')`,
+      })
+    }
+
+    return {isValid, failures}
   }
 
   /**
    * Verifies the operating system integrity by comparing measurement registers.
    */
-  public async verifyOperatingSystem(): Promise<boolean> {
+  public async verifyOperatingSystem(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
     const appInfo = await this.getAppInfo()
+    const failures: VerificationFailure[] = []
 
     // Extract version from KMS info and construct image folder name
-    const { extractVersionNumber, ensureDstackImage } = await import(
+    const {extractVersionNumber, ensureDstackImage} = await import(
       '../utils/imageDownloader'
     )
     const version = extractVersionNumber(this.kmsInfo.version)
@@ -141,7 +155,7 @@ export abstract class KmsVerifier extends Verifier {
     // Ensure image is downloaded
     await ensureDstackImage(imageFolderName)
 
-    const measurementResult = await verifyOSIntegrity(appInfo, imageFolderName)
+    const isValid = await verifyOSIntegrity(appInfo, imageFolderName)
 
     // Generate DataObjects for KMS OS verification
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(appInfo)
@@ -149,17 +163,29 @@ export abstract class KmsVerifier extends Verifier {
       this.createDataObject(obj)
     })
 
-    return measurementResult
+    if (!isValid) {
+      failures.push({
+        componentId: 'kms-main',
+        error:
+          'Operating system verification failed: Measurement registers (MRTD, RTMR0-2) do not match expected values',
+      })
+    }
+
+    return {isValid, failures}
   }
 
   /**
    * Verifies the source code authenticity by validating the compose hash.
    */
-  public async verifySourceCode(): Promise<boolean> {
+  public async verifySourceCode(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
     const appInfo = await this.getAppInfo()
     const quoteData = await this.getQuote()
+    const failures: VerificationFailure[] = []
 
-    const { isValid, calculatedHash } = await verifyComposeHash(
+    const {isValid, calculatedHash} = await verifyComposeHash(
       appInfo,
       quoteData,
       undefined, // KMS doesn't use registry validation
@@ -178,6 +204,14 @@ export abstract class KmsVerifier extends Verifier {
       this.createDataObject(obj)
     })
 
-    return isValid
+    if (!isValid) {
+      failures.push({
+        componentId: 'kms-main',
+        error:
+          'Source code verification failed: Calculated compose hash does not match the hash in RTMR3 event log',
+      })
+    }
+
+    return {isValid, failures}
   }
 }

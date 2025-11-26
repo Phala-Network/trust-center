@@ -9,8 +9,9 @@ import type {
   KmsMetadata,
   ObjectRelationship,
   QuoteData,
+  VerificationFailure,
 } from './types'
-import type { DataObjectCollector } from './utils/dataObjectCollector'
+import type {DataObjectCollector} from './utils/dataObjectCollector'
 
 /**
  * Abstract base class for TEE (Trusted Execution Environment) application verification.
@@ -98,23 +99,32 @@ export abstract class Verifier {
   /**
    * Verifies the hardware attestation signatures (Intel TDX and NVIDIA GPU).
    *
-   * @returns Promise resolving to true if hardware attestation is valid
+   * @returns Promise resolving to verification result with failures array
    */
-  public abstract verifyHardware(): Promise<boolean>
+  public abstract verifyHardware(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }>
 
   /**
    * Verifies the integrity of the operating system image.
    *
-   * @returns Promise resolving to true if OS integrity is verified
+   * @returns Promise resolving to verification result with failures array
    */
-  public abstract verifyOperatingSystem(): Promise<boolean>
+  public abstract verifyOperatingSystem(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }>
 
   /**
    * Verifies the authenticity of the source code through compose hash validation.
    *
-   * @returns Promise resolving to true if source code is verified
+   * @returns Promise resolving to verification result with failures array
    */
-  public abstract verifySourceCode(): Promise<boolean>
+  public abstract verifySourceCode(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }>
 
   /**
    * Get the verifier's metadata.
@@ -133,7 +143,7 @@ export abstract class Verifier {
   public updateMetadata(
     newMetadata: Partial<KmsMetadata | GatewayMetadata | AppMetadata>,
   ): void {
-    this.metadata = { ...this.metadata, ...newMetadata }
+    this.metadata = {...this.metadata, ...newMetadata}
   }
 }
 
@@ -157,16 +167,22 @@ export abstract class OwnDomain {
    * This ensures the private key corresponding to the public key is generated and
    * stored within the TEE and cannot be extracted.
    *
-   * @returns Promise resolving to true if the key is TEE-controlled
+   * @returns Promise resolving to verification result
    */
-  public abstract verifyTeeControlledKey(): Promise<boolean>
+  public abstract verifyTeeControlledKey(): Promise<{
+    isValid: boolean
+    error?: string
+  }>
 
   /**
    * Verifies that the TLS certificate matches the TEE-controlled public key.
    *
-   * @returns Promise resolving to true if certificate key matches TEE key
+   * @returns Promise resolving to verification result
    */
-  public abstract verifyCertificateKey(): Promise<boolean>
+  public abstract verifyCertificateKey(): Promise<{
+    isValid: boolean
+    error?: string
+  }>
 
   /**
    * Verifies domain control through DNS CAA (Certificate Authority Authorization) records.
@@ -174,9 +190,12 @@ export abstract class OwnDomain {
    * This ensures the domain can only issue certificates through the TEE-controlled
    * Let's Encrypt account.
    *
-   * @returns Promise resolving to true if DNS CAA records are properly configured
+   * @returns Promise resolving to verification result
    */
-  public abstract verifyDnsCAA(): Promise<boolean>
+  public abstract verifyDnsCAA(): Promise<{
+    isValid: boolean
+    error?: string
+  }>
 
   /**
    * Verifies complete TEE control over the domain through Certificate Transparency logs.
