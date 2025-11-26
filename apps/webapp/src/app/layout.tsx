@@ -22,7 +22,22 @@ export const metadata: Metadata = {
     default: 'Phala Trust Center',
   },
   description:
-    'Phala is the new cloud for confidential AI helping build AI people can trust.',
+    'Verify TEE applications on dstack - Hardware, OS, and source code attestation',
+  metadataBase: new URL('https://trust.phala.network'),
+  openGraph: {
+    title: 'Phala Trust Center',
+    description:
+      'Verify TEE applications on dstack - Hardware, OS, and source code attestation',
+    url: 'https://trust.phala.network',
+    siteName: 'Phala Trust Center',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Phala Trust Center',
+    description:
+      'Verify TEE applications on dstack - Hardware, OS, and source code attestation',
+  },
 }
 
 export default async function RootLayout({

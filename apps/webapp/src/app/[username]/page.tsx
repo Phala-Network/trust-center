@@ -27,9 +27,27 @@ export const generateMetadata = async ({params}: UserPageProps) => {
     }
   }
 
+  const description = `View ${profile.count} verified applications by ${profile.displayName} on Phala Trust Center`
+  const url = `https://trust.phala.network/${username}`
+
   return {
     title: `${profile.displayName} - Trust Center`,
-    description: `View applications by ${profile.displayName} on Phala Trust Center`,
+    description,
+    openGraph: {
+      title: `${profile.displayName} - Phala Trust Center`,
+      description,
+      url,
+      siteName: 'Phala Trust Center',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${profile.displayName} - Phala Trust Center`,
+      description,
+    },
+    alternates: {
+      canonical: url,
+    },
   }
 }
 
