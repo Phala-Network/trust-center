@@ -28,7 +28,7 @@ export const generateMetadata = async ({params}: UserPageProps) => {
   }
 
   const description = `View ${profile.count} verified applications by ${profile.displayName} on Phala Trust Center`
-  const url = `https://trust.phala.network/${username}`
+  const url = `https://trust.phala.com/${username}`
 
   return {
     title: `${profile.displayName} - Trust Center`,
@@ -42,6 +42,7 @@ export const generateMetadata = async ({params}: UserPageProps) => {
     },
     twitter: {
       card: 'summary_large_image',
+      site: '@PhalaNetwork',
       title: `${profile.displayName} - Phala Trust Center`,
       description,
     },

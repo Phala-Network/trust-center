@@ -25,7 +25,7 @@ export const generateMetadata = async ({params}: TaskPageProps) => {
     app.profile?.description ||
     `Verified TEE application${displayUser ? ` by ${displayUser}` : ''} - Hardware, OS, and source code attestation verified on Phala Trust Center`
 
-  const url = `https://trust.phala.network/app/${appId}/${taskId}`
+  const url = `https://trust.phala.com/app/${appId}/${taskId}`
 
   // Only allow indexing for public apps
   const robots = app.isPublic
@@ -47,6 +47,7 @@ export const generateMetadata = async ({params}: TaskPageProps) => {
     },
     twitter: {
       card: 'summary_large_image',
+      site: '@PhalaNetwork',
       title: `${displayName} - Verified on Phala Trust Center`,
       description,
     },

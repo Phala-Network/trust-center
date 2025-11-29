@@ -23,17 +23,18 @@ export const metadata: Metadata = {
   },
   description:
     'Verify TEE applications on dstack - Hardware, OS, and source code attestation',
-  metadataBase: new URL('https://trust.phala.network'),
+  metadataBase: new URL('https://trust.phala.com'),
   openGraph: {
     title: 'Phala Trust Center',
     description:
       'Verify TEE applications on dstack - Hardware, OS, and source code attestation',
-    url: 'https://trust.phala.network',
+    url: 'https://trust.phala.com',
     siteName: 'Phala Trust Center',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
+    site: '@PhalaNetwork',
     title: 'Phala Trust Center',
     description:
       'Verify TEE applications on dstack - Hardware, OS, and source code attestation',

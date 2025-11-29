@@ -27,7 +27,7 @@ export const generateMetadata = async ({params}: AppPageProps) => {
     app.profile?.description ||
     `Verified TEE application${displayUser ? ` by ${displayUser}` : ''} - Hardware, OS, and source code attestation verified on Phala Trust Center`
 
-  const url = `https://trust.phala.network/app/${appId}`
+  const url = `https://trust.phala.com/app/${appId}`
 
   return {
     title: displayName,
@@ -41,6 +41,7 @@ export const generateMetadata = async ({params}: AppPageProps) => {
     },
     twitter: {
       card: 'summary_large_image',
+      site: '@PhalaNetwork',
       title: `${displayName} - Verified on Phala Trust Center`,
       description,
     },
