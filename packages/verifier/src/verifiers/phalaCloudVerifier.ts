@@ -48,6 +48,7 @@ export class PhalaCloudVerifier extends Verifier {
   private dataObjectGenerator: AppDataObjectGenerator
   private appMetadata: CompleteAppMetadata
   private systemInfo: SystemInfo
+  private attestationBundle?: AttestationBundle
 
   // Cache for Redpill models
   private static modelCache: {models: any[]; timestamp: number} | null = null
@@ -321,7 +322,7 @@ export class PhalaCloudVerifier extends Verifier {
     const verificationResult = await verifyTeeQuote(quoteData)
     const failures: VerificationFailure[] = []
 
-    let attestationBundle: AttestationBundle | undefined
+    this.attestationBundle = undefined
 
     // Check for GPU support via Redpill API
     try {
@@ -341,7 +342,7 @@ export class PhalaCloudVerifier extends Verifier {
 
         if (response.ok) {
           const rawAppInfo = await response.json()
-          attestationBundle = parseAttestationBundle(
+          this.attestationBundle = parseAttestationBundle(
             rawAppInfo as Record<string, unknown>,
             {
               nvidiaPayloadSchema: NvidiaPayloadSchema,
@@ -362,7 +363,7 @@ export class PhalaCloudVerifier extends Verifier {
     const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
       quoteData,
       verificationResult,
-      attestationBundle,
+      this.attestationBundle,
     )
     dataObjects.forEach((obj) => {
       this.createDataObject(obj)
@@ -441,7 +442,7 @@ export class PhalaCloudVerifier extends Verifier {
       quoteData,
       calculatedHash,
       isRegistered ?? false,
-      undefined,
+      this.attestationBundle,
       this.rpcEndpoint,
     )
     dataObjects.forEach((obj) => {
