@@ -7,7 +7,7 @@ import type {
   QuoteData,
   VerifyQuoteResult,
 } from '../types'
-import { BaseDataObjectGenerator } from './baseDataObjectGenerator'
+import {BaseDataObjectGenerator} from './baseDataObjectGenerator'
 
 /**
  * Extracts the guarded domain pattern from a gateway endpoint URL.
@@ -111,7 +111,6 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
         endpoint: gatewayRpcEndpoint,
         guarded_domain: extractGuardedDomain(gatewayRpcEndpoint),
         intel_attestation_report: quoteData.quote,
-        event_log: JSON.stringify(quoteData.eventlog),
         app_cert: activeCertificate,
         allowed_compose_hashes: allowedComposeHashes
           ? JSON.stringify(allowedComposeHashes)

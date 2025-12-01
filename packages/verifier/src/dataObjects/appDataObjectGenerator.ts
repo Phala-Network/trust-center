@@ -139,7 +139,6 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
         nvidia_attestation_report: attestationBundle?.nvidia_payload
           ? JSON.stringify(attestationBundle.nvidia_payload)
           : undefined,
-        event_log: JSON.stringify(quoteData.eventlog),
         app_cert: appInfo.app_cert || 'N/A',
         device_id: appInfo.device_id || 'N/A',
         compose_hash: calculatedHash,

@@ -5,7 +5,7 @@ import type {
   QuoteData,
   VerifyQuoteResult,
 } from '../types'
-import { BaseDataObjectGenerator } from './baseDataObjectGenerator'
+import {BaseDataObjectGenerator} from './baseDataObjectGenerator'
 
 /**
  * Data object generator specific to KMS verifier.
@@ -84,7 +84,6 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
           '0x023b01f10326307ced2eaf59c798508f0b2c36c03788445d874b75507b730f6eba',
         cert_pubkey: certificateAuthorityPublicKey,
         intel_attestation_report: quoteData.quote,
-        event_log: JSON.stringify(quoteData.eventlog),
         gateway_app_id: gatewayAppId,
       },
       kind: 'kms',

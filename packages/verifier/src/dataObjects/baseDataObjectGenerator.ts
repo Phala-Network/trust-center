@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import {readFileSync} from 'node:fs'
+import {join} from 'node:path'
 
 /**
  * Get the base path for DStack images.
@@ -25,7 +25,7 @@ import type {
   QuoteData,
   VerifyQuoteResult,
 } from '../types'
-import { parseImageVersion } from '../utils/metadataUtils'
+import {parseImageVersion} from '../utils/metadataUtils'
 
 /**
  * Interface for DStack image metadata from external/dstack-images directory
@@ -179,7 +179,7 @@ export abstract class BaseDataObjectGenerator {
         vm_config: appInfo.vm_config
           ? JSON.stringify(appInfo.vm_config)
           : 'N/A',
-        ...(isNvidiaVariant && { gpu_enabled: true }),
+        ...(isNvidiaVariant && {gpu_enabled: true}),
         bios: imageMetadata.bios,
         kernel: imageMetadata.kernel,
         cmdline: imageMetadata.cmdline,
@@ -356,10 +356,6 @@ export abstract class BaseDataObjectGenerator {
           },
         ],
         measuredBy: [
-          {
-            objectId: `${this.verifierType}-main`,
-            fieldName: 'event_log',
-          },
           {
             selfCalcOutputName: `rtmr${imr}`,
             objectId: `${this.verifierType}-quote`,
