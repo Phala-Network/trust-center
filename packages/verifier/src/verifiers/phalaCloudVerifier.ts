@@ -2,6 +2,7 @@ import {z} from 'zod'
 
 import {AppDataObjectGenerator} from '../dataObjects/appDataObjectGenerator'
 import {
+  AppInfoSchema,
   BasicVmConfigSchema,
   EventLogSchema,
   KeyProviderSchema,
@@ -10,7 +11,6 @@ import {
   SystemInfoSchema,
   TcbInfoSchema,
   VmConfigSchema,
-  AppInfoSchema,
 } from '../schemas'
 import {
   type AppId,
@@ -33,6 +33,7 @@ import {
   supportsInfoRpcEndpoint,
   supportsOnchainKms,
 } from '../utils/metadataUtils'
+import {verifyEventLog} from '../verification/eventLogVerification'
 import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
 import {
   verifyOSIntegrity,
@@ -377,6 +378,26 @@ export class PhalaCloudVerifier extends Verifier {
         error: `Hardware verification failed: TEE attestation status is '${verificationResult.status}' (expected 'UpToDate')`,
       })
     }
+
+    // Verify Event Logs against RTMRs in the quote
+    const {rt_mr0, rt_mr1, rt_mr2, rt_mr3} = verificationResult.report.TD10
+    const eventLogVerification = verifyEventLog(quoteData.eventlog, {
+      rtmr0: rt_mr0,
+      rtmr1: rt_mr1,
+      rtmr2: rt_mr2,
+      rtmr3: rt_mr3,
+    })
+
+    if (!eventLogVerification.isValid) {
+      eventLogVerification.failures.forEach((failure) => {
+        failures.push({
+          componentId: 'app-main',
+          error: failure,
+        })
+      })
+    }
+
+    console.log('Event log replay results:', eventLogVerification)
 
     return {isValid, failures}
   }
