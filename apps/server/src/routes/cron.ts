@@ -391,6 +391,60 @@ export const cronRoutes = new Elysia()
                 security: [{bearerAuth: []}],
               },
             },
+          )
+          // Run verification tasks for specific app IDs
+          .post(
+            '/run-apps',
+            async ({body}) => {
+              const {appIds} = body
+              console.log(
+                `[CRON] Run apps triggered for ${appIds.length} app(s)...`,
+              )
+              try {
+                const services = getServices()
+                if (!services.sync) {
+                  return {
+                    success: false,
+                    error: 'Sync service not configured',
+                  }
+                }
+
+                const result = await services.sync.syncSelectedTasks(appIds)
+                console.log(
+                  `[CRON] Run apps completed: ${result.tasksCreated} tasks created`,
+                )
+
+                return {
+                  success: true,
+                  message: `Successfully created ${result.tasksCreated} verification tasks`,
+                  tasksCreated: result.tasksCreated,
+                  requestedApps: appIds.length,
+                }
+              } catch (error) {
+                console.error('[CRON] Run apps failed:', error)
+                const errorMessage =
+                  error instanceof Error ? error.message : 'Unknown error'
+                return {
+                  success: false,
+                  error: 'Run apps failed',
+                  message: errorMessage,
+                }
+              }
+            },
+            {
+              body: t.Object({
+                appIds: t.Array(t.String(), {
+                  description: 'Array of app IDs (dstack_app_id) to run verification for',
+                  minItems: 1,
+                }),
+              }),
+              detail: {
+                summary:
+                  'Run verification tasks for specific app IDs (bypasses 24h duplicate check)',
+                tags: ['Cron'],
+                security: [{bearerAuth: []}],
+              },
+            },
           ),
     ),
   )
