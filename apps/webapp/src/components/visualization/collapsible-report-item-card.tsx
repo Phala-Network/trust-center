@@ -1,6 +1,6 @@
 'use client'
 
-import {ChevronDown} from 'lucide-react'
+import {ChevronDown, Copy, ExternalLink} from 'lucide-react'
 import type React from 'react'
 import {useState} from 'react'
 
@@ -21,61 +21,318 @@ const getVendorIconSrc = (icon: string) => {
   }
 }
 
+export interface ReportItemField {
+  objectId: DataObjectId
+  field: string
+  label?: string
+  copyable?: boolean
+  isJson?: boolean
+  truncate?: boolean
+}
+
+export interface ReportItemLink {
+  text: string
+  url: string
+  isAction?: boolean
+  urlWithQuote?: boolean
+}
+
+export interface CurlRequest {
+  method: string
+  url: string
+  headers: Record<string, string>
+  bodyFields: string[]
+}
+
 export interface ReportItem {
   id: string
   title: string
+  vendorTitle?: string
   intro: string
-  links?: Array<{
-    text: string
-    url: string
-  }>
+  links?: ReportItemLink[]
   vendorIcon?: string
-  fields?: Array<{
-    objectId: DataObjectId
-    field: string
-    label?: string
-  }>
+  fields?: ReportItemField[]
+  curlRequest?: CurlRequest
 }
 
-// Shared card content component - using report view's original style
-export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
-  const {attestationData} = useAttestationData()
+// Copy button component
+const CopyButton: React.FC<{
+  value: string
+  className?: string
+}> = ({value, className}) => {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      console.error('Failed to copy')
+    }
+  }
 
   return (
-    <div className="flex h-full flex-col justify-start space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <h4 className="font-medium text-foreground text-sm">{item.title}</h4>
-        {item.vendorIcon &&
-          (() => {
-            const icons = getVendorIconSrc(item.vendorIcon)
-            return (
-              <>
-                <img
-                  src={icons.light}
-                  alt="Vendor"
-                  className="block h-4 w-auto dark:hidden"
-                />
-                <img
-                  src={icons.dark}
-                  alt="Vendor"
-                  className="hidden dark:block h-4 w-auto"
-                />
-              </>
-            )
-          })()}
-      </div>
+    <button
+      type="button"
+      onClick={handleCopy}
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-1 text-xs rounded border border-border bg-muted/50 hover:bg-muted transition-colors',
+        className,
+      )}
+    >
+      <Copy className="h-3 w-3" />
+      <span>{copied ? 'Copied!' : 'Copy'}</span>
+    </button>
+  )
+}
 
+// Copyable field component
+const CopyableField: React.FC<{
+  label: string
+  value: string
+  isJson?: boolean
+  truncate?: boolean
+}> = ({label, value, isJson, truncate}) => {
+  const displayValue = isJson
+    ? typeof value === 'string'
+      ? value
+      : JSON.stringify(value, null, 2)
+    : value
+
+  const truncatedValue =
+    truncate && displayValue.length > 100
+      ? `${displayValue.slice(0, 100)}...`
+      : displayValue
+
+  return (
+    <div className="space-y-1">
+      <p className="block font-medium text-xs text-muted-foreground">{label}</p>
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0 rounded bg-muted/50 px-2 py-1.5 border border-border">
+          <p
+            className={cn(
+              'text-xs font-mono break-all',
+              truncate && 'line-clamp-4',
+            )}
+          >
+            {truncatedValue}
+          </p>
+        </div>
+        <CopyButton value={displayValue} />
+      </div>
+    </div>
+  )
+}
+
+// CURL request display component
+const CurlRequestDisplay: React.FC<{
+  curlRequest: CurlRequest
+  fieldValues: Record<string, unknown>
+}> = ({curlRequest, fieldValues}) => {
+  const buildCurlCommand = () => {
+    const headerLines = Object.entries(curlRequest.headers)
+      .map(([key, value]) => `     --header '${key}: ${value}'`)
+      .join(' \\\n')
+
+    const bodyObject: Record<string, unknown> = {}
+    for (const fieldName of curlRequest.bodyFields) {
+      if (fieldValues[fieldName] !== undefined) {
+        bodyObject[fieldName] = fieldValues[fieldName]
+      }
+    }
+
+    const bodyJson = JSON.stringify(bodyObject)
+
+    return `curl --request ${curlRequest.method} \\
+     --url ${curlRequest.url} \\
+${headerLines} \\
+     --data '${bodyJson}'`
+  }
+
+  const curlCommand = buildCurlCommand()
+
+  return (
+    <div className="space-y-1">
+      <p className="block font-medium text-xs text-muted-foreground">
+        CURL Request
+      </p>
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0 rounded bg-muted/50 px-2 py-1.5 border border-border overflow-x-auto">
+          <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+            {curlCommand}
+          </pre>
+        </div>
+        <CopyButton value={curlCommand} />
+      </div>
+    </div>
+  )
+}
+
+// Link component with action styling
+const ReportLink: React.FC<{
+  link: ReportItemLink
+  quoteValue?: string
+}> = ({link, quoteValue}) => {
+  let finalUrl = link.url
+  if (link.urlWithQuote && quoteValue) {
+    finalUrl = `${link.url}?quote=${encodeURIComponent(quoteValue)}`
+  }
+
+  return (
+    <a
+      href={finalUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        'inline-flex items-center gap-1 text-xs hover:opacity-80',
+        link.isAction
+          ? 'text-primary underline'
+          : 'text-muted-foreground underline',
+      )}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {link.isAction && <ExternalLink className="h-3 w-3" />}
+      {link.text}
+    </a>
+  )
+}
+
+// Card header with vendor icon and title
+const CardHeader: React.FC<{
+  item: ReportItem
+  showChevron?: boolean
+  isExpanded?: boolean
+}> = ({item, showChevron, isExpanded}) => {
+  const icons = item.vendorIcon ? getVendorIconSrc(item.vendorIcon) : null
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <h4 className="font-medium text-sm truncate text-foreground flex-1 min-w-0">
+        {item.title}
+      </h4>
+      <div className="flex items-center gap-2 shrink-0 h-4">
+        {icons && (
+          <>
+            <img
+              src={icons.light}
+              alt="Vendor"
+              className="block h-4 w-auto dark:hidden"
+            />
+            <img
+              src={icons.dark}
+              alt="Vendor"
+              className="hidden dark:block h-4 w-auto"
+            />
+          </>
+        )}
+        {showChevron && (
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 text-muted-foreground transition-transform duration-200',
+              isExpanded && 'rotate-180',
+            )}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Card content with vendor title, intro, fields, links, and curl request
+const CardContent: React.FC<{
+  item: ReportItem
+}> = ({item}) => {
+  const {attestationData} = useAttestationData()
+
+  // Collect all field values for curl request
+  const fieldValues: Record<string, unknown> = {}
+  let quoteValue: string | undefined
+
+  if (item.fields) {
+    for (const f of item.fields) {
+      const obj = attestationData.find((o) => o.id === f.objectId)
+      const value = obj?.fields?.[f.field]
+      if (value !== undefined && value !== null) {
+        fieldValues[f.field] = value
+        // Track quote value for URL building
+        if (f.field === 'intel_attestation_report') {
+          quoteValue = String(value)
+        }
+      }
+    }
+  }
+
+  const icons = item.vendorIcon ? getVendorIconSrc(item.vendorIcon) : null
+
+  return (
+    <div className="pt-2 border-t space-y-3">
+      {/* Vendor title with icon */}
+      {item.vendorTitle && (
+        <div className="flex items-center gap-2">
+          {icons && (
+            <>
+              <img
+                src={icons.light}
+                alt="Vendor"
+                className="block h-4 w-auto dark:hidden"
+              />
+              <img
+                src={icons.dark}
+                alt="Vendor"
+                className="hidden dark:block h-4 w-auto"
+              />
+            </>
+          )}
+          <span className="text-xs text-muted-foreground">
+            {item.vendorTitle}
+          </span>
+        </div>
+      )}
+
+      {/* Intro text */}
       <p className="text-muted-foreground text-xs">{item.intro}</p>
 
-      {/* Dynamic field rendering */}
-      {item.fields && item.fields.length > 0 && (
-        <div className="space-y-2">
-          {item.fields.map((f) => {
-            const obj = attestationData.find((o) => o.id === f.objectId)
-            const value = obj?.fields?.[f.field]
+      {/* Links section */}
+      {item.links && item.links.length > 0 && (
+        <div className="flex flex-col items-start gap-1">
+          {item.links.map((link, index) => (
+            <ReportLink
+              key={`${item.id}-link-${index}`}
+              link={link}
+              quoteValue={quoteValue}
+            />
+          ))}
+        </div>
+      )}
 
-            if (value == null || value === 'N/A') return null
-            const valueString = String(value)
+      {/* Divider before fields */}
+      {item.fields && item.fields.length > 0 && (
+        <div className="border-t border-border/50 pt-3 space-y-3">
+          {item.fields.map((f) => {
+            const value = fieldValues[f.field]
+            if (value === undefined || value === null || value === 'N/A') {
+              return null
+            }
+
+            const valueString =
+              typeof value === 'object'
+                ? JSON.stringify(value, null, 2)
+                : String(value)
+
+            if (f.copyable) {
+              return (
+                <CopyableField
+                  key={`${f.objectId}-${f.field}`}
+                  label={f.label ?? f.field}
+                  value={valueString}
+                  isJson={f.isJson}
+                  truncate={f.truncate}
+                />
+              )
+            }
+
             return (
               <div key={`${f.objectId}-${f.field}`} className="relative">
                 <p className="block font-medium text-xs text-muted-foreground">
@@ -102,21 +359,156 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
         </div>
       )}
 
+      {/* CURL request section */}
+      {item.curlRequest && (
+        <CurlRequestDisplay
+          curlRequest={item.curlRequest}
+          fieldValues={fieldValues}
+        />
+      )}
+    </div>
+  )
+}
+
+// Shared card content component - using report view's original style
+export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
+  const {attestationData} = useAttestationData()
+
+  // Collect field values and quote value
+  const fieldValues: Record<string, unknown> = {}
+  let quoteValue: string | undefined
+
+  if (item.fields) {
+    for (const f of item.fields) {
+      const obj = attestationData.find((o) => o.id === f.objectId)
+      const value = obj?.fields?.[f.field]
+      if (value !== undefined && value !== null) {
+        fieldValues[f.field] = value
+        if (f.field === 'intel_attestation_report') {
+          quoteValue = String(value)
+        }
+      }
+    }
+  }
+
+  const icons = item.vendorIcon ? getVendorIconSrc(item.vendorIcon) : null
+
+  return (
+    <div className="flex h-full flex-col justify-start space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="font-medium text-foreground text-sm">{item.title}</h4>
+        {icons && (
+          <>
+            <img
+              src={icons.light}
+              alt="Vendor"
+              className="block h-4 w-auto dark:hidden"
+            />
+            <img
+              src={icons.dark}
+              alt="Vendor"
+              className="hidden dark:block h-4 w-auto"
+            />
+          </>
+        )}
+      </div>
+
+      {/* Vendor title */}
+      {item.vendorTitle && (
+        <div className="flex items-center gap-2">
+          {icons && (
+            <>
+              <img
+                src={icons.light}
+                alt="Vendor"
+                className="block h-3 w-auto dark:hidden"
+              />
+              <img
+                src={icons.dark}
+                alt="Vendor"
+                className="hidden dark:block h-3 w-auto"
+              />
+            </>
+          )}
+          <span className="text-xs text-muted-foreground">
+            {item.vendorTitle}
+          </span>
+        </div>
+      )}
+
+      <p className="text-muted-foreground text-xs">{item.intro}</p>
+
+      {/* Links */}
       {item.links && item.links.length > 0 && (
         <div className="flex flex-col items-start gap-1">
           {item.links.map((link, index) => (
-            <a
+            <ReportLink
               key={`${item.id}-link-${index}`}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground text-xs underline hover:opacity-80"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {link.text}
-            </a>
+              link={link}
+              quoteValue={quoteValue}
+            />
           ))}
         </div>
+      )}
+
+      {/* Dynamic field rendering */}
+      {item.fields && item.fields.length > 0 && (
+        <div className="space-y-2">
+          {item.fields.map((f) => {
+            const value = fieldValues[f.field]
+            if (value === undefined || value === null || value === 'N/A') {
+              return null
+            }
+
+            const valueString =
+              typeof value === 'object'
+                ? JSON.stringify(value, null, 2)
+                : String(value)
+
+            if (f.copyable) {
+              return (
+                <CopyableField
+                  key={`${f.objectId}-${f.field}`}
+                  label={f.label ?? f.field}
+                  value={valueString}
+                  isJson={f.isJson}
+                  truncate={f.truncate}
+                />
+              )
+            }
+
+            return (
+              <div key={`${f.objectId}-${f.field}`} className="relative">
+                <p className="block font-medium text-xs text-muted-foreground">
+                  {f.label ?? f.field}
+                </p>
+                {valueString.startsWith('https://') ? (
+                  <a
+                    href={valueString}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block break-all text-xs/snug text-muted-foreground underline hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {valueString}
+                  </a>
+                ) : (
+                  <p className="line-clamp-3 break-all text-xs">
+                    {valueString}
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* CURL request */}
+      {item.curlRequest && (
+        <CurlRequestDisplay
+          curlRequest={item.curlRequest}
+          fieldValues={fieldValues}
+        />
       )}
     </div>
   )
@@ -155,119 +547,34 @@ export const ReportItemCard: React.FC<{
   // For collapsible mode - always show title row with chevron, content conditionally
   if (collapsible) {
     return (
-      <button
-        type="button"
+      <div
         className={cn(
           'w-full rounded-lg border bg-card text-left transition-all duration-200',
           !defaultExpanded && 'hover:border-primary/20 cursor-pointer',
         )}
         onClick={handleClick}
-        disabled={defaultExpanded}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleClick(e)
+          }
+        }}
+        role="button"
+        tabIndex={defaultExpanded ? -1 : 0}
       >
         <div className="p-3">
-          <div className="flex items-center justify-between gap-2">
-            <h4 className="font-medium text-sm truncate text-foreground flex-1 min-w-0">
-              {item.title}
-            </h4>
-            <div className="flex items-center gap-2 flex-shrink-0 h-4">
-              {item.vendorIcon &&
-                (() => {
-                  const icons = getVendorIconSrc(item.vendorIcon)
-                  return (
-                    <>
-                      <img
-                        src={icons.light}
-                        alt="Vendor"
-                        className="block h-4 w-auto dark:hidden"
-                      />
-                      <img
-                        src={icons.dark}
-                        alt="Vendor"
-                        className="hidden dark:block h-4 w-auto"
-                      />
-                    </>
-                  )
-                })()}
-              {!defaultExpanded && showContent && (
-                <ChevronDown
-                  className={cn(
-                    'h-4 w-4 text-muted-foreground transition-transform duration-200',
-                    isExpanded && 'rotate-180',
-                  )}
-                />
-              )}
-            </div>
-          </div>
+          <CardHeader
+            item={item}
+            showChevron={!defaultExpanded && showContent}
+            isExpanded={isExpanded}
+          />
           {shouldShowContent && (
             <div className="mt-2">
-              <div className="pt-2 border-t space-y-2">
-                <p className="text-muted-foreground text-xs">{item.intro}</p>
-
-                {item.fields &&
-                  item.fields.length > 0 &&
-                  (() => {
-                    const {attestationData} = useAttestationData()
-                    return (
-                      <div className="space-y-2">
-                        {item.fields.map((f) => {
-                          const obj = attestationData.find(
-                            (o: {id: string}) => o.id === f.objectId,
-                          )
-                          const value = obj?.fields?.[f.field]
-
-                          if (value == null || value === 'N/A') return null
-                          const valueString = String(value)
-                          return (
-                            <div
-                              key={`${f.objectId}-${f.field}`}
-                              className="relative"
-                            >
-                              <p className="block font-medium text-xs text-muted-foreground">
-                                {f.label ?? f.field}
-                              </p>
-                              {valueString.startsWith('https://') ? (
-                                <a
-                                  href={valueString}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="block break-all text-xs/snug text-muted-foreground underline hover:underline"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {valueString}
-                                </a>
-                              ) : (
-                                <p className="line-clamp-3 break-all text-xs">
-                                  {valueString}
-                                </p>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })()}
-
-                {item.links && item.links.length > 0 && (
-                  <div className="flex flex-col items-start gap-1">
-                    {item.links.map((link, index) => (
-                      <a
-                        key={`${item.id}-link-${index}`}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-muted-foreground text-xs underline hover:opacity-80"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {link.text}
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <CardContent item={item} />
             </div>
           )}
         </div>
-      </button>
+      </div>
     )
   }
 

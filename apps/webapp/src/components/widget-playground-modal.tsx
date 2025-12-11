@@ -48,6 +48,8 @@ const defaultConfig: WidgetConfig = {
   showTrustCenterButton: true,
   sections: {
     hardware: true,
+    gpuAttestation: true,
+    tdxAttestation: true,
     sourceCode: true,
     zeroTrust: true,
     os: true,
@@ -99,6 +101,8 @@ export default function WidgetPlaygroundModal({
     // Only include disabled sections with short keys
     const disabledSections: string[] = []
     if (!config.sections.hardware) disabledSections.push('hw')
+    if (!config.sections.gpuAttestation) disabledSections.push('ga')
+    if (!config.sections.tdxAttestation) disabledSections.push('ta')
     if (!config.sections.sourceCode) disabledSections.push('sc')
     if (!config.sections.zeroTrust) disabledSections.push('zt')
     if (!config.sections.os) disabledSections.push('os')
@@ -201,6 +205,32 @@ export default function WidgetPlaygroundModal({
                   checked={config.sections.hardware}
                   onCheckedChange={(checked) =>
                     updateSection('hardware', checked)
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="section-gpu-attestation" className="text-sm">
+                  GPU Attestation
+                </Label>
+                <Switch
+                  id="section-gpu-attestation"
+                  checked={config.sections.gpuAttestation}
+                  onCheckedChange={(checked) =>
+                    updateSection('gpuAttestation', checked)
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="section-tdx-attestation" className="text-sm">
+                  TDX Attestation
+                </Label>
+                <Switch
+                  id="section-tdx-attestation"
+                  checked={config.sections.tdxAttestation}
+                  onCheckedChange={(checked) =>
+                    updateSection('tdxAttestation', checked)
                   }
                 />
               </div>

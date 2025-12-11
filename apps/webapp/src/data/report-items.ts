@@ -4,6 +4,8 @@ import type {DataObjectId} from './schema'
 const reportItemsIds = [
   'app-cpu',
   'app-gpu',
+  'app-gpu-quote',
+  'app-quote',
   'app-code',
   'gateway-main',
   'app-os',
@@ -54,6 +56,84 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
         objectId: 'app-gpu',
         field: 'security_feature',
         label: 'Security Feature',
+      },
+    ],
+  },
+  'app-gpu-quote': {
+    id: 'app-gpu-quote',
+    title: 'GPU Attestation',
+    vendorTitle: 'Remote Attestation Service',
+    intro:
+      "This verification uses NVIDIA's Remote Attestation Service (NRAS) to prove that your model is running on genuine NVIDIA hardware in a secure environment. You can independently verify the attestation evidence using NVIDIA's public API.",
+    links: [
+      {
+        text: 'Verify GPU attestation yourself',
+        url: 'https://nras.attestation.nvidia.com/v3/attest/gpu',
+        isAction: true,
+      },
+      {
+        text: 'Learn about NVIDIA Attestation',
+        url: 'https://docs.nvidia.com/confidential-computing/attestation/nras-overview.html',
+      },
+    ],
+    vendorIcon: '/nvidia.svg',
+    fields: [
+      {
+        objectId: 'app-gpu-quote',
+        field: 'nonce',
+        label: 'Nonce',
+        copyable: true,
+      },
+      {
+        objectId: 'app-gpu-quote',
+        field: 'evidence_list',
+        label: 'Evidence List',
+        copyable: true,
+        isJson: true,
+      },
+      {
+        objectId: 'app-gpu-quote',
+        field: 'arch',
+        label: 'Architecture',
+        copyable: true,
+      },
+    ],
+    curlRequest: {
+      method: 'POST',
+      url: 'https://nras.attestation.nvidia.com/v3/attest/gpu',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      bodyFields: ['nonce', 'evidence_list', 'arch'],
+    },
+  },
+  'app-quote': {
+    id: 'app-quote',
+    title: 'TDX Attestation',
+    vendorTitle: 'Trust Domain Extensions',
+    intro:
+      "Intel TDX (Trust Domain Extensions) provides hardware-based attestation for confidential computing. You can verify the authenticity of this TDX quote using Phala's TEE Attestation Explorer - an open source tool for analyzing Intel attestation reports.",
+    links: [
+      {
+        text: 'Verify TDX quote at TEE Explorer',
+        url: 'https://ra-quote-explorer.vercel.app/',
+        isAction: true,
+        urlWithQuote: true,
+      },
+      {
+        text: 'Learn about Intel TDX',
+        url: 'https://www.intel.com/content/www/us/en/developer/tools/trust-domain-extensions/overview.html',
+      },
+    ],
+    vendorIcon: '/intel.svg',
+    fields: [
+      {
+        objectId: 'app-main',
+        field: 'intel_attestation_report',
+        label: 'Quote',
+        copyable: true,
+        truncate: true,
       },
     ],
   },

@@ -34,6 +34,8 @@ export interface CompactReportWidgetConfig {
   taskId?: string
   sections?: {
     hardware?: boolean
+    gpuAttestation?: boolean
+    tdxAttestation?: boolean
     sourceCode?: boolean
     zeroTrust?: boolean
     os?: boolean
@@ -58,6 +60,8 @@ const DEFAULT_CONFIG: CompactReportWidgetConfig & {
   showTrustCenterButton: false,
   sections: {
     hardware: true,
+    gpuAttestation: true,
+    tdxAttestation: true,
     sourceCode: true,
     zeroTrust: true,
     os: true,
@@ -71,6 +75,16 @@ const ALL_TRUST_SECTIONS: TrustSection[] = [
     id: 'hardware',
     title: 'TEE Hardware Verified',
     items: [REPORT_ITEMS['app-cpu'], REPORT_ITEMS['app-gpu']],
+  },
+  {
+    id: 'gpu_attestation',
+    title: 'GPU Attestation',
+    items: [REPORT_ITEMS['app-gpu-quote']],
+  },
+  {
+    id: 'tdx_attestation',
+    title: 'TDX Attestation',
+    items: [REPORT_ITEMS['app-quote']],
   },
   {
     id: 'source_code',
@@ -100,10 +114,34 @@ const SECTION_CONFIG_MAP: Record<
   keyof NonNullable<CompactReportWidgetConfig['sections']>
 > = {
   hardware: 'hardware',
+  gpu_attestation: 'gpuAttestation',
+  tdx_attestation: 'tdxAttestation',
   source_code: 'sourceCode',
   zero_trust: 'zeroTrust',
   os: 'os',
   authority: 'authority',
+}
+
+// Helper to check if an item has available data
+const hasItemData = (
+  item: ReportItem,
+  attestationData: Array<{id: string; fields?: Record<string, unknown>}>,
+): boolean => {
+  // Check if the item's own ID exists in attestation data
+  if (attestationData.some((obj) => obj.id === item.id)) {
+    return true
+  }
+
+  // For items that reference fields from other objects, check if those fields exist
+  if (item.fields && item.fields.length > 0) {
+    return item.fields.some((f) => {
+      const obj = attestationData.find((o) => o.id === f.objectId)
+      const value = obj?.fields?.[f.field]
+      return value !== undefined && value !== null && value !== 'N/A'
+    })
+  }
+
+  return false
 }
 
 // Section Component - with widget-specific features
@@ -115,7 +153,7 @@ const TrustSection: React.FC<{
   const {attestationData} = useAttestationData()
 
   const filteredItems = section.items.filter((item) => {
-    return attestationData.some((obj) => obj.id === item.id)
+    return hasItemData(item, attestationData)
   })
 
   if (filteredItems.length === 0) {
