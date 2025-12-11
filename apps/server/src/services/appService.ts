@@ -5,6 +5,7 @@ import {
   type DbConnection,
   eq,
   getTableColumns,
+  inArray,
   lt,
   type NewAppRecord,
   or,
@@ -141,12 +142,14 @@ export const createAppService = (
       .select()
       .from(appsTable)
       .where(
-        sql`${appsTable.id} = ANY(${ids})
-            AND ${appsTable.contractAddress} IS NOT NULL
-            AND ${appsTable.contractAddress} != ''
-            AND ${appsTable.domain} IS NOT NULL
-            AND ${appsTable.domain} != ''
-            AND ${appsTable.deleted} = false`,
+        and(
+          inArray(appsTable.id, ids),
+          sql`${appsTable.contractAddress} IS NOT NULL`,
+          sql`${appsTable.contractAddress} != ''`,
+          sql`${appsTable.domain} IS NOT NULL`,
+          sql`${appsTable.domain} != ''`,
+          eq(appsTable.deleted, false),
+        ),
       )
   }
 
