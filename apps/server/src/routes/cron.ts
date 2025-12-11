@@ -18,7 +18,7 @@ export const cronRoutes = new Elysia()
         try {
           const services = getServices()
           const deletedCount =
-            await services.verificationTask.cleanupFailedTasks(24)
+            await services.verificationTask.cleanupFailedTasks(48)
           console.log(
             `[CRON:CLEANUP] Cleanup completed: ${deletedCount} old failed/cancelled tasks deleted`,
           )
@@ -158,7 +158,7 @@ export const cronRoutes = new Elysia()
                   {
                     name: 'cleanup-failed-tasks',
                     pattern: env.CLEANUP_CRON_PATTERN,
-                    description: 'Cleanup old failed/cancelled tasks (24h+)',
+                    description: 'Cleanup old failed/cancelled tasks (48h+)',
                     running: cleanupCron?.running ?? false,
                   },
                   {
