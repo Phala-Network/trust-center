@@ -89,6 +89,18 @@ const CopyButton: React.FC<{
   )
 }
 
+// Helper to format JSON value for display
+const formatJsonValue = (value: string): string => {
+  try {
+    // Try to parse and re-stringify with formatting
+    const parsed = JSON.parse(value)
+    return JSON.stringify(parsed, null, 2)
+  } catch {
+    // If it's not valid JSON, return as-is
+    return value
+  }
+}
+
 // Copyable field component with copy button inside value area (bottom-right)
 const CopyableField: React.FC<{
   label: string
@@ -97,26 +109,23 @@ const CopyableField: React.FC<{
   isCode?: boolean
   truncate?: boolean
 }> = ({label, value, isJson, isCode, truncate}) => {
-  const displayValue = isJson
-    ? typeof value === 'string'
-      ? value
-      : JSON.stringify(value, null, 2)
-    : value
+  // Format JSON values with proper indentation
+  const displayValue = isJson ? formatJsonValue(value) : value
 
   const truncatedValue =
     truncate && displayValue.length > 100
       ? `${displayValue.slice(0, 100)}...`
       : displayValue
 
-  // For code blocks, show formatted with scroll
-  if (isCode) {
+  // For code blocks or JSON, show formatted with scroll and max 4 lines visible
+  if (isCode || isJson) {
     return (
       <div className="space-y-1">
         <p className="block font-medium text-xs text-muted-foreground">
           {label}
         </p>
         <div className="relative rounded bg-muted/50 border border-border">
-          <div className="max-h-48 overflow-auto px-2 py-1.5 pb-7">
+          <div className="max-h-24 overflow-auto px-2 py-1.5 pb-7">
             <pre className="text-xs font-mono whitespace-pre">
               {displayValue}
             </pre>
