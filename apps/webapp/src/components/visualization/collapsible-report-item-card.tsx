@@ -110,7 +110,8 @@ const CopyableField: React.FC<{
   truncate?: boolean
 }> = ({label, value, isJson, isCode, truncate}) => {
   // Format JSON values with proper indentation
-  const displayValue = isJson ? formatJsonValue(value) : value
+  // For isCode, also try to format if it looks like JSON
+  const displayValue = isJson || isCode ? formatJsonValue(value) : value
 
   const truncatedValue =
     truncate && displayValue.length > 100
