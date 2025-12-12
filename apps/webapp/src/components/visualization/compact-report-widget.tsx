@@ -223,22 +223,21 @@ const CompactReportWidget: React.FC<{
         {/* Top branding - Phala Trust Certificate */}
         {finalConfig.showBranding && <TopBranding />}
 
-        {/* App Info section */}
-        {finalConfig.showAppInfo && (
-          <div className="pt-4">
-            <ReportHeader
-              app={app}
-              showAttributes={finalConfig.showAttributes}
-              showVerificationStatus={true}
-              showTrustCenterButton={finalConfig.showTrustCenterButton}
-              appId={finalConfig.appId}
-              taskId={finalConfig.taskId}
-            />
-          </div>
-        )}
+        {/* App Info and Verification Status section */}
+        <div className="pt-4">
+          <ReportHeader
+            app={app}
+            showAttributes={finalConfig.showAppInfo && finalConfig.showAttributes}
+            showVerificationStatus={true}
+            showTrustCenterButton={finalConfig.showTrustCenterButton}
+            showAppInfo={finalConfig.showAppInfo}
+            appId={finalConfig.appId}
+            taskId={finalConfig.taskId}
+          />
+        </div>
 
         {/* Add top padding when both branding and app info are hidden */}
-        <div className={!finalConfig.showBranding && !finalConfig.showAppInfo ? 'pt-4' : ''}>
+        <div className={!finalConfig.showBranding ? 'pt-0' : ''}>
           {visibleSections.map((section) => (
             <TrustSection
               key={section.id}
