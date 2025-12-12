@@ -27,6 +27,7 @@ export interface ReportItemField {
   label?: string
   copyable?: boolean
   isJson?: boolean
+  isCode?: boolean
   truncate?: boolean
 }
 
@@ -93,8 +94,9 @@ const CopyableField: React.FC<{
   label: string
   value: string
   isJson?: boolean
+  isCode?: boolean
   truncate?: boolean
-}> = ({label, value, isJson, truncate}) => {
+}> = ({label, value, isJson, isCode, truncate}) => {
   const displayValue = isJson
     ? typeof value === 'string'
       ? value
@@ -105,6 +107,27 @@ const CopyableField: React.FC<{
     truncate && displayValue.length > 100
       ? `${displayValue.slice(0, 100)}...`
       : displayValue
+
+  // For code blocks, show formatted with scroll
+  if (isCode) {
+    return (
+      <div className="space-y-1">
+        <p className="block font-medium text-xs text-muted-foreground">
+          {label}
+        </p>
+        <div className="relative rounded bg-muted/50 border border-border">
+          <div className="max-h-48 overflow-auto px-2 py-1.5 pb-7">
+            <pre className="text-xs font-mono whitespace-pre">
+              {displayValue}
+            </pre>
+          </div>
+          <div className="absolute bottom-1.5 right-1.5">
+            <CopyButton value={displayValue} />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-1">
@@ -297,6 +320,7 @@ const CardContent: React.FC<{
                   label={f.label ?? f.field}
                   value={valueString}
                   isJson={f.isJson}
+                  isCode={f.isCode}
                   truncate={f.truncate}
                 />
               )
@@ -420,6 +444,7 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
                   label={f.label ?? f.field}
                   value={valueString}
                   isJson={f.isJson}
+                  isCode={f.isCode}
                   truncate={f.truncate}
                 />
               )

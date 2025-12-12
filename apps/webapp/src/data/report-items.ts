@@ -126,6 +126,8 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
         objectId: 'app-code',
         field: 'compose_file',
         label: 'Compose File',
+        copyable: true,
+        isCode: true,
       },
     ],
   },
