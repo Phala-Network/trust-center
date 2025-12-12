@@ -2,7 +2,7 @@
 
 import {ChevronDown, Copy} from 'lucide-react'
 import type React from 'react'
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 
 import {useAttestationData} from '@/components/attestation-data-context'
 import type {DataObjectId} from '@/data/schema'
@@ -118,7 +118,7 @@ const CopyableField: React.FC<{
       ? `${displayValue.slice(0, 100)}...`
       : displayValue
 
-  // For code blocks or JSON, show formatted with scroll and max 4 lines visible
+  // For code blocks or JSON, show formatted with scroll and max height limit
   if (isCode || isJson) {
     return (
       <div className="space-y-1">
@@ -132,8 +132,8 @@ const CopyableField: React.FC<{
             </pre>
           </div>
           {/* Fade overlay at bottom of scroll container */}
-          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/80 to-transparent" />
-          {/* Copy button above fade overlay with solid background */}
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-muted/80 to-transparent" />
+          {/* Copy button positioned at bottom-right */}
           <div className="absolute bottom-1 right-1">
             <CopyButton value={displayValue} className="bg-muted" />
           </div>
@@ -145,7 +145,7 @@ const CopyableField: React.FC<{
   return (
     <div className="space-y-1">
       <p className="block font-medium text-xs text-muted-foreground">{label}</p>
-      <div className="relative rounded bg-muted/50 px-2 py-1.5 pb-7 border border-border">
+      <div className="relative rounded bg-muted/50 px-2 py-1.5 pb-4 border border-border">
         <p
           className={cn(
             'text-xs font-mono break-all',
@@ -194,12 +194,17 @@ ${headerLines} \\
       <p className="block font-medium text-xs text-muted-foreground">
         CURL Request
       </p>
-      <div className="relative rounded bg-muted/50 px-2 py-1.5 pb-7 border border-border overflow-x-auto">
-        <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-          {curlCommand}
-        </pre>
-        <div className="absolute bottom-1.5 right-1.5">
-          <CopyButton value={curlCommand} />
+      <div className="relative rounded bg-muted/50 border border-border">
+        <div className="max-h-16 overflow-auto px-2 py-1.5">
+          <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+            {curlCommand}
+          </pre>
+        </div>
+        {/* Fade overlay at bottom of scroll container */}
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-muted/80 to-transparent" />
+        {/* Copy button positioned at bottom-right */}
+        <div className="absolute bottom-1 right-1">
+          <CopyButton value={curlCommand} className="bg-muted" />
         </div>
       </div>
     </div>
@@ -518,19 +523,23 @@ export const ReportItemCard: React.FC<{
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const {selectedObjectId, setSelectedObjectId} = useAttestationData()
+
+  // Sync isExpanded state when defaultExpanded prop changes
+  useEffect(() => {
+    setIsExpanded(defaultExpanded)
+  }, [defaultExpanded])
   const isSelected = selectable && selectedObjectId === item.id
 
   const handleClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     if (selectable) {
       e.stopPropagation()
       setSelectedObjectId(isSelected ? null : item.id)
-    } else if (collapsible && !defaultExpanded && showContent) {
+    } else if (collapsible && showContent) {
       setIsExpanded(!isExpanded)
     }
   }
 
-  const shouldShowContent =
-    showContent && (defaultExpanded || isExpanded || !collapsible)
+  const shouldShowContent = showContent && (isExpanded || !collapsible)
 
   // For collapsible mode - always show title row with chevron, content conditionally
   if (collapsible) {
@@ -538,7 +547,7 @@ export const ReportItemCard: React.FC<{
       <div
         className={cn(
           'w-full rounded-lg border bg-card text-left transition-all duration-200',
-          !defaultExpanded && 'hover:border-muted-foreground/30 cursor-pointer',
+          'hover:border-muted-foreground/30 cursor-pointer',
         )}
         onClick={handleClick}
         onKeyDown={(e) => {
@@ -548,14 +557,10 @@ export const ReportItemCard: React.FC<{
           }
         }}
         role="button"
-        tabIndex={defaultExpanded ? -1 : 0}
+        tabIndex={0}
       >
         <div className="p-3">
-          <CardHeader
-            item={item}
-            showChevron={!defaultExpanded && showContent}
-            isExpanded={isExpanded}
-          />
+          <CardHeader item={item} showChevron={showContent} isExpanded={isExpanded} />
           {shouldShowContent && (
             <div className="mt-2">
               <CardContent item={item} />
@@ -572,9 +577,7 @@ export const ReportItemCard: React.FC<{
       type="button"
       className={cn(
         'w-full rounded-lg border bg-card text-left transition-all duration-200',
-        selectable &&
-          isSelected &&
-          'border-primary ring-2 ring-primary/30',
+        selectable && isSelected && 'border-primary ring-2 ring-primary/30',
         selectable &&
           !isSelected &&
           'border-border hover:border-muted-foreground/30 cursor-pointer',
