@@ -277,18 +277,16 @@ export const ReportHeader: React.FC<{
               href="https://docs.phala.network/dstack/design-documents/attestation-verification"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
             >
-              <ExternalLink className="h-3 w-3" />
               How It Works
             </a>
             <a
               href="https://docs.phala.network/dstack/design-documents/attestation-verification"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
             >
-              <ExternalLink className="h-3 w-3" />
               TEE Attestation
             </a>
           </div>
