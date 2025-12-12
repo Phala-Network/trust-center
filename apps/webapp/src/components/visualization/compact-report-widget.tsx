@@ -11,6 +11,7 @@ import {
 import {
   ReportHeader,
   SectionHeader,
+  TopBranding,
 } from '@/components/visualization/report-components'
 import {REPORT_ITEMS} from '@/data/report-items'
 import type {AppWithTask} from '@/lib/db'
@@ -30,6 +31,8 @@ export interface CompactReportWidgetConfig {
   darkMode?: boolean
   embedded?: boolean
   showTrustCenterButton?: boolean
+  showBranding?: boolean
+  showAppInfo?: boolean
   appId?: string
   taskId?: string
   sections?: {
@@ -48,6 +51,8 @@ const DEFAULT_CONFIG: CompactReportWidgetConfig & {
   darkMode: boolean
   embedded: boolean
   showTrustCenterButton: boolean
+  showBranding: boolean
+  showAppInfo: boolean
   sections: Required<NonNullable<CompactReportWidgetConfig['sections']>>
 } = {
   showAttributes: true,
@@ -56,6 +61,8 @@ const DEFAULT_CONFIG: CompactReportWidgetConfig & {
   darkMode: false,
   embedded: false,
   showTrustCenterButton: false,
+  showBranding: true,
+  showAppInfo: true,
   sections: {
     hardware: true,
     sourceCode: true,
@@ -213,17 +220,25 @@ const CompactReportWidget: React.FC<{
 
       {/* Widget content - unified card */}
       <div className={cardClassName}>
-        <ReportHeader
-          app={app}
-          showAttributes={finalConfig.showAttributes}
-          showVerificationStatus={true}
-          showBranding={true}
-          showTrustCenterButton={finalConfig.showTrustCenterButton}
-          appId={finalConfig.appId}
-          taskId={finalConfig.taskId}
-        />
+        {/* Top branding - Phala Trust Certificate */}
+        {finalConfig.showBranding && <TopBranding />}
 
-        <div>
+        {/* App Info section */}
+        {finalConfig.showAppInfo && (
+          <div className="pt-4">
+            <ReportHeader
+              app={app}
+              showAttributes={finalConfig.showAttributes}
+              showVerificationStatus={true}
+              showTrustCenterButton={finalConfig.showTrustCenterButton}
+              appId={finalConfig.appId}
+              taskId={finalConfig.taskId}
+            />
+          </div>
+        )}
+
+        {/* Add top padding when both branding and app info are hidden */}
+        <div className={!finalConfig.showBranding && !finalConfig.showAppInfo ? 'pt-4' : ''}>
           {visibleSections.map((section) => (
             <TrustSection
               key={section.id}
@@ -235,17 +250,19 @@ const CompactReportWidget: React.FC<{
         </div>
 
         {/* Powered by Phala footer */}
-        <div className="border-t border-border/50 px-5 py-3 bg-muted/20">
-          <a
-            href="https://phala.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span>Powered by</span>
-            <span className="font-semibold">Phala</span>
-          </a>
-        </div>
+        {finalConfig.showBranding && (
+          <div className="border-t border-border/50 px-5 py-3 bg-muted/20">
+            <a
+              href="https://phala.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>Powered by</span>
+              <span className="font-semibold">Phala</span>
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )

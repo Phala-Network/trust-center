@@ -45,7 +45,7 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
         field: 'intel_attestation_report',
         label: 'Quote',
         copyable: true,
-        truncate: true,
+        isCode: true,
       },
     ],
   },

@@ -10,12 +10,36 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {getAppBadges} from '@/lib/app-badges'
 import type {AppWithTask} from '@/lib/db'
 
+// Top branding component - Phala Trust Certificate
+export const TopBranding: React.FC = () => (
+  <div className="bg-gradient-to-br from-muted/40 to-muted/20 px-5 py-3 border-b border-border/50">
+    <div className="flex items-center justify-center gap-2">
+      <Image
+        src="/logo.svg"
+        alt="Phala"
+        width={60}
+        height={20}
+        className="dark:hidden"
+      />
+      <Image
+        src="/logo_dark.svg"
+        alt="Phala"
+        width={60}
+        height={20}
+        className="hidden dark:block"
+      />
+      <span className="text-xs font-semibold text-muted-foreground">
+        Trust Certificate
+      </span>
+    </div>
+  </div>
+)
+
 // Shared Report Header Component
 export const ReportHeader: React.FC<{
   app: AppWithTask
   showAttributes?: boolean
   showVerificationStatus?: boolean
-  showBranding?: boolean
   showTrustCenterButton?: boolean
   appId?: string
   taskId?: string
@@ -23,7 +47,6 @@ export const ReportHeader: React.FC<{
   app,
   showAttributes = true,
   showVerificationStatus = true,
-  showBranding = false,
   showTrustCenterButton = false,
   appId,
   taskId,
@@ -48,31 +71,6 @@ export const ReportHeader: React.FC<{
 
   return (
     <div>
-      {/* Phala Trust Certificate Branding - optional */}
-      {showBranding && (
-        <div className="bg-gradient-to-br from-muted/40 to-muted/20 px-5 py-3 border-b border-border/50 mb-4">
-          <div className="flex items-center justify-center gap-2">
-            <Image
-              src="/logo.svg"
-              alt="Phala"
-              width={60}
-              height={20}
-              className="dark:hidden"
-            />
-            <Image
-              src="/logo_dark.svg"
-              alt="Phala"
-              width={60}
-              height={20}
-              className="hidden dark:block"
-            />
-            <span className="text-xs font-semibold text-muted-foreground">
-              Trust Certificate
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Header section */}
       <div className="px-5 mb-4">
         <div className="flex items-center gap-4">

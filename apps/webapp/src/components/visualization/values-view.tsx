@@ -25,6 +25,12 @@ const ValuesView: React.FC = () => {
   } | null>(null)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
 
+  // Default to app-cpu when no object is selected
+  const displayObject = React.useMemo(() => {
+    if (selectedObject) return selectedObject
+    return attestationData.find((o) => o.id === 'app-cpu') ?? null
+  }, [selectedObject, attestationData])
+
   // Format value for display in dialog
   const formatValueForDialog = (value: unknown, type: string) => {
     if (type === 'json') {
@@ -52,9 +58,9 @@ const ValuesView: React.FC = () => {
 
   // Measured By table
   const measuredByRows = React.useMemo(() => {
-    if (!selectedObject || !selectedObject.measuredBy) return []
+    if (!displayObject || !displayObject.measuredBy) return []
     // Assemble data
-    const rows = selectedObject.measuredBy
+    const rows = displayObject.measuredBy
       .map((ref) => {
         const sourceObj = attestationData.find((o) => o.id === ref.objectId)
         return {
@@ -75,7 +81,7 @@ const ValuesView: React.FC = () => {
       return a.sourceField.localeCompare(b.sourceField)
     })
     return rows
-  }, [selectedObject, attestationData])
+  }, [displayObject, attestationData])
 
   // Calculate row spans for merging cells
   function calcMeasuredByRowSpans(
@@ -126,8 +132,8 @@ const ValuesView: React.FC = () => {
 
   // Measurements table
   const measurementsRows = React.useMemo(() => {
-    if (!selectedObject) return []
-    // Iterate through all selectedObjects to find which selectedObjects' measuredBy points to current selectedObject
+    if (!displayObject) return []
+    // Iterate through all selectedObjects to find which selectedObjects' measuredBy points to current displayObject
     const rows: Array<{
       sourceField: string
       targetObject: (typeof attestationData)[0]
@@ -139,7 +145,7 @@ const ValuesView: React.FC = () => {
     attestationData.forEach((obj) => {
       if (!obj.measuredBy) return
       obj.measuredBy.forEach((ref) => {
-        if (ref.objectId === selectedObject.id) {
+        if (ref.objectId === displayObject.id) {
           rows.push({
             sourceField: ref.selfFieldName || ref.selfCalcOutputName || '-',
             targetObject: obj,
@@ -162,7 +168,7 @@ const ValuesView: React.FC = () => {
       return a.targetField.localeCompare(b.targetField)
     })
     return rows
-  }, [selectedObject, attestationData])
+  }, [displayObject, attestationData])
 
   function calcMeasurementsRowSpans(
     rows: Array<{
@@ -251,10 +257,10 @@ const ValuesView: React.FC = () => {
     return {type: 'string', color: 'text-foreground'}
   }
 
-  if (!selectedObject) {
+  if (!displayObject) {
     return (
       <div className="p-3 text-center text-muted-foreground text-xs">
-        Select an selectedObject to view its fields and measurements.
+        No attestation data available.
       </div>
     )
   }
@@ -291,15 +297,15 @@ const ValuesView: React.FC = () => {
       {/* Object Header */}
       <div className="p-2">
         <div className="mb-1 flex items-center gap-2">
-          <h2 className="font-semibold text-sm">{selectedObject.name}</h2>
+          <h2 className="font-semibold text-sm">{displayObject.name}</h2>
         </div>
-        {(selectedObject.id === 'app-main'
+        {(displayObject.id === 'app-main'
           ? appProfile?.description
-          : selectedObject.description) && (
+          : displayObject.description) && (
           <div className="text-muted-foreground text-xs">
-            {selectedObject.id === 'app-main'
+            {displayObject.id === 'app-main'
               ? appProfile?.description
-              : selectedObject.description}
+              : displayObject.description}
           </div>
         )}
       </div>
@@ -308,10 +314,10 @@ const ValuesView: React.FC = () => {
       <div className="mt-4">
         <h3 className="p-1 font-medium text-xs">Fields</h3>
         <div>
-          {Object.entries(selectedObject.fields).map(([key, value]) => {
+          {Object.entries(displayObject.fields).map(([key, value]) => {
             const strValue = String(value)
             const valueType = getValueType(value)
-            const fieldDescription = getFieldDescription(selectedObject.id, key)
+            const fieldDescription = getFieldDescription(displayObject.id, key)
 
             return (
               <div key={key}>
@@ -369,12 +375,12 @@ const ValuesView: React.FC = () => {
       </div>
 
       {/* Calculations */}
-      {selectedObject.calculations &&
-        selectedObject.calculations.length > 0 && (
+      {displayObject.calculations &&
+        displayObject.calculations.length > 0 && (
           <div className="mt-4">
             <h3 className="p-1 font-medium text-xs">Calculations</h3>
             <div>
-              {selectedObject.calculations.map((calc, index) => {
+              {displayObject.calculations.map((calc, index) => {
                 const calcFuncDescription = getCalcFuncDescription(
                   calc.calcFunc,
                 )

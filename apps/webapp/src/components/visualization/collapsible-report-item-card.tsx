@@ -126,13 +126,16 @@ const CopyableField: React.FC<{
           {label}
         </p>
         <div className="relative rounded bg-muted/50 border border-border">
-          <div className="max-h-24 overflow-auto px-2 py-1.5 pb-7">
-            <pre className="text-xs font-mono whitespace-pre">
+          <div className="max-h-16 overflow-auto px-2 py-1.5">
+            <pre className="text-xs font-mono whitespace-pre-wrap break-all">
               {displayValue}
             </pre>
           </div>
-          <div className="absolute bottom-1.5 right-1.5">
-            <CopyButton value={displayValue} />
+          {/* Fade overlay at bottom of scroll container */}
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/80 to-transparent" />
+          {/* Copy button above fade overlay with solid background */}
+          <div className="absolute bottom-1 right-1">
+            <CopyButton value={displayValue} className="bg-muted" />
           </div>
         </div>
       </div>
@@ -292,7 +295,7 @@ const CardContent: React.FC<{
   }
 
   return (
-    <div className="pt-2 border-t space-y-3">
+    <div className="pt-2 space-y-3">
       {/* Intro text */}
       <p className="text-muted-foreground text-xs">{item.intro}</p>
 
@@ -309,9 +312,9 @@ const CardContent: React.FC<{
         </div>
       )}
 
-      {/* Divider before fields */}
+      {/* Fields section */}
       {item.fields && item.fields.length > 0 && (
-        <div className="border-t border-border/50 pt-3 space-y-3">
+        <div className="pt-1 space-y-3">
           {item.fields.map((f) => {
             const value = fieldValues[f.field]
             if (value === undefined || value === null || value === 'N/A') {
@@ -535,7 +538,7 @@ export const ReportItemCard: React.FC<{
       <div
         className={cn(
           'w-full rounded-lg border bg-card text-left transition-all duration-200',
-          !defaultExpanded && 'hover:border-primary/20 cursor-pointer',
+          !defaultExpanded && 'hover:border-muted-foreground/30 cursor-pointer',
         )}
         onClick={handleClick}
         onKeyDown={(e) => {
@@ -571,10 +574,10 @@ export const ReportItemCard: React.FC<{
         'w-full rounded-lg border bg-card text-left transition-all duration-200',
         selectable &&
           isSelected &&
-          'border-yellow-500 ring-2 ring-yellow-500/50',
+          'border-primary ring-2 ring-primary/30',
         selectable &&
           !isSelected &&
-          'border-border hover:border-muted-foreground cursor-pointer',
+          'border-border hover:border-muted-foreground/30 cursor-pointer',
         !selectable && 'border-border',
       )}
       onClick={handleClick}
