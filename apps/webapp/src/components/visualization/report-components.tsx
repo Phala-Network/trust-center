@@ -222,6 +222,69 @@ export const ReportHeader: React.FC<{
               </TooltipContent>
             </Tooltip>
           </div>
+
+          {/* Attested by */}
+          <div className="flex items-center gap-1.5 mt-3 text-sm text-muted-foreground">
+            <span>Attested by</span>
+            <Image
+              src="/nvidia.svg"
+              alt="NVIDIA"
+              width={56}
+              height={14}
+              className="dark:hidden"
+            />
+            <Image
+              src="/nvidia_dark.svg"
+              alt="NVIDIA"
+              width={56}
+              height={14}
+              className="hidden dark:block"
+            />
+            <span>and</span>
+            <Image
+              src="/intel.svg"
+              alt="Intel"
+              width={32}
+              height={14}
+              className="dark:hidden"
+            />
+            <Image
+              src="/intel_dark.svg"
+              alt="Intel"
+              width={32}
+              height={14}
+              className="hidden dark:block"
+            />
+          </div>
+
+          {/* Description */}
+          <p className="mt-2 text-xs text-muted-foreground">
+            This automated verification tool lets you independently confirm that
+            the model is running in the TEE (Trusted Execution Environment).
+          </p>
+
+          {/* Related Links */}
+          <div className="flex items-center gap-3 mt-3">
+            <span className="text-xs text-muted-foreground">Related Links</span>
+            <a
+              href="https://docs.phala.network/dstack/design-documents/attestation-verification"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+            >
+              <ExternalLink className="h-3 w-3" />
+              How It Works
+            </a>
+            <a
+              href="https://docs.phala.network/dstack/design-documents/attestation-verification"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+            >
+              <ExternalLink className="h-3 w-3" />
+              TEE Attestation
+            </a>
+          </div>
         </div>
       )}
     </div>

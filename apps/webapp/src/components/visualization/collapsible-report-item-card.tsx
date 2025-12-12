@@ -261,13 +261,6 @@ const CardContent: React.FC<{
 
   return (
     <div className="pt-2 border-t space-y-3">
-      {/* Vendor title (no icon, header already has it) */}
-      {item.vendorTitle && (
-        <span className="text-xs text-muted-foreground">
-          {item.vendorTitle}
-        </span>
-      )}
-
       {/* Intro text */}
       <p className="text-muted-foreground text-xs">{item.intro}</p>
 
@@ -389,13 +382,6 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
           </>
         )}
       </div>
-
-      {/* Vendor title (no icon, header already has it) */}
-      {item.vendorTitle && (
-        <span className="text-xs text-muted-foreground">
-          {item.vendorTitle}
-        </span>
-      )}
 
       <p className="text-muted-foreground text-xs">{item.intro}</p>
 
