@@ -220,6 +220,19 @@ export default function WidgetPlaygroundModal({
                   }
                 />
               </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-trust-center-button" className="text-sm">
+                  View in Trust Center Button
+                </Label>
+                <Switch
+                  id="show-trust-center-button"
+                  checked={config.showTrustCenterButton}
+                  onCheckedChange={(checked) =>
+                    updateConfig('showTrustCenterButton', checked)
+                  }
+                />
+              </div>
             </div>
 
             <Separator />
