@@ -1,13 +1,13 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import {readFileSync} from 'node:fs'
+import {join} from 'node:path'
 
-import { KeyProviderSchema, TcbInfoSchema, VmConfigSchema } from '../schemas'
-import type { AppInfo, KmsInfo } from '../types'
-import { parseJsonFields } from '../types'
-import { parseKmsVersion } from '../utils/metadataUtils'
+import {KeyProviderSchema, TcbInfoSchema, VmConfigSchema} from '../schemas'
+import type {AppInfo, KmsInfo} from '../types'
+import {parseJsonFields} from '../types'
+import {parseKmsVersion} from '../utils/metadataUtils'
 
 function getRawKmsAppInfo(kmsInfo: KmsInfo): Record<string, unknown> {
-  const { version, gitCommit: _ } = parseKmsVersion(kmsInfo.version)
+  const {version, gitCommit: _} = parseKmsVersion(kmsInfo.version)
   const chainId = kmsInfo.chain_id
 
   // Extract prod environment from URL (e.g., "https://kms.dstack-base-prod7.phala.network" -> "prod7")
@@ -37,10 +37,10 @@ function getRawKmsAppInfo(kmsInfo: KmsInfo): Record<string, unknown> {
   }
 
   // Remove 'v' prefix from version (e.g., "v0.5.3" -> "053")
-  const versionShort = version.replace(/^v(\d+)\.(\d+)\.(\d+)$/, '$1$2$3')
+  // const versionShort = version.replace(/^v(\d+)\.(\d+)\.(\d+)$/, '$1$2$3')
 
   // Construct filename: {prodEnv}-{versionShort}-{chainName}.json
-  const filename = `${prodEnv}-${versionShort}-${chainName}.json`
+  const filename = `${prodEnv}-${chainName}.json`
   const filepath = join(__dirname, 'kmsInfo', filename)
 
   try {
