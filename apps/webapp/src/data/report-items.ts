@@ -4,8 +4,6 @@ import type {DataObjectId} from './schema'
 const reportItemsIds = [
   'app-cpu',
   'app-gpu',
-  'app-gpu-quote',
-  'app-quote',
   'app-code',
   'gateway-main',
   'app-os',
@@ -18,12 +16,19 @@ type ReportItemId = (typeof reportItemsIds)[number]
 export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
   'app-cpu': {
     id: 'app-cpu',
-    title: 'TEE CPU',
+    title: 'TDX Attestation',
+    vendorTitle: 'Trust Domain Extensions',
     intro:
-      'Intel TDX provides hardware-based protection to keep your data encrypted and secure, along with a verifiable attestation report.',
+      "Intel TDX (Trust Domain Extensions) provides hardware-based attestation for confidential computing. You can verify the authenticity of this TDX quote using Phala's TEE Attestation Explorer - an open source tool for analyzing Intel attestation reports.",
     links: [
       {
-        text: 'Learn more about Intel TDX',
+        text: 'Verify TDX quote at TEE Explorer',
+        url: 'https://ra-quote-explorer.vercel.app/',
+        isAction: true,
+        urlWithQuote: true,
+      },
+      {
+        text: 'Learn about Intel TDX',
         url: 'https://www.intel.com/content/www/us/en/developer/tools/trust-domain-extensions/overview.html',
       },
     ],
@@ -35,32 +40,17 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
         field: 'security_feature',
         label: 'Security Feature',
       },
+      {
+        objectId: 'app-main',
+        field: 'intel_attestation_report',
+        label: 'Quote',
+        copyable: true,
+        truncate: true,
+      },
     ],
   },
   'app-gpu': {
     id: 'app-gpu',
-    title: 'TEE GPU',
-    intro:
-      'NVIDIA GPU with confidential computing support secures data and AI models during use.',
-    links: [
-      {
-        text: 'Learn more about NVIDIA Confidential Computing',
-        url: 'https://www.nvidia.com/en-us/data-center/solutions/confidential-computing/',
-      },
-    ],
-    vendorIcon: '/nvidia.svg',
-    fields: [
-      {objectId: 'app-gpu', field: 'model', label: 'Model'},
-      {objectId: 'app-gpu', field: 'switch', label: 'Switch'},
-      {
-        objectId: 'app-gpu',
-        field: 'security_feature',
-        label: 'Security Feature',
-      },
-    ],
-  },
-  'app-gpu-quote': {
-    id: 'app-gpu-quote',
     title: 'GPU Attestation',
     vendorTitle: 'Remote Attestation Service',
     intro:
@@ -78,6 +68,13 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
     ],
     vendorIcon: '/nvidia.svg',
     fields: [
+      {objectId: 'app-gpu', field: 'model', label: 'Model'},
+      {objectId: 'app-gpu', field: 'switch', label: 'Switch'},
+      {
+        objectId: 'app-gpu',
+        field: 'security_feature',
+        label: 'Security Feature',
+      },
       {
         objectId: 'app-gpu-quote',
         field: 'nonce',
@@ -107,35 +104,6 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
       },
       bodyFields: ['nonce', 'evidence_list', 'arch'],
     },
-  },
-  'app-quote': {
-    id: 'app-quote',
-    title: 'TDX Attestation',
-    vendorTitle: 'Trust Domain Extensions',
-    intro:
-      "Intel TDX (Trust Domain Extensions) provides hardware-based attestation for confidential computing. You can verify the authenticity of this TDX quote using Phala's TEE Attestation Explorer - an open source tool for analyzing Intel attestation reports.",
-    links: [
-      {
-        text: 'Verify TDX quote at TEE Explorer',
-        url: 'https://ra-quote-explorer.vercel.app/',
-        isAction: true,
-        urlWithQuote: true,
-      },
-      {
-        text: 'Learn about Intel TDX',
-        url: 'https://www.intel.com/content/www/us/en/developer/tools/trust-domain-extensions/overview.html',
-      },
-    ],
-    vendorIcon: '/intel.svg',
-    fields: [
-      {
-        objectId: 'app-main',
-        field: 'intel_attestation_report',
-        label: 'Quote',
-        copyable: true,
-        truncate: true,
-      },
-    ],
   },
   'app-code': {
     id: 'app-code',

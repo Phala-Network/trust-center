@@ -34,8 +34,6 @@ export interface CompactReportWidgetConfig {
   taskId?: string
   sections?: {
     hardware?: boolean
-    gpuAttestation?: boolean
-    tdxAttestation?: boolean
     sourceCode?: boolean
     zeroTrust?: boolean
     os?: boolean
@@ -60,8 +58,6 @@ const DEFAULT_CONFIG: CompactReportWidgetConfig & {
   showTrustCenterButton: false,
   sections: {
     hardware: true,
-    gpuAttestation: true,
-    tdxAttestation: true,
     sourceCode: true,
     zeroTrust: true,
     os: true,
@@ -75,16 +71,6 @@ const ALL_TRUST_SECTIONS: TrustSection[] = [
     id: 'hardware',
     title: 'TEE Hardware Verified',
     items: [REPORT_ITEMS['app-cpu'], REPORT_ITEMS['app-gpu']],
-  },
-  {
-    id: 'gpu_attestation',
-    title: 'GPU Attestation',
-    items: [REPORT_ITEMS['app-gpu-quote']],
-  },
-  {
-    id: 'tdx_attestation',
-    title: 'TDX Attestation',
-    items: [REPORT_ITEMS['app-quote']],
   },
   {
     id: 'source_code',
@@ -114,8 +100,6 @@ const SECTION_CONFIG_MAP: Record<
   keyof NonNullable<CompactReportWidgetConfig['sections']>
 > = {
   hardware: 'hardware',
-  gpu_attestation: 'gpuAttestation',
-  tdx_attestation: 'tdxAttestation',
   source_code: 'sourceCode',
   zero_trust: 'zeroTrust',
   os: 'os',
