@@ -88,7 +88,7 @@ const CopyButton: React.FC<{
   )
 }
 
-// Copyable field component
+// Copyable field component with copy button inside value area (bottom-right)
 const CopyableField: React.FC<{
   label: string
   value: string
@@ -109,24 +109,24 @@ const CopyableField: React.FC<{
   return (
     <div className="space-y-1">
       <p className="block font-medium text-xs text-muted-foreground">{label}</p>
-      <div className="flex items-start gap-2">
-        <div className="flex-1 min-w-0 rounded bg-muted/50 px-2 py-1.5 border border-border">
-          <p
-            className={cn(
-              'text-xs font-mono break-all',
-              truncate && 'line-clamp-4',
-            )}
-          >
-            {truncatedValue}
-          </p>
+      <div className="relative rounded bg-muted/50 px-2 py-1.5 pb-7 border border-border">
+        <p
+          className={cn(
+            'text-xs font-mono break-all',
+            truncate && 'line-clamp-4',
+          )}
+        >
+          {truncatedValue}
+        </p>
+        <div className="absolute bottom-1.5 right-1.5">
+          <CopyButton value={displayValue} />
         </div>
-        <CopyButton value={displayValue} />
       </div>
     </div>
   )
 }
 
-// CURL request display component
+// CURL request display component with copy button inside (bottom-right)
 const CurlRequestDisplay: React.FC<{
   curlRequest: CurlRequest
   fieldValues: Record<string, unknown>
@@ -158,19 +158,19 @@ ${headerLines} \\
       <p className="block font-medium text-xs text-muted-foreground">
         CURL Request
       </p>
-      <div className="flex items-start gap-2">
-        <div className="flex-1 min-w-0 rounded bg-muted/50 px-2 py-1.5 border border-border overflow-x-auto">
-          <pre className="text-xs font-mono whitespace-pre-wrap break-all">
-            {curlCommand}
-          </pre>
+      <div className="relative rounded bg-muted/50 px-2 py-1.5 pb-7 border border-border overflow-x-auto">
+        <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+          {curlCommand}
+        </pre>
+        <div className="absolute bottom-1.5 right-1.5">
+          <CopyButton value={curlCommand} />
         </div>
-        <CopyButton value={curlCommand} />
       </div>
     </div>
   )
 }
 
-// Link component with action styling
+// Link component with unified styling
 const ReportLink: React.FC<{
   link: ReportItemLink
   quoteValue?: string
@@ -185,15 +185,10 @@ const ReportLink: React.FC<{
       href={finalUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className={cn(
-        'inline-flex items-center gap-1 text-xs hover:opacity-80',
-        link.isAction
-          ? 'text-primary underline'
-          : 'text-muted-foreground underline',
-      )}
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground transition-colors"
       onClick={(e) => e.stopPropagation()}
     >
-      {link.isAction && <ExternalLink className="h-3 w-3" />}
+      <ExternalLink className="h-3 w-3" />
       {link.text}
     </a>
   )
@@ -264,31 +259,13 @@ const CardContent: React.FC<{
     }
   }
 
-  const icons = item.vendorIcon ? getVendorIconSrc(item.vendorIcon) : null
-
   return (
     <div className="pt-2 border-t space-y-3">
-      {/* Vendor title with icon */}
+      {/* Vendor title (no icon, header already has it) */}
       {item.vendorTitle && (
-        <div className="flex items-center gap-2">
-          {icons && (
-            <>
-              <img
-                src={icons.light}
-                alt="Vendor"
-                className="block h-4 w-auto dark:hidden"
-              />
-              <img
-                src={icons.dark}
-                alt="Vendor"
-                className="hidden dark:block h-4 w-auto"
-              />
-            </>
-          )}
-          <span className="text-xs text-muted-foreground">
-            {item.vendorTitle}
-          </span>
-        </div>
+        <span className="text-xs text-muted-foreground">
+          {item.vendorTitle}
+        </span>
       )}
 
       {/* Intro text */}
@@ -413,27 +390,11 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
         )}
       </div>
 
-      {/* Vendor title */}
+      {/* Vendor title (no icon, header already has it) */}
       {item.vendorTitle && (
-        <div className="flex items-center gap-2">
-          {icons && (
-            <>
-              <img
-                src={icons.light}
-                alt="Vendor"
-                className="block h-3 w-auto dark:hidden"
-              />
-              <img
-                src={icons.dark}
-                alt="Vendor"
-                className="hidden dark:block h-3 w-auto"
-              />
-            </>
-          )}
-          <span className="text-xs text-muted-foreground">
-            {item.vendorTitle}
-          </span>
-        </div>
+        <span className="text-xs text-muted-foreground">
+          {item.vendorTitle}
+        </span>
       )}
 
       <p className="text-muted-foreground text-xs">{item.intro}</p>
