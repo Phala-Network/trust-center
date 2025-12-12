@@ -41,6 +41,7 @@ export const ReportHeader: React.FC<{
   showAttributes?: boolean
   showVerificationStatus?: boolean
   showTrustCenterButton?: boolean
+  showAppInfo?: boolean
   appId?: string
   taskId?: string
 }> = ({
@@ -48,6 +49,7 @@ export const ReportHeader: React.FC<{
   showAttributes = true,
   showVerificationStatus = true,
   showTrustCenterButton = false,
+  showAppInfo = true,
   appId,
   taskId,
 }) => {
@@ -71,82 +73,84 @@ export const ReportHeader: React.FC<{
 
   return (
     <div>
-      {/* Header section */}
-      <div className="px-5 mb-4">
-        <div className="flex items-center gap-4">
-          {/* Use profile avatar if available, otherwise fallback to AppLogo */}
-          {avatarUrl ? (
-            <Avatar className="w-14 h-14 shrink-0 ring-2 ring-background shadow-sm rounded-lg">
-              <AvatarImage src={avatarUrl} alt={displayName} />
-              <AvatarFallback className="rounded-lg">
-                {displayName.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          ) : (
-            <AppLogo
-              user={displayUser}
-              appName={displayName}
-              size="lg"
-              className="w-14 h-14 shrink-0 ring-2 ring-background shadow-sm"
-            />
-          )}
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            {displayUser && (
-              <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
-                {displayUser}
-              </p>
+      {/* Header section - controlled by showAppInfo */}
+      {showAppInfo && (
+        <div className="px-5 mb-4">
+          <div className="flex items-center gap-4">
+            {/* Use profile avatar if available, otherwise fallback to AppLogo */}
+            {avatarUrl ? (
+              <Avatar className="w-14 h-14 shrink-0 ring-2 ring-background shadow-sm rounded-lg">
+                <AvatarImage src={avatarUrl} alt={displayName} />
+                <AvatarFallback className="rounded-lg">
+                  {displayName.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <AppLogo
+                user={displayUser}
+                appName={displayName}
+                size="lg"
+                className="w-14 h-14 shrink-0 ring-2 ring-background shadow-sm"
+              />
             )}
-            <h1 className="text-lg font-semibold tracking-tight truncate leading-tight">
-              {displayName}
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              {badges.versionBadge.show && (
-                <Badge
-                  variant="secondary"
-                  className="flex items-center gap-1.5 text-xs h-5 px-2"
-                >
-                  <Image
-                    src="/dstack.svg"
-                    alt="DStack"
-                    width={48}
-                    height={12}
-                    className="opacity-70 dark:hidden"
-                  />
-                  <Image
-                    src="/dstack_dark.svg"
-                    alt="DStack"
-                    width={48}
-                    height={12}
-                    className="opacity-70 hidden dark:block"
-                  />
-                  <span className="font-semibold">
-                    {badges.versionBadge.fullVersion}
-                  </span>
-                </Badge>
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              {displayUser && (
+                <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
+                  {displayUser}
+                </p>
               )}
-              {badges.kmsBadge.show && (
-                <Badge
-                  variant="outline"
-                  className="text-xs h-5 px-2 font-medium"
-                >
-                  {badges.kmsBadge.text}
-                </Badge>
-              )}
+              <h1 className="text-lg font-semibold tracking-tight truncate leading-tight">
+                {displayName}
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                {badges.versionBadge.show && (
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1.5 text-xs h-5 px-2"
+                  >
+                    <Image
+                      src="/dstack.svg"
+                      alt="DStack"
+                      width={48}
+                      height={12}
+                      className="opacity-70 dark:hidden"
+                    />
+                    <Image
+                      src="/dstack_dark.svg"
+                      alt="DStack"
+                      width={48}
+                      height={12}
+                      className="opacity-70 hidden dark:block"
+                    />
+                    <span className="font-semibold">
+                      {badges.versionBadge.fullVersion}
+                    </span>
+                  </Badge>
+                )}
+                {badges.kmsBadge.show && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs h-5 px-2 font-medium"
+                  >
+                    {badges.kmsBadge.text}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
+          {/* Description in header section */}
+          {app.profile?.description && (
+            <div className="mt-3">
+              <p className="text-sm text-muted-foreground/80 leading-relaxed">
+                {app.profile.description}
+              </p>
+            </div>
+          )}
         </div>
-        {/* Description in header section */}
-        {app.profile?.description && (
-          <div className="mt-3">
-            <p className="text-sm text-muted-foreground/80 leading-relaxed">
-              {app.profile.description}
-            </p>
-          </div>
-        )}
-      </div>
+      )}
 
-      {/* Attributes Section */}
-      {showAttributes && (
+      {/* Attributes Section - controlled by showAttributes (and implicitly by showAppInfo) */}
+      {showAppInfo && showAttributes && (
         <div className="px-5 mb-4 space-y-3">
           <div className="flex items-center gap-3 text-sm">
             <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
