@@ -1,6 +1,6 @@
 'use client'
 
-import {ChevronDown, Copy, ExternalLink} from 'lucide-react'
+import {ChevronDown, Copy} from 'lucide-react'
 import type React from 'react'
 import {useState} from 'react'
 
@@ -170,7 +170,7 @@ ${headerLines} \\
   )
 }
 
-// Link component with unified styling
+// Link component with unified styling (no icon)
 const ReportLink: React.FC<{
   link: ReportItemLink
   quoteValue?: string
@@ -185,10 +185,9 @@ const ReportLink: React.FC<{
       href={finalUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+      className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
       onClick={(e) => e.stopPropagation()}
     >
-      <ExternalLink className="h-3 w-3" />
       {link.text}
     </a>
   )
@@ -304,25 +303,27 @@ const CardContent: React.FC<{
             }
 
             return (
-              <div key={`${f.objectId}-${f.field}`} className="relative">
+              <div key={`${f.objectId}-${f.field}`} className="space-y-1">
                 <p className="block font-medium text-xs text-muted-foreground">
                   {f.label ?? f.field}
                 </p>
-                {valueString.startsWith('https://') ? (
-                  <a
-                    href={valueString}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block break-all text-xs/snug text-muted-foreground underline hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {valueString}
-                  </a>
-                ) : (
-                  <p className="line-clamp-3 break-all text-xs">
-                    {valueString}
-                  </p>
-                )}
+                <div className="rounded bg-muted/50 px-2 py-1.5 border border-border">
+                  {valueString.startsWith('https://') ? (
+                    <a
+                      href={valueString}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block break-all text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {valueString}
+                    </a>
+                  ) : (
+                    <p className="line-clamp-3 break-all text-xs">
+                      {valueString}
+                    </p>
+                  )}
+                </div>
               </div>
             )
           })}
@@ -425,25 +426,27 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
             }
 
             return (
-              <div key={`${f.objectId}-${f.field}`} className="relative">
+              <div key={`${f.objectId}-${f.field}`} className="space-y-1">
                 <p className="block font-medium text-xs text-muted-foreground">
                   {f.label ?? f.field}
                 </p>
-                {valueString.startsWith('https://') ? (
-                  <a
-                    href={valueString}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block break-all text-xs/snug text-muted-foreground underline hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {valueString}
-                  </a>
-                ) : (
-                  <p className="line-clamp-3 break-all text-xs">
-                    {valueString}
-                  </p>
-                )}
+                <div className="rounded bg-muted/50 px-2 py-1.5 border border-border">
+                  {valueString.startsWith('https://') ? (
+                    <a
+                      href={valueString}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block break-all text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {valueString}
+                    </a>
+                  ) : (
+                    <p className="line-clamp-3 break-all text-xs">
+                      {valueString}
+                    </p>
+                  )}
+                </div>
               </div>
             )
           })}
