@@ -16,12 +16,19 @@ type ReportItemId = (typeof reportItemsIds)[number]
 export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
   'app-cpu': {
     id: 'app-cpu',
-    title: 'TEE CPU',
+    title: 'TDX Attestation',
+    vendorTitle: 'Trust Domain Extensions',
     intro:
-      'Intel TDX provides hardware-based protection to keep your data encrypted and secure, along with a verifiable attestation report.',
+      "Intel TDX (Trust Domain Extensions) provides hardware-based attestation for confidential computing. You can verify the authenticity of this TDX quote using Phala's TEE Attestation Explorer - an open source tool for analyzing Intel attestation reports.",
     links: [
       {
-        text: 'Learn more about Intel TDX',
+        text: 'Verify TDX quote at TEE Explorer',
+        url: 'https://ra-quote-explorer.vercel.app/',
+        isAction: true,
+        urlWithQuote: true,
+      },
+      {
+        text: 'Learn about Intel TDX',
         url: 'https://www.intel.com/content/www/us/en/developer/tools/trust-domain-extensions/overview.html',
       },
     ],
@@ -33,17 +40,30 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
         field: 'security_feature',
         label: 'Security Feature',
       },
+      {
+        objectId: 'app-main',
+        field: 'intel_attestation_report',
+        label: 'Quote',
+        copyable: true,
+        isCode: true,
+      },
     ],
   },
   'app-gpu': {
     id: 'app-gpu',
-    title: 'TEE GPU',
+    title: 'GPU Attestation',
+    vendorTitle: 'Remote Attestation Service',
     intro:
-      'NVIDIA GPU with confidential computing support secures data and AI models during use.',
+      "This verification uses NVIDIA's Remote Attestation Service (NRAS) to prove that your model is running on genuine NVIDIA hardware in a secure environment. You can independently verify the attestation evidence using NVIDIA's public API.",
     links: [
       {
-        text: 'Learn more about NVIDIA Confidential Computing',
-        url: 'https://www.nvidia.com/en-us/data-center/solutions/confidential-computing/',
+        text: 'Verify GPU attestation yourself',
+        url: 'https://nras.attestation.nvidia.com/v3/attest/gpu',
+        isAction: true,
+      },
+      {
+        text: 'Learn about NVIDIA Attestation',
+        url: 'https://docs.nvidia.com/confidential-computing/attestation/nras-overview.html',
       },
     ],
     vendorIcon: '/nvidia.svg',
@@ -55,7 +75,35 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
         field: 'security_feature',
         label: 'Security Feature',
       },
+      {
+        objectId: 'app-gpu-quote',
+        field: 'nonce',
+        label: 'Nonce',
+        copyable: true,
+      },
+      {
+        objectId: 'app-gpu-quote',
+        field: 'evidence_list',
+        label: 'Evidence List',
+        copyable: true,
+        isJson: true,
+      },
+      {
+        objectId: 'app-gpu-quote',
+        field: 'arch',
+        label: 'Architecture',
+        copyable: true,
+      },
     ],
+    curlRequest: {
+      method: 'POST',
+      url: 'https://nras.attestation.nvidia.com/v3/attest/gpu',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      bodyFields: ['nonce', 'evidence_list', 'arch'],
+    },
   },
   'app-code': {
     id: 'app-code',
@@ -78,6 +126,8 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
         objectId: 'app-code',
         field: 'compose_file',
         label: 'Compose File',
+        copyable: true,
+        isCode: true,
       },
     ],
   },

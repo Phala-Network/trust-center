@@ -46,6 +46,8 @@ const defaultConfig: WidgetConfig = {
   appId: undefined,
   taskId: undefined,
   showTrustCenterButton: true,
+  showBranding: true,
+  showAppInfo: true,
   sections: {
     hardware: true,
     sourceCode: true,
@@ -95,6 +97,8 @@ export default function WidgetPlaygroundModal({
     if (config.defaultExpanded) optimized.e = 1
     if (!config.showSectionContent) optimized.c = 0
     if (config.darkMode) optimized.t = 1
+    if (!config.showBranding) optimized.b = 0
+    if (!config.showAppInfo) optimized.i = 0
 
     // Only include disabled sections with short keys
     const disabledSections: string[] = []
@@ -171,14 +175,48 @@ export default function WidgetPlaygroundModal({
               </h4>
 
               <div className="flex items-center justify-between">
-                <Label htmlFor="show-attributes" className="text-sm">
+                <Label htmlFor="show-app-info" className="text-sm">
+                  Show App Info
+                </Label>
+                <Switch
+                  id="show-app-info"
+                  checked={config.showAppInfo}
+                  onCheckedChange={(checked) => {
+                    updateConfig('showAppInfo', checked)
+                    // If hiding app info, also disable attributes
+                    if (!checked && config.showAttributes) {
+                      updateConfig('showAttributes', false)
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="show-attributes"
+                  className={`text-sm ${!config.showAppInfo ? 'opacity-50' : ''}`}
+                >
                   Show Attributes
                 </Label>
                 <Switch
                   id="show-attributes"
                   checked={config.showAttributes}
+                  disabled={!config.showAppInfo}
                   onCheckedChange={(checked) =>
                     updateConfig('showAttributes', checked)
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="show-branding" className="text-sm">
+                  Show Phala Branding
+                </Label>
+                <Switch
+                  id="show-branding"
+                  checked={config.showBranding}
+                  onCheckedChange={(checked) =>
+                    updateConfig('showBranding', checked)
                   }
                 />
               </div>

@@ -10,12 +10,36 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {getAppBadges} from '@/lib/app-badges'
 import type {AppWithTask} from '@/lib/db'
 
+// Top branding component - Phala Trust Certificate
+export const TopBranding: React.FC = () => (
+  <div className="bg-gradient-to-br from-muted/40 to-muted/20 px-5 py-3 border-b border-border/50">
+    <div className="flex items-center justify-center gap-2">
+      <Image
+        src="/logo.svg"
+        alt="Phala"
+        width={60}
+        height={20}
+        className="dark:hidden"
+      />
+      <Image
+        src="/logo_dark.svg"
+        alt="Phala"
+        width={60}
+        height={20}
+        className="hidden dark:block"
+      />
+      <span className="text-xs font-semibold text-muted-foreground">
+        Trust Certificate
+      </span>
+    </div>
+  </div>
+)
+
 // Shared Report Header Component
 export const ReportHeader: React.FC<{
   app: AppWithTask
   showAttributes?: boolean
   showVerificationStatus?: boolean
-  showBranding?: boolean
   showTrustCenterButton?: boolean
   appId?: string
   taskId?: string
@@ -23,12 +47,14 @@ export const ReportHeader: React.FC<{
   app,
   showAttributes = true,
   showVerificationStatus = true,
-  showBranding = false,
   showTrustCenterButton = false,
   appId,
   taskId,
 }) => {
   const badges = getAppBadges(app?.dstackVersion, app?.task.dataObjects)
+
+  // Check if app has GPU attestation
+  const hasGpu = app?.task.dataObjects?.includes('app-gpu') ?? false
 
   // Use profile display name if available, otherwise fallback to appName
   const displayName = app.profile?.displayName || app.appName
@@ -45,31 +71,6 @@ export const ReportHeader: React.FC<{
 
   return (
     <div>
-      {/* Phala Trust Certificate Branding - optional */}
-      {showBranding && (
-        <div className="bg-gradient-to-br from-muted/40 to-muted/20 px-5 py-3 border-b border-border/50 mb-4">
-          <div className="flex items-center justify-center gap-2">
-            <Image
-              src="/logo.svg"
-              alt="Phala"
-              width={60}
-              height={20}
-              className="dark:hidden"
-            />
-            <Image
-              src="/logo_dark.svg"
-              alt="Phala"
-              width={60}
-              height={20}
-              className="hidden dark:block"
-            />
-            <span className="text-xs font-semibold text-muted-foreground">
-              Trust Certificate
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Header section */}
       <div className="px-5 mb-4">
         <div className="flex items-center gap-4">
@@ -221,6 +222,71 @@ export const ReportHeader: React.FC<{
                 </p>
               </TooltipContent>
             </Tooltip>
+          </div>
+
+          {/* Attested by */}
+          <div className="flex items-center gap-1.5 mt-3 text-sm text-muted-foreground">
+            <span>Attested by</span>
+            {hasGpu && (
+              <>
+                <Image
+                  src="/nvidia.svg"
+                  alt="NVIDIA"
+                  width={56}
+                  height={14}
+                  className="dark:hidden"
+                />
+                <Image
+                  src="/nvidia_dark.svg"
+                  alt="NVIDIA"
+                  width={56}
+                  height={14}
+                  className="hidden dark:block"
+                />
+                <span>and</span>
+              </>
+            )}
+            <Image
+              src="/intel.svg"
+              alt="Intel"
+              width={32}
+              height={14}
+              className="dark:hidden"
+            />
+            <Image
+              src="/intel_dark.svg"
+              alt="Intel"
+              width={32}
+              height={14}
+              className="hidden dark:block"
+            />
+          </div>
+
+          {/* Description */}
+          <p className="mt-2 text-xs text-muted-foreground">
+            This automated verification tool lets you independently confirm that
+            the model is running in the TEE (Trusted Execution Environment).
+          </p>
+
+          {/* Related Links */}
+          <div className="flex items-center gap-3 mt-3">
+            <span className="text-xs text-muted-foreground">Related Links</span>
+            <a
+              href="https://docs.phala.network/dstack/design-documents/attestation-verification"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+            >
+              How It Works
+            </a>
+            <a
+              href="https://docs.phala.network/dstack/design-documents/attestation-verification"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+            >
+              TEE Attestation
+            </a>
           </div>
         </div>
       )}
