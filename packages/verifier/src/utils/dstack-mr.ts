@@ -26,6 +26,10 @@ export interface DstackMrOptions {
 /**
  * Builds CLI arguments array from VM configuration for the DStack measurement tool.
  *
+ * Different dstack versions have different vm_config formats:
+ * - prod7+: has qemu_single_pass_add_pages, pic (used for measurement)
+ * - use1/use2: has qemu_version, image (qemu_single_pass_add_pages defaults to false)
+ *
  * @param vmConfiguration - Virtual machine configuration object
  * @returns Array of CLI arguments
  */
@@ -35,13 +39,15 @@ function buildCliArgs(vmConfiguration: VmConfig): string[] {
   cliArguments.push('--cpu', vmConfiguration.cpu_count.toString())
   cliArguments.push('--memory', vmConfiguration.memory_size.toString())
 
-  cliArguments.push(
-    '--two-pass-add-pages',
-    vmConfiguration.qemu_single_pass_add_pages.toString(),
-  )
+  // For use1/use2 format (with qemu_version), default to false
+  // For prod7+ format, use the actual value
+  const twoPassAddPages = vmConfiguration.qemu_single_pass_add_pages ?? false
+  cliArguments.push('--two-pass-add-pages', twoPassAddPages.toString())
 
-  // TODO: PIC setting is currently hardcoded - should use vm_config.pic
-  cliArguments.push('--pic', 'false')
+  // For use1/use2 format (with qemu_version), default to false
+  // For prod7+ format, use the actual value
+  const pic = vmConfiguration.pic ?? false
+  cliArguments.push('--pic', pic.toString())
 
   if (vmConfiguration.pci_hole64_size > 0) {
     cliArguments.push(

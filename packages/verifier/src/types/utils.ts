@@ -236,13 +236,12 @@ export function convertLegacyAppInfo(legacyAppInfo: LegacyAppInfo): AppInfo {
   }
 
   // Create default VM config (minimal configuration for legacy apps)
+  // Note: qemu_single_pass_add_pages and pic are optional in VmConfig
   const defaultVmConfig: VmConfig = {
     spec_version: 0,
     os_image_hash: '0x', // Use rootfs_hash from legacy format
     cpu_count: 0,
     memory_size: 0,
-    qemu_single_pass_add_pages: false,
-    pic: true,
     pci_hole64_size: 0,
     hugepages: false,
     num_gpus: 0,

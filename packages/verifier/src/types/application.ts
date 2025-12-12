@@ -119,6 +119,10 @@ export interface BasicVmConfig {
 /**
  * Full VM configuration format used in dstack >= 0.5.3.
  * Represents the complete virtual machine configuration for TEE deployment.
+ *
+ * Different dstack versions have different vm_config formats:
+ * - prod7+: has qemu_single_pass_add_pages, pic
+ * - use1/use2: has qemu_version, image
  */
 export interface VmConfig {
   /** Specification version for the VM configuration */
@@ -129,10 +133,14 @@ export interface VmConfig {
   cpu_count: number
   /** Memory size in bytes */
   memory_size: number
-  /** Whether QEMU uses single-pass page addition */
-  qemu_single_pass_add_pages: boolean
-  /** Whether Programmable Interrupt Controller is enabled */
-  pic: boolean
+  /** Whether QEMU uses single-pass page addition (prod7+ format) */
+  qemu_single_pass_add_pages?: boolean
+  /** Whether Programmable Interrupt Controller is enabled (prod7+ format) */
+  pic?: boolean
+  /** QEMU version string (use1/use2 format) */
+  qemu_version?: string
+  /** Image name (use1/use2 format) */
+  image?: string
   /** Size of the 64-bit PCI memory hole */
   pci_hole64_size: number
   /** Whether huge pages are enabled */

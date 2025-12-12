@@ -109,8 +109,13 @@ export const VmConfigSchema = z.object({
   os_image_hash: z.string(),
   cpu_count: z.number(),
   memory_size: z.number(),
-  qemu_single_pass_add_pages: z.boolean(),
-  pic: z.boolean(),
+  // Optional fields - different dstack versions have different vm_config formats
+  // prod7+: has qemu_single_pass_add_pages, pic
+  // use1/use2: has qemu_version, image
+  qemu_single_pass_add_pages: z.boolean().optional(),
+  pic: z.boolean().optional(),
+  qemu_version: z.string().optional(),
+  image: z.string().optional(),
   pci_hole64_size: z.number(),
   hugepages: z.boolean(),
   num_gpus: z.number(),
