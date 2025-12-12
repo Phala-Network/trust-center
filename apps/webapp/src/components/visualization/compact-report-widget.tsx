@@ -77,7 +77,7 @@ const ALL_TRUST_SECTIONS: TrustSection[] = [
   {
     id: 'hardware',
     title: 'TEE Hardware Verified',
-    items: [REPORT_ITEMS['app-cpu'], REPORT_ITEMS['app-gpu']],
+    items: [REPORT_ITEMS['app-gpu'], REPORT_ITEMS['app-cpu']],
   },
   {
     id: 'source_code',

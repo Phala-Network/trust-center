@@ -324,7 +324,7 @@ export default function WidgetPlaygroundModal({
                   htmlFor="default-expanded"
                   className={`text-sm ${!config.showSectionContent ? 'opacity-50' : ''}`}
                 >
-                  Always Expand Cards
+                  Default Expand Cards
                 </Label>
                 <Switch
                   id="default-expanded"
