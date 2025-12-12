@@ -30,6 +30,9 @@ export const ReportHeader: React.FC<{
 }) => {
   const badges = getAppBadges(app?.dstackVersion, app?.task.dataObjects)
 
+  // Check if app has GPU attestation
+  const hasGpu = app?.task.dataObjects?.includes('app-gpu') ?? false
+
   // Use profile display name if available, otherwise fallback to appName
   const displayName = app.profile?.displayName || app.appName
   // Show workspace displayName (all apps should have featured builder workspace profile)
@@ -226,21 +229,25 @@ export const ReportHeader: React.FC<{
           {/* Attested by */}
           <div className="flex items-center gap-1.5 mt-3 text-sm text-muted-foreground">
             <span>Attested by</span>
-            <Image
-              src="/nvidia.svg"
-              alt="NVIDIA"
-              width={56}
-              height={14}
-              className="dark:hidden"
-            />
-            <Image
-              src="/nvidia_dark.svg"
-              alt="NVIDIA"
-              width={56}
-              height={14}
-              className="hidden dark:block"
-            />
-            <span>and</span>
+            {hasGpu && (
+              <>
+                <Image
+                  src="/nvidia.svg"
+                  alt="NVIDIA"
+                  width={56}
+                  height={14}
+                  className="dark:hidden"
+                />
+                <Image
+                  src="/nvidia_dark.svg"
+                  alt="NVIDIA"
+                  width={56}
+                  height={14}
+                  className="hidden dark:block"
+                />
+                <span>and</span>
+              </>
+            )}
             <Image
               src="/intel.svg"
               alt="Intel"
