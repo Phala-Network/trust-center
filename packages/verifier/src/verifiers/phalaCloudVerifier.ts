@@ -141,7 +141,7 @@ export class PhalaCloudVerifier extends Verifier {
           {
             tcb_info: TcbInfoSchema,
             key_provider_info: KeyProviderSchema,
-            vm_config: z.union([BasicVmConfigSchema, VmConfigSchema]),
+            vm_config: z.union([VmConfigSchema, BasicVmConfigSchema]),
           },
         ) as AppInfo
 
