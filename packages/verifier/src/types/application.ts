@@ -234,6 +234,73 @@ export interface DstackInstance {
 }
 
 /**
+ * Certificate information from app_certificates array in GuestAgentInfo.
+ */
+export interface AppCertificate {
+  subject: {
+    common_name: string
+    organization: string | null
+    country: string | null
+    state: string | null
+    locality: string | null
+  }
+  issuer: {
+    common_name: string
+    organization: string | null
+    country: string | null
+  }
+  serial_number: string
+  not_before: string
+  not_after: string
+  version: string
+  fingerprint: string
+  signature_algorithm: string
+  sans: string[] | null
+  is_ca: boolean
+  position_in_chain: number
+  quote: string | null
+  app_id: string | null
+  cert_usage: string | null
+}
+
+/**
+ * TCB info structure from GuestAgentInfo (uses legacy format with rootfs_hash).
+ */
+export interface GuestAgentTcbInfo {
+  mrtd: string
+  rootfs_hash: string | null
+  rtmr0: string
+  rtmr1: string
+  rtmr2: string
+  rtmr3: string
+  event_log: EventLog
+  app_compose: string
+}
+
+/**
+ * Guest Agent Info from Cloud API for KMS and Gateway.
+ * Contains application info in a format similar to LegacyAppInfo.
+ */
+export interface GuestAgentInfo {
+  app_id: string
+  instance_id: string
+  app_name: string
+  device_id: string
+  public_logs: boolean
+  public_sysinfo: boolean
+  mr_aggregated: string
+  os_image_hash: string | null
+  mr_key_provider: string | null
+  /** JSON string containing KeyProvider */
+  key_provider_info: string
+  compose_hash: string
+  /** JSON string containing VmConfig */
+  vm_config: string
+  tcb_info: GuestAgentTcbInfo
+  app_certificates?: AppCertificate[]
+}
+
+/**
  * Complete system information including KMS details and attestation instances.
  */
 export interface SystemInfo {
@@ -245,4 +312,10 @@ export interface SystemInfo {
   kms_info: KmsInfo
   /** Array of attestation instances */
   instances: DstackInstance[]
+  /** QEMU version used for the VM */
+  qemu_version?: string
+  /** KMS Guest Agent info from Cloud API */
+  kms_guest_agent_info?: GuestAgentInfo
+  /** Gateway Guest Agent info from Cloud API */
+  gateway_guest_agent_info?: GuestAgentInfo
 }

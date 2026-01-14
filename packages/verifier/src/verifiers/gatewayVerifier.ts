@@ -10,6 +10,7 @@ import {
   type AcmeInfo,
   type AppInfo,
   type AttestationBundle,
+  convertGuestAgentInfoToAppInfo,
   type CTResult,
   type GatewayMetadata,
   parseJsonFields,
@@ -93,9 +94,15 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   }
 
   /**
-   * Retrieves application information from the Gateway RPC endpoint.
+   * Retrieves application information from gateway_guest_agent_info or the Gateway RPC endpoint.
    */
   protected async getAppInfo(): Promise<AppInfo> {
+    // Use gateway_guest_agent_info from SystemInfo if available (avoids extra request)
+    if (this.systemInfo.gateway_guest_agent_info) {
+      return convertGuestAgentInfoToAppInfo(this.systemInfo.gateway_guest_agent_info)
+    }
+
+    // Fallback to fetching from Gateway RPC endpoint
     const appInfoUrl = `${this.rpcEndpoint}/.dstack/app-info`
     try {
       const response = await fetch(appInfoUrl)

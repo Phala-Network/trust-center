@@ -1,25 +1,39 @@
-import { getKmsAppInfo } from '../constants'
-import { safeParseEventLog } from '../schemas'
-import type { AppInfo, QuoteData } from '../types'
-import type { KmsInfo } from '../utils/dstackContract'
-import { KmsVerifier } from './kmsVerifier'
+import {safeParseEventLog} from '../schemas'
+import {
+  type AppInfo,
+  convertGuestAgentInfoToAppInfo,
+  type QuoteData,
+} from '../types'
+import type {KmsInfo} from '../utils/dstackContract'
+import {KmsVerifier} from './kmsVerifier'
 
 /**
  * Phala Cloud-specific KMS verifier implementation.
  *
- * This verifier fetches application information from the Phala Cloud API,
- * similar to how PhalaCloudVerifier works but for KMS context.
+ * This verifier uses kms_guest_agent_info from the Cloud API response
+ * to get KMS application information, avoiding the need for separate API calls.
  */
 export class PhalaCloudKmsVerifier extends KmsVerifier {
   protected override async getAppInfo(): Promise<AppInfo> {
-    return getKmsAppInfo(this.kmsInfo)
+    // Use kms_guest_agent_info from SystemInfo if available
+    if (this.systemInfo.kms_guest_agent_info) {
+      return convertGuestAgentInfoToAppInfo(this.systemInfo.kms_guest_agent_info)
+    }
+
+    // Fallback: This should not happen with the new API, but kept for safety
+    throw new Error(
+      'kms_guest_agent_info not available in SystemInfo. This KMS version may not be supported.',
+    )
   }
 
   protected override async getQuote(): Promise<QuoteData> {
+    // First try to get quote from smart contract (for on-chain governance)
     if (this.registrySmartContract) {
       return super.getQuote()
     }
 
+    // For Phala hosted KMS (non-on-chain), use hardcoded values
+    // This is legacy support for dstack-pha-* domains
     if (/^https:\/\/kms\.dstack-pha-.*\.phala\.network$/.test(this.kmsInfo.url)) {
       const kmsInfo: KmsInfo = {
         caPubkey:

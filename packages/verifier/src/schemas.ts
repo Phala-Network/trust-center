@@ -69,6 +69,61 @@ export const DstackInstanceSchema = z.object({
     ),
 })
 
+/**
+ * Guest Agent Info schema for KMS and Gateway responses from Cloud API.
+ * This format uses LegacyTcbInfo structure (rootfs_hash instead of modern fields).
+ */
+export const GuestAgentInfoSchema = z.object({
+  app_id: z.string(),
+  instance_id: z.string(),
+  app_name: z.string(),
+  device_id: z.string(),
+  public_logs: z.boolean(),
+  public_sysinfo: z.boolean(),
+  mr_aggregated: z.string(),
+  os_image_hash: z.string().nullable(),
+  mr_key_provider: z.string().nullable(),
+  key_provider_info: z.string(), // JSON string
+  compose_hash: z.string(),
+  vm_config: z.string(), // JSON string
+  tcb_info: z.object({
+    mrtd: z.string(),
+    rootfs_hash: z.string().nullable(),
+    rtmr0: z.string(),
+    rtmr1: z.string(),
+    rtmr2: z.string(),
+    rtmr3: z.string(),
+    event_log: EventLogSchema,
+    app_compose: z.string(),
+  }),
+  app_certificates: z.array(z.object({
+    subject: z.object({
+      common_name: z.string(),
+      organization: z.string().nullable(),
+      country: z.string().nullable(),
+      state: z.string().nullable(),
+      locality: z.string().nullable(),
+    }),
+    issuer: z.object({
+      common_name: z.string(),
+      organization: z.string().nullable(),
+      country: z.string().nullable(),
+    }),
+    serial_number: z.string(),
+    not_before: z.string(),
+    not_after: z.string(),
+    version: z.string(),
+    fingerprint: z.string(),
+    signature_algorithm: z.string(),
+    sans: z.array(z.string()).nullable(),
+    is_ca: z.boolean(),
+    position_in_chain: z.number(),
+    quote: z.string().nullable(),
+    app_id: z.string().nullable(),
+    cert_usage: z.string().nullable(),
+  })).optional(),
+})
+
 export const SystemInfoSchema = z.object({
   app_id: AppIdSchema,
   contract_address: z
@@ -78,6 +133,9 @@ export const SystemInfoSchema = z.object({
     .pipe(z.union([z.null(), ContractAddressSchema])),
   kms_info: KmsInfoSchema,
   instances: z.array(DstackInstanceSchema),
+  qemu_version: z.string().optional(),
+  kms_guest_agent_info: GuestAgentInfoSchema.optional(),
+  gateway_guest_agent_info: GuestAgentInfoSchema.optional(),
 })
 
 export const AppComposeSchema = z.object({

@@ -6,6 +6,7 @@ import type {
   KmsInfo,
   KmsMetadata,
   QuoteData,
+  SystemInfo,
   VerificationFailure,
 } from '../types'
 import type {DataObjectCollector} from '../utils/dataObjectCollector'
@@ -28,33 +29,37 @@ export abstract class KmsVerifier extends Verifier {
   public certificateAuthorityPublicKey: `0x${string}` = '0x'
   /** Data object generator for KMS-specific objects */
   protected dataObjectGenerator: KmsDataObjectGenerator
-  /** System information for this KMS instance */
+  /** KMS info from systemInfo.kms_info */
   protected kmsInfo: KmsInfo
+  /** Full system info for accessing kms_guest_agent_info */
+  protected systemInfo: SystemInfo
 
   /**
    * Creates a new KMS verifier instance.
    */
   constructor(
     metadata: KmsMetadata,
-    kmsInfo: KmsInfo,
+    systemInfo: SystemInfo,
     collector: DataObjectCollector,
   ) {
     super(metadata, 'kms', collector)
+    this.systemInfo = systemInfo
+    this.kmsInfo = systemInfo.kms_info
+
     // Only create smart contract if governance is OnChain
     if (metadata.governance?.type === 'OnChain') {
-      if (!kmsInfo.contract_address) {
+      if (!this.kmsInfo.contract_address) {
         throw new Error(
           'KMS contract address is required for on-chain governance',
         )
       }
       this.registrySmartContract = new DstackKms(
-        kmsInfo.contract_address,
+        this.kmsInfo.contract_address,
         metadata.governance.chainId,
       )
     }
 
     this.dataObjectGenerator = new KmsDataObjectGenerator(metadata)
-    this.kmsInfo = kmsInfo
   }
 
   /**

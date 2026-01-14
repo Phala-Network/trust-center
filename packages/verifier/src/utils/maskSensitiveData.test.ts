@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
-import type { DataObject } from '../types'
-import { maskSensitiveDataObjects } from './maskSensitiveData'
+import {describe, expect, test} from 'bun:test'
+
+import type {DataObject} from '../types'
+import {maskSensitiveDataObjects} from './maskSensitiveData'
 
 describe('maskSensitiveData', () => {
-  it('should mask docker_compose_file in compose_file JSON string', () => {
+  test('should mask docker_compose_file in compose_file JSON string', () => {
     const composeFileContent = JSON.stringify({
       manifest_version: 2,
       name: 'test-app',
@@ -41,7 +42,7 @@ describe('maskSensitiveData', () => {
     expect(maskedComposeFile.kms_enabled).toBe(true)
   })
 
-  it('should not modify data objects without compose_file', () => {
+  test('should not modify data objects without compose_file', () => {
     const dataObjects: DataObject[] = [
       {
         id: 'app-cpu',
@@ -61,7 +62,7 @@ describe('maskSensitiveData', () => {
     expect(masked[0]!).toEqual(dataObjects[0]!)
   })
 
-  it('should handle multiple data objects', () => {
+  test('should handle multiple data objects', () => {
     const composeFile1 = JSON.stringify({
       manifest_version: 2,
       docker_compose_file: 'sensitive-content-1',
@@ -77,21 +78,21 @@ describe('maskSensitiveData', () => {
         id: 'kms-code',
         name: 'KMS Code',
         description: 'KMS code',
-        fields: { compose_file: composeFile1 },
+        fields: {compose_file: composeFile1},
         kind: 'kms',
       },
       {
         id: 'gateway-code',
         name: 'Gateway Code',
         description: 'Gateway code',
-        fields: { compose_file: composeFile2 },
+        fields: {compose_file: composeFile2},
         kind: 'gateway',
       },
       {
         id: 'app-cpu',
         name: 'CPU',
         description: 'CPU info',
-        fields: { manufacturer: 'Intel' },
+        fields: {manufacturer: 'Intel'},
         kind: 'app',
       },
     ]
@@ -109,7 +110,7 @@ describe('maskSensitiveData', () => {
     expect(masked[2]!.fields!.manufacturer).toBe('Intel')
   })
 
-  it('should handle malformed JSON gracefully', () => {
+  test('should handle malformed JSON gracefully', () => {
     const dataObjects: DataObject[] = [
       {
         id: 'app-code',
@@ -128,7 +129,7 @@ describe('maskSensitiveData', () => {
     expect(masked[0]!.fields!.compose_file).toBe('not a valid json')
   })
 
-  it('should handle compose_file without docker_compose_file field', () => {
+  test('should handle compose_file without docker_compose_file field', () => {
     const composeFile = JSON.stringify({
       manifest_version: 1,
       name: 'simple-app',
@@ -140,7 +141,7 @@ describe('maskSensitiveData', () => {
         id: 'app-code',
         name: 'APP Code',
         description: 'App code',
-        fields: { compose_file: composeFile },
+        fields: {compose_file: composeFile},
         kind: 'app',
       },
     ]
@@ -158,7 +159,7 @@ describe('maskSensitiveData', () => {
     })
   })
 
-  it('should not mutate original data objects', () => {
+  test('should not mutate original data objects', () => {
     const composeFile = JSON.stringify({
       docker_compose_file: 'original-content',
     })
@@ -168,7 +169,7 @@ describe('maskSensitiveData', () => {
         id: 'app-code',
         name: 'APP Code',
         description: 'App code',
-        fields: { compose_file: composeFile },
+        fields: {compose_file: composeFile},
         kind: 'app',
       },
     ]
