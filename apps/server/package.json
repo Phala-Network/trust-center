@@ -11,20 +11,20 @@
     "clean": "rm -rf node_modules .turbo"
   },
   "devDependencies": {
-    "@types/pg": "^8.15.6"
+    "@types/pg": "^8.16.0"
   },
   "dependencies": {
-    "@elysiajs/bearer": "^1.4.1",
+    "@elysiajs/bearer": "^1.4.2",
     "@elysiajs/cron": "^1.4.1",
-    "@elysiajs/openapi": "^1.4.11",
+    "@elysiajs/openapi": "^1.4.13",
     "@phala/dstack-verifier": "workspace:*",
     "@phala/trust-center-db": "workspace:*",
-    "@t3-oss/env-core": "^0.13.8",
-    "bullmq": "^5.64.1",
-    "date-fns": "^4.1.0",
-    "elysia": "^1.4.16",
-    "ioredis": "^5.8.2",
-    "viem": "^2.39.3",
-    "zod": "^4.1.12"
+    "@t3-oss/env-core": "catalog:",
+    "bullmq": "^5.66.5",
+    "date-fns": "catalog:",
+    "elysia": "^1.4.21",
+    "ioredis": "^5.9.1",
+    "viem": "catalog:",
+    "zod": "catalog:"
   }
 }

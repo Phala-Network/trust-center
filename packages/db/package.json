@@ -14,11 +14,11 @@
     "studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.7",
-    "postgres": "^3.4.7",
-    "zod": "^4.1.13"
+    "drizzle-orm": "catalog:",
+    "postgres": "^3.4.8",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.7"
+    "drizzle-kit": "^0.31.8"
   }
 }

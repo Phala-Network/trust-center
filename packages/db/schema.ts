@@ -113,6 +113,7 @@ export const UpstreamAppDataSchema = z.object({
   vm_created_at: z.string(),
   docker_compose_file: z.string().nullable(),
 })
+export const UpstreamAppDataArraySchema = z.array(UpstreamAppDataSchema)
 
 // Upstream profile data schema (from Metabase) - for validation
 export const UpstreamProfileDataSchema = z.object({
@@ -125,6 +126,7 @@ export const UpstreamProfileDataSchema = z.object({
   created_at: z.string(),
   updated_at: z.string().nullable(),
 })
+export const UpstreamProfileDataArraySchema = z.array(UpstreamProfileDataSchema)
 
 // App Zod schema
 export const AppSchema = z.object({

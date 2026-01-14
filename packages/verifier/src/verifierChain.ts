@@ -57,7 +57,7 @@ export function createVerifiers(
     )
   } else {
     verifiers.push(
-      new PhalaCloudKmsVerifier(kmsMetadata, systemInfo.kms_info, collector),
+      new PhalaCloudKmsVerifier(kmsMetadata, systemInfo, collector),
       new GatewayVerifier(gatewayMetadata, systemInfo, collector),
       new PhalaCloudVerifier(
         systemInfo,

@@ -8,18 +8,16 @@
   "scripts": {
     "dev": "bun --watch run src/test-server.ts",
     "build:dcap-qvl": "cd external/dcap-qvl/cli && cargo build --release && mkdir -p ../../../bin && cp target/release/dcap-qvl ../../../bin/",
-    "test": "vitest run",
-    "test:watch": "vitest watch",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "format": "bunx biome format --write .",
     "lint": "bunx biome lint .",
     "check": "bunx biome check --write .",
     "typecheck": "bunx tsc --noEmit"
   },
-  "devDependencies": {
-    "vitest": "^3.2.4"
-  },
+  "devDependencies": {},
   "dependencies": {
-    "viem": "^2.39.2",
-    "zod": "^4.1.12"
+    "viem": "catalog:",
+    "zod": "catalog:"
   }
 }

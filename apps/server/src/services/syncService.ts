@@ -5,11 +5,10 @@ import {
   type NewAppRecord,
   sql,
   type UpstreamAppData,
-  UpstreamAppDataSchema,
+  UpstreamAppDataArraySchema,
   type UpstreamProfileData,
-  UpstreamProfileDataSchema,
+  UpstreamProfileDataArraySchema,
 } from '@phala/trust-center-db'
-import {z} from 'zod'
 
 import type {AppService} from './appService'
 import type {ProfileService} from './profileService'
@@ -240,7 +239,7 @@ export function createSyncService(
       }
 
       const data = await metabaseResponse.json()
-      const apps = z.array(UpstreamAppDataSchema).parse(data)
+      const apps = UpstreamAppDataArraySchema.parse(data)
       console.log(
         `[SYNC] Successfully fetched and validated ${apps.length} apps from Metabase`,
       )
@@ -278,7 +277,7 @@ export function createSyncService(
       }
 
       const data = await metabaseResponse.json()
-      const profiles = z.array(UpstreamProfileDataSchema).parse(data)
+      const profiles = UpstreamProfileDataArraySchema.parse(data)
       console.log(
         `[SYNC] Successfully fetched and validated ${profiles.length} profiles from Metabase`,
       )

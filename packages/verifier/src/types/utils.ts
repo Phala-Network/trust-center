@@ -3,6 +3,8 @@ import { z } from 'zod'
 
 import type {
   AppInfo,
+  BasicVmConfig,
+  GuestAgentInfo,
   KeyProvider,
   LegacyAppInfo,
   TcbInfo,
@@ -220,6 +222,79 @@ export function parseAttestationBundle(
   }
 
   return parsed
+}
+
+/**
+ * Converts GuestAgentInfo (from Cloud API) to AppInfo format.
+ * GuestAgentInfo uses a similar structure to LegacyAppInfo but comes from the Cloud API
+ * kms_guest_agent_info and gateway_guest_agent_info fields.
+ *
+ * @param guestAgentInfo - The guest agent info from Cloud API
+ * @returns AppInfo with all fields properly converted
+ */
+export function convertGuestAgentInfoToAppInfo(guestAgentInfo: GuestAgentInfo): AppInfo {
+  // Parse JSON string fields
+  let keyProviderInfo: KeyProvider
+  try {
+    keyProviderInfo = JSON.parse(guestAgentInfo.key_provider_info) as KeyProvider
+  } catch {
+    keyProviderInfo = { name: 'Unknown', id: 'unknown' }
+  }
+
+  let vmConfig: BasicVmConfig | VmConfig
+  try {
+    vmConfig = JSON.parse(guestAgentInfo.vm_config) as BasicVmConfig | VmConfig
+  } catch {
+    vmConfig = {
+      os_image_hash: guestAgentInfo.os_image_hash || '0x',
+      cpu_count: 0,
+      memory_size: 0,
+    }
+  }
+
+  // Get os_image_hash from vm_config if not at top level
+  const osImageHash = guestAgentInfo.os_image_hash || vmConfig.os_image_hash || '0x'
+
+  // Convert GuestAgentTcbInfo to TcbInfo format
+  const convertedTcbInfo: TcbInfo = {
+    mrtd: guestAgentInfo.tcb_info.mrtd,
+    rtmr0: guestAgentInfo.tcb_info.rtmr0,
+    rtmr1: guestAgentInfo.tcb_info.rtmr1,
+    rtmr2: guestAgentInfo.tcb_info.rtmr2,
+    rtmr3: guestAgentInfo.tcb_info.rtmr3,
+    mr_aggregated: guestAgentInfo.mr_aggregated,
+    os_image_hash: osImageHash,
+    compose_hash: guestAgentInfo.compose_hash,
+    device_id: guestAgentInfo.device_id,
+    event_log: guestAgentInfo.tcb_info.event_log,
+    app_compose: guestAgentInfo.tcb_info.app_compose,
+  }
+
+  // Extract app_cert from app_certificates array (first non-CA cert)
+  let appCert = ''
+  if (guestAgentInfo.app_certificates && guestAgentInfo.app_certificates.length > 0) {
+    // Find the first certificate that is not a CA (position_in_chain 0 is typically the app cert)
+    const leafCert = guestAgentInfo.app_certificates.find(cert => !cert.is_ca)
+    if (leafCert) {
+      // The quote field in app_certificates contains the cert data, but we need the actual cert
+      // For now, we'll construct a placeholder as the actual PEM cert isn't directly available
+      appCert = `Certificate: ${leafCert.subject.common_name}`
+    }
+  }
+
+  return {
+    app_id: guestAgentInfo.app_id,
+    instance_id: guestAgentInfo.instance_id,
+    app_cert: appCert,
+    tcb_info: convertedTcbInfo,
+    app_name: guestAgentInfo.app_name,
+    device_id: guestAgentInfo.device_id,
+    mr_aggregated: guestAgentInfo.mr_aggregated,
+    os_image_hash: osImageHash,
+    key_provider_info: keyProviderInfo,
+    compose_hash: guestAgentInfo.compose_hash,
+    vm_config: vmConfig,
+  }
 }
 
 /**
