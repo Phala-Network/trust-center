@@ -313,9 +313,9 @@ export interface SystemInfo {
   /** Array of attestation instances */
   instances: DstackInstance[]
   /** QEMU version used for the VM */
-  qemu_version?: string
+  qemu_version?: string | null
   /** KMS Guest Agent info from Cloud API */
-  kms_guest_agent_info?: GuestAgentInfo
+  kms_guest_agent_info?: GuestAgentInfo | null
   /** Gateway Guest Agent info from Cloud API */
-  gateway_guest_agent_info?: GuestAgentInfo
+  gateway_guest_agent_info?: GuestAgentInfo | null
 }

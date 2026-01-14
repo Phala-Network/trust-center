@@ -1,6 +1,6 @@
-import { z } from 'zod'
+import {z} from 'zod'
 
-import { AppIdSchema, ContractAddressSchema } from './types/utils'
+import {AppIdSchema, ContractAddressSchema} from './types/utils'
 
 // Zod schemas for JSON parsing validation
 
@@ -60,13 +60,10 @@ export const DstackInstanceSchema = z.object({
 
       return trimmed
     })
-    .refine(
-      (val) => !val || val.startsWith('dstack-'),
-      {
-        message:
-          'image_version must start with "dstack-" (format: dstack-[nvidia-][dev-]<version>)',
-      },
-    ),
+    .refine((val) => !val || val.startsWith('dstack-'), {
+      message:
+        'image_version must start with "dstack-" (format: dstack-[nvidia-][dev-]<version>)',
+    }),
 })
 
 /**
@@ -96,32 +93,36 @@ export const GuestAgentInfoSchema = z.object({
     event_log: EventLogSchema,
     app_compose: z.string(),
   }),
-  app_certificates: z.array(z.object({
-    subject: z.object({
-      common_name: z.string(),
-      organization: z.string().nullable(),
-      country: z.string().nullable(),
-      state: z.string().nullable(),
-      locality: z.string().nullable(),
-    }),
-    issuer: z.object({
-      common_name: z.string(),
-      organization: z.string().nullable(),
-      country: z.string().nullable(),
-    }),
-    serial_number: z.string(),
-    not_before: z.string(),
-    not_after: z.string(),
-    version: z.string(),
-    fingerprint: z.string(),
-    signature_algorithm: z.string(),
-    sans: z.array(z.string()).nullable(),
-    is_ca: z.boolean(),
-    position_in_chain: z.number(),
-    quote: z.string().nullable(),
-    app_id: z.string().nullable(),
-    cert_usage: z.string().nullable(),
-  })).optional(),
+  app_certificates: z
+    .array(
+      z.object({
+        subject: z.object({
+          common_name: z.string(),
+          organization: z.string().nullable(),
+          country: z.string().nullable(),
+          state: z.string().nullable(),
+          locality: z.string().nullable(),
+        }),
+        issuer: z.object({
+          common_name: z.string(),
+          organization: z.string().nullable(),
+          country: z.string().nullable(),
+        }),
+        serial_number: z.string(),
+        not_before: z.string(),
+        not_after: z.string(),
+        version: z.string(),
+        fingerprint: z.string(),
+        signature_algorithm: z.string(),
+        sans: z.array(z.string()).nullable(),
+        is_ca: z.boolean(),
+        position_in_chain: z.number(),
+        quote: z.string().nullable(),
+        app_id: z.string().nullable(),
+        cert_usage: z.string().nullable(),
+      }),
+    )
+    .optional(),
 })
 
 export const SystemInfoSchema = z.object({
@@ -133,9 +134,9 @@ export const SystemInfoSchema = z.object({
     .pipe(z.union([z.null(), ContractAddressSchema])),
   kms_info: KmsInfoSchema,
   instances: z.array(DstackInstanceSchema),
-  qemu_version: z.string().optional(),
-  kms_guest_agent_info: GuestAgentInfoSchema.optional(),
-  gateway_guest_agent_info: GuestAgentInfoSchema.optional(),
+  qemu_version: z.string().nullable(),
+  kms_guest_agent_info: GuestAgentInfoSchema.nullable(),
+  gateway_guest_agent_info: GuestAgentInfoSchema.nullable(),
 })
 
 export const AppComposeSchema = z.object({
