@@ -1,5 +1,6 @@
 import {
   and,
+  type AppRecord,
   appsTable,
   createDbConnection,
   type DbConnection,
@@ -66,50 +67,59 @@ export const createAppService = (
   }
 
   // Batch upsert apps (optimized for bulk operations)
+  // Processes in batches of 100 to avoid PostgreSQL parameter limit (65535)
   const upsertApps = async (appsData: NewAppRecord[]) => {
     if (!appsData || appsData.length === 0) {
       console.warn('[APP] upsertApps called with empty array, skipping')
       return []
     }
 
+    const BATCH_SIZE = 100
     const now = new Date()
-    const values = appsData.map((app) => ({
-      ...app,
-      updatedAt: now,
-      lastSyncedAt: now,
-    }))
+    const allResults: AppRecord[] = []
 
-    // Use PostgreSQL's ON CONFLICT to upsert all apps in a single query
-    const results = await db
-      .insert(appsTable)
-      .values(values)
-      .onConflictDoUpdate({
-        target: appsTable.id, // Conflict on primary key (dstack app ID)
-        set: {
-          profileId: sql`EXCLUDED.profile_id`,
-          appName: sql`EXCLUDED.app_name`,
-          appConfigType: sql`EXCLUDED.app_config_type`,
-          contractAddress: sql`EXCLUDED.contract_address`,
-          domain: sql`EXCLUDED.domain`,
-          dstackVersion: sql`EXCLUDED.dstack_version`,
-          workspaceId: sql`EXCLUDED.workspace_id`,
-          creatorId: sql`EXCLUDED.creator_id`,
-          chainId: sql`EXCLUDED.chain_id`,
-          kmsContractAddress: sql`EXCLUDED.kms_contract_address`,
-          baseImage: sql`EXCLUDED.base_image`,
-          tproxyBaseDomain: sql`EXCLUDED.tproxy_base_domain`,
-          gatewayDomainSuffix: sql`EXCLUDED.gateway_domain_suffix`,
-          isPublic: sql`EXCLUDED.is_public`,
-          username: sql`EXCLUDED.username`,
-          email: sql`EXCLUDED.email`,
-          customUser: sql`EXCLUDED.custom_user`,
-          updatedAt: sql`EXCLUDED.updated_at`,
-          lastSyncedAt: sql`EXCLUDED.last_synced_at`,
-        },
-      })
-      .returning()
+    // Process in batches to avoid PostgreSQL parameter limit
+    for (let i = 0; i < appsData.length; i += BATCH_SIZE) {
+      const batch = appsData.slice(i, i + BATCH_SIZE)
+      const values = batch.map((app) => ({
+        ...app,
+        updatedAt: now,
+        lastSyncedAt: now,
+      }))
 
-    return results
+      const results = await db
+        .insert(appsTable)
+        .values(values)
+        .onConflictDoUpdate({
+          target: appsTable.id,
+          set: {
+            profileId: sql`EXCLUDED.profile_id`,
+            appName: sql`EXCLUDED.app_name`,
+            appConfigType: sql`EXCLUDED.app_config_type`,
+            contractAddress: sql`EXCLUDED.contract_address`,
+            domain: sql`EXCLUDED.domain`,
+            dstackVersion: sql`EXCLUDED.dstack_version`,
+            workspaceId: sql`EXCLUDED.workspace_id`,
+            creatorId: sql`EXCLUDED.creator_id`,
+            chainId: sql`EXCLUDED.chain_id`,
+            kmsContractAddress: sql`EXCLUDED.kms_contract_address`,
+            baseImage: sql`EXCLUDED.base_image`,
+            tproxyBaseDomain: sql`EXCLUDED.tproxy_base_domain`,
+            gatewayDomainSuffix: sql`EXCLUDED.gateway_domain_suffix`,
+            isPublic: sql`EXCLUDED.is_public`,
+            username: sql`EXCLUDED.username`,
+            email: sql`EXCLUDED.email`,
+            customUser: sql`EXCLUDED.custom_user`,
+            updatedAt: sql`EXCLUDED.updated_at`,
+            lastSyncedAt: sql`EXCLUDED.last_synced_at`,
+          },
+        })
+        .returning()
+
+      allResults.push(...results)
+    }
+
+    return allResults
   }
 
   // Get all apps
