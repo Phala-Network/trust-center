@@ -68,10 +68,21 @@ export const createAppService = (
 
   // Batch upsert apps (optimized for bulk operations)
   // Processes in batches of 100 to avoid PostgreSQL parameter limit (65535)
+  // Deduplicates by ID to avoid "ON CONFLICT DO UPDATE cannot affect row a second time" error
   const upsertApps = async (appsData: NewAppRecord[]) => {
     if (!appsData || appsData.length === 0) {
       console.warn('[APP] upsertApps called with empty array, skipping')
       return []
+    }
+
+    // Deduplicate by ID - keep the last occurrence (most recent data)
+    const deduped = Array.from(
+      new Map(appsData.map((app) => [app.id, app])).values(),
+    )
+    if (deduped.length !== appsData.length) {
+      console.warn(
+        `[APP] Deduplicated ${appsData.length - deduped.length} duplicate app IDs`,
+      )
     }
 
     const BATCH_SIZE = 100
@@ -79,8 +90,8 @@ export const createAppService = (
     const allResults: AppRecord[] = []
 
     // Process in batches to avoid PostgreSQL parameter limit
-    for (let i = 0; i < appsData.length; i += BATCH_SIZE) {
-      const batch = appsData.slice(i, i + BATCH_SIZE)
+    for (let i = 0; i < deduped.length; i += BATCH_SIZE) {
+      const batch = deduped.slice(i, i + BATCH_SIZE)
       const values = batch.map((app) => ({
         ...app,
         updatedAt: now,
