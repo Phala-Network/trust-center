@@ -29,6 +29,14 @@ export const generateMetadata = async ({params}: AppPageProps) => {
 
   const url = `https://trust.phala.com/app/${appId}`
 
+  // Don't index non-public apps
+  const robots = app.isPublic
+    ? undefined
+    : {
+        index: false,
+        follow: false,
+      }
+
   return {
     title: displayName,
     description,
@@ -48,6 +56,7 @@ export const generateMetadata = async ({params}: AppPageProps) => {
     alternates: {
       canonical: url,
     },
+    ...(robots && {robots}),
   }
 }
 
