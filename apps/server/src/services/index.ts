@@ -49,17 +49,11 @@ const buildQueueConfig = (): QueueConfig => ({
 })
 
 const buildSyncConfig = (): SyncServiceConfig | null => {
-  if (
-    !env.METABASE_APP_QUERY ||
-    !env.METABASE_PROFILE_QUERY ||
-    !env.METABASE_API_KEY
-  ) {
+  if (!env.PHALA_CLOUD_API_KEY) {
     return null
   }
   return {
-    metabaseAppQuery: env.METABASE_APP_QUERY,
-    metabaseProfileQuery: env.METABASE_PROFILE_QUERY,
-    metabaseApiKey: env.METABASE_API_KEY,
+    phalaCloudApiKey: env.PHALA_CLOUD_API_KEY,
   }
 }
 

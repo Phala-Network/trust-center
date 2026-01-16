@@ -31,10 +31,8 @@ export const env = createEnv({
     QUEUE_MAX_ATTEMPTS: z.string().default('1'), // No automatic retries - we handle retries at app level with 30min cooldown
     QUEUE_BACKOFF_DELAY: z.string().default('2000'),
 
-    // Sync service configuration
-    METABASE_APP_QUERY: z.url().optional(),
-    METABASE_PROFILE_QUERY: z.url().optional(),
-    METABASE_API_KEY: z.string().optional(),
+    // Sync service configuration (Phala Cloud API)
+    PHALA_CLOUD_API_KEY: z.string().optional(),
 
     // Cron API authentication (required)
     CRON_API_KEY: z.string().min(1, 'CRON_API_KEY must not be empty'),

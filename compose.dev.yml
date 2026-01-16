@@ -92,10 +92,8 @@ services:
       APP_CRON_PATTERN: ${APP_CRON_PATTERN:-*/1 * * * *}
       TASKS_CRON_PATTERN: ${TASKS_CRON_PATTERN:-*/1 * * * *}
 
-      # Metabase sync (optional)
-      METABASE_APP_QUERY: ${METABASE_APP_QUERY:-}
-      METABASE_PROFILE_QUERY: ${METABASE_PROFILE_QUERY:-}
-      METABASE_API_KEY: ${METABASE_API_KEY:-}
+      # Phala Cloud API sync (optional)
+      PHALA_CLOUD_API_KEY: ${PHALA_CLOUD_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

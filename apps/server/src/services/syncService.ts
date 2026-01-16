@@ -184,10 +184,13 @@ function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
   }
 }
 
+// Phala Cloud API endpoints
+const PHALA_CLOUD_APP_API = 'https://cloud-api.phala.com/api/v1/stats/dstack_app'
+const PHALA_CLOUD_PROFILE_API =
+  'https://cloud-api.phala.com/api/v1/stats/entity_profile'
+
 export interface SyncServiceConfig {
-  metabaseAppQuery: string
-  metabaseProfileQuery: string
-  metabaseApiKey: string
+  phalaCloudApiKey: string
 }
 
 export interface SyncService {
@@ -214,78 +217,55 @@ export function createSyncService(
   profileService: ProfileService,
   appService: AppService,
 ): SyncService {
-  // Fetch apps from Metabase
+  // Fetch from Phala Cloud API with Bearer auth
+  const fetchFromApi = async (url: string, resourceName: string) => {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {Authorization: `Bearer ${config.phalaCloudApiKey}`},
+      signal: AbortSignal.timeout(30000),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error')
+      throw new Error(
+        `Phala Cloud ${resourceName} API error: ${response.status} ${response.statusText} - ${errorText}`,
+      )
+    }
+
+    const json = (await response.json()) as {data?: unknown} | unknown
+    return json && typeof json === 'object' && 'data' in json ? json.data : json
+  }
+
   const fetchApps = async (): Promise<UpstreamAppData[]> => {
-    console.log('[SYNC] Fetching apps from Metabase...')
-
+    console.log('[SYNC] Fetching apps from Phala Cloud API...')
     try {
-      const metabaseResponse = await fetch(config.metabaseAppQuery, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-KEY': config.metabaseApiKey,
-        },
-        body: JSON.stringify({}),
-        signal: AbortSignal.timeout(30000), // 30 second timeout
-      })
-
-      if (!metabaseResponse.ok) {
-        const errorText = await metabaseResponse
-          .text()
-          .catch(() => 'Unknown error')
-        throw new Error(
-          `Metabase API error: ${metabaseResponse.status} ${metabaseResponse.statusText} - ${errorText}`,
-        )
-      }
-
-      const data = await metabaseResponse.json()
+      const data = await fetchFromApi(PHALA_CLOUD_APP_API, 'apps')
       const apps = UpstreamAppDataArraySchema.parse(data)
       console.log(
-        `[SYNC] Successfully fetched and validated ${apps.length} apps from Metabase`,
+        `[SYNC] Successfully fetched and validated ${apps.length} apps from Phala Cloud API`,
       )
       return apps
     } catch (error) {
       if (error instanceof Error && error.name === 'TimeoutError') {
-        throw new Error('Metabase API request timed out after 30 seconds')
+        throw new Error('Phala Cloud apps API request timed out after 30 seconds')
       }
       throw error
     }
   }
 
-  // Fetch profiles from Metabase
   const fetchProfiles = async (): Promise<UpstreamProfileData[]> => {
-    console.log('[SYNC] Fetching profiles from Metabase...')
-
+    console.log('[SYNC] Fetching profiles from Phala Cloud API...')
     try {
-      const metabaseResponse = await fetch(config.metabaseProfileQuery, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-KEY': config.metabaseApiKey,
-        },
-        body: JSON.stringify({}),
-        signal: AbortSignal.timeout(30000), // 30 second timeout
-      })
-
-      if (!metabaseResponse.ok) {
-        const errorText = await metabaseResponse
-          .text()
-          .catch(() => 'Unknown error')
-        throw new Error(
-          `Metabase Profile API error: ${metabaseResponse.status} ${metabaseResponse.statusText} - ${errorText}`,
-        )
-      }
-
-      const data = await metabaseResponse.json()
+      const data = await fetchFromApi(PHALA_CLOUD_PROFILE_API, 'profiles')
       const profiles = UpstreamProfileDataArraySchema.parse(data)
       console.log(
-        `[SYNC] Successfully fetched and validated ${profiles.length} profiles from Metabase`,
+        `[SYNC] Successfully fetched and validated ${profiles.length} profiles from Phala Cloud API`,
       )
       return profiles
     } catch (error) {
       if (error instanceof Error && error.name === 'TimeoutError') {
         throw new Error(
-          'Metabase Profile API request timed out after 30 seconds',
+          'Phala Cloud profiles API request timed out after 30 seconds',
         )
       }
       throw error
@@ -423,16 +403,16 @@ export function createSyncService(
     }
   }
 
-  // Sync apps from Metabase to database
+  // Sync apps from Phala Cloud API to database
   const syncApps = async (): Promise<{
     appsSynced: number
     apps: UpstreamAppData[]
   }> => {
     try {
-      console.log('[SYNC] Syncing apps from Metabase...')
+      console.log('[SYNC] Syncing apps from Phala Cloud API...')
 
       const apps = await fetchApps()
-      console.log(`[SYNC] Fetched ${apps.length} apps from Metabase`)
+      console.log(`[SYNC] Fetched ${apps.length} apps from Phala Cloud API`)
 
       if (apps.length === 0) {
         console.log('[SYNC] No apps to sync')
@@ -483,16 +463,16 @@ export function createSyncService(
     }
   }
 
-  // Sync profiles from Metabase to database
+  // Sync profiles from Phala Cloud API to database
   const syncProfiles = async (): Promise<{
     profilesSynced: number
     profiles: UpstreamProfileData[]
   }> => {
     try {
-      console.log('[SYNC] Syncing profiles from Metabase...')
+      console.log('[SYNC] Syncing profiles from Phala Cloud API...')
 
       const profiles = await fetchProfiles()
-      console.log(`[SYNC] Fetched ${profiles.length} profiles from Metabase`)
+      console.log(`[SYNC] Fetched ${profiles.length} profiles from Phala Cloud API`)
 
       if (profiles.length === 0) {
         console.log('[SYNC] No profiles to sync')
@@ -501,7 +481,7 @@ export function createSyncService(
       }
 
       // Sync profiles to database using profileService
-      // Pass profiles directly - they already have snake_case format from Metabase
+      // Pass profiles directly - they already have snake_case format from Phala Cloud API
       await profileService.syncProfiles(profiles)
 
       console.log(
