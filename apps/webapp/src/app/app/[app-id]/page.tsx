@@ -10,7 +10,7 @@ interface AppPageProps {
 
 export const generateMetadata = async ({params}: AppPageProps) => {
   const {['app-id']: appId} = await params
-  const app = await getApp(appId, true) // Only show public apps
+  const app = await getApp(appId) // Allow direct access, only filter isPublic in list pages
 
   // Return default metadata if app not found or not completed
   if (!app || app.task.status !== 'completed') {
@@ -54,8 +54,8 @@ export const generateMetadata = async ({params}: AppPageProps) => {
 export default async function AppPage({params, searchParams}: AppPageProps) {
   const {['app-id']: appId} = await params
 
-  // Get the app directly from database (only public apps)
-  const app = await getApp(appId, true)
+  // Get the app directly from database (allow direct access, only filter isPublic in list pages)
+  const app = await getApp(appId)
 
   // Show "check back later" message if app not found or report not completed
   if (!app || app.task.status !== 'completed') {
