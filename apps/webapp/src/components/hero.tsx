@@ -122,11 +122,11 @@ export function Hero() {
           <div className="flex w-full flex-col justify-center gap-2 sm:flex-row lg:justify-start">
             <Button asChild className="w-full sm:w-auto" size="lg">
               <a
-                href="https://cloud.phala.com"
+                href="https://docs.phala.com/phala-cloud/attestation/trust-center-verification"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Get Started
+                Docs
                 <ArrowRight className="ml-2 size-4" />
               </a>
             </Button>
