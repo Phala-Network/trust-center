@@ -139,6 +139,11 @@ export const FEATURED_BUILDERS: FeaturedBuilder[] = [
     slug: 'phala',
     workspaceId: 9523,
   },
+  {
+    type: 'workspace',
+    slug: 'nova',
+    workspaceId: 9545,
+  },
 ]
 
 /**
