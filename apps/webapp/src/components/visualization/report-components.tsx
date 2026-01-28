@@ -276,7 +276,7 @@ export const ReportHeader: React.FC<{
           <div className="flex items-center gap-3 mt-3">
             <span className="text-xs text-muted-foreground">Related Links</span>
             <a
-              href="https://docs.phala.network/dstack/design-documents/attestation-verification"
+              href="https://docs.phala.com/phala-cloud/attestation/overview"
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
@@ -284,7 +284,7 @@ export const ReportHeader: React.FC<{
               How It Works
             </a>
             <a
-              href="https://docs.phala.network/dstack/design-documents/attestation-verification"
+              href="https://docs.phala.com/phala-cloud/attestation/get-attestation"
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
