@@ -32,6 +32,7 @@ export class VerificationService {
   private failures: VerificationFailure[] = []
   private errors: VerificationError[] = []
   private collector: DataObjectCollector
+  private shouldMaskSensitiveData = true
 
   constructor() {
     // Each verification service gets its own collector instance
@@ -53,6 +54,9 @@ export class VerificationService {
       ...DEFAULT_VERIFICATION_FLAGS,
       ...flags,
     }
+
+    // Store mask sensitive data flag for use in buildResponse
+    this.shouldMaskSensitiveData = mergedFlags.maskSensitiveData
 
     // Clear any existing DataObjects from previous verifications
     this.collector.clear()
@@ -180,13 +184,15 @@ export class VerificationService {
     // Use this instance's collector
     const dataObjects = this.collector.getAllObjects()
 
-    // Mask sensitive data before returning
-    const maskedDataObjects = maskSensitiveDataObjects(dataObjects)
+    // Conditionally mask sensitive data based on flag
+    const finalDataObjects = this.shouldMaskSensitiveData
+      ? maskSensitiveDataObjects(dataObjects)
+      : dataObjects
 
     const success = this.errors.length === 0
 
     return {
-      dataObjects: maskedDataObjects,
+      dataObjects: finalDataObjects,
       completedAt: new Date().toISOString(),
       errors: [...this.errors],
       failures: [...this.failures],

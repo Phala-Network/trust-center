@@ -66,6 +66,8 @@ export const VerificationFlagsSchema = z.object({
   dnsCAA: z.boolean(),
   /** Enable Certificate Transparency log verification (can be very slow due to crt.sh queries) */
   ctLog: z.boolean(),
+  /** Mask sensitive data in verification results (docker_compose_file, etc.) */
+  maskSensitiveData: z.boolean(),
 })
 
 /**
@@ -96,6 +98,7 @@ export const DEFAULT_VERIFICATION_FLAGS: VerificationFlags = {
   certificateKey: true,
   dnsCAA: true,
   ctLog: false, // Skip CT log queries
+  maskSensitiveData: true, // Mask sensitive data by default
 }
 
 /**
