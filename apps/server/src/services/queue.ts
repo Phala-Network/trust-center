@@ -191,12 +191,22 @@ export const createQueueService = (
           }, TIMEOUT_MS)
         })
 
+        // Determine if sensitive data should be masked
+        // Only Rena Labs apps should have unmasked sensitive data
+        const shouldMaskSensitiveData = app.customUser !== 'rena-labs'
+
+        // Merge verification flags with maskSensitiveData setting
+        const finalVerificationFlags = {
+          ...verificationFlags,
+          maskSensitiveData: shouldMaskSensitiveData,
+        }
+
         // Execute verification using VerificationService with timeout
         // verificationFlags can be partial - VerificationService will merge with defaults
         // Note: This timeout will prevent the worker from hanging, but won't abort
         // internal operations in VerificationService (requires AbortSignal support)
         const verificationResult = await Promise.race([
-          verificationService.verify(appConfig, verificationFlags),
+          verificationService.verify(appConfig, finalVerificationFlags),
           timeoutPromise,
         ])
 
