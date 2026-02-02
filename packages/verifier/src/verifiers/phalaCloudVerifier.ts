@@ -326,39 +326,7 @@ export class PhalaCloudVerifier extends Verifier {
     this.attestationBundle = undefined
 
     // Check for GPU support via Redpill API
-    try {
-      const models = await PhalaCloudVerifier.getRunningModels()
-      const matchingModel = models.find(
-        (m: any) => m.metadata?.appid === this.appId,
-      )
-
-      if (matchingModel) {
-        const attestationUrl = `https://api.redpill.ai/v1/attestation/report?model=${matchingModel.id}`
-        const response = await fetch(attestationUrl, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer test`,
-          },
-        })
-
-        if (response.ok) {
-          const rawAppInfo = await response.json()
-          this.attestationBundle = parseAttestationBundle(
-            rawAppInfo as Record<string, unknown>,
-            {
-              nvidiaPayloadSchema: NvidiaPayloadSchema,
-              eventLogSchema: EventLogSchema,
-              appInfoSchema: AppInfoSchema,
-            },
-          )
-        }
-      }
-    } catch (error) {
-      console.warn(
-        `Failed to fetch GPU attestation for app ${this.appId}:`,
-        error,
-      )
-    }
+    await this.verifyNvidiaGpu(failures)
 
     // Generate DataObjects for App hardware verification
     const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
@@ -371,8 +339,8 @@ export class PhalaCloudVerifier extends Verifier {
     })
 
     // Check hardware verification result
-    const isValid = isUpToDate(verificationResult)
-    if (!isValid) {
+    const isValid = isUpToDate(verificationResult) && failures.length === 0
+    if (!isUpToDate(verificationResult)) {
       failures.push({
         componentId: 'app-main',
         error: `Hardware verification failed: TEE attestation status is '${verificationResult.status}' (expected 'UpToDate')`,
@@ -400,6 +368,123 @@ export class PhalaCloudVerifier extends Verifier {
     console.log('Event log replay results:', eventLogVerification)
 
     return {isValid, failures}
+  }
+
+  private async verifyNvidiaGpu(failures: VerificationFailure[]) {
+    try {
+      const models = await PhalaCloudVerifier.getRunningModels()
+      const matchingModel = models.find(
+        (m: any) => m.metadata?.appid === this.appId,
+      )
+
+      if (matchingModel) {
+        // Generate random nonce for replay protection
+        const nonce = crypto.getRandomValues(new Uint8Array(32))
+        const nonceHex = Array.from(nonce)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('')
+
+        const attestationUrl = `https://api.redpill.ai/v1/attestation/report?model=${matchingModel.id}&nonce=${nonceHex}`
+        console.log(`Fetching attestation from ${attestationUrl}`)
+
+        const response = await fetch(attestationUrl, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer test`,
+          },
+        })
+
+        if (response.ok) {
+          const rawAppInfo = await response.json()
+          this.attestationBundle = parseAttestationBundle(
+            rawAppInfo as Record<string, unknown>,
+            {
+              nvidiaPayloadSchema: NvidiaPayloadSchema,
+              eventLogSchema: EventLogSchema,
+              appInfoSchema: AppInfoSchema,
+            },
+          )
+
+          // Verify nonce in response
+          const responseNonce = (rawAppInfo as any).request_nonce
+          if (responseNonce !== nonceHex) {
+            failures.push({
+              componentId: 'app-main',
+              error: `Redpill attestation nonce mismatch: expected ${nonceHex}, got ${responseNonce}`,
+            })
+          }
+
+          // Verify GPU Attestation via NRAS
+          if (this.attestationBundle.nvidia_payload) {
+            try {
+              const nrasUrl =
+                'https://nras.attestation.nvidia.com/v3/attest/gpu'
+              const nrasResponse = await fetch(nrasUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Accept: 'application/json',
+                },
+                body: JSON.stringify(this.attestationBundle.nvidia_payload),
+              })
+
+              if (!nrasResponse.ok) {
+                console.error('NRAS Error:', await nrasResponse.text())
+                throw new Error(
+                  `NRAS API responded with status ${nrasResponse.status}`,
+                )
+              }
+
+              const tokens = await nrasResponse.json()
+              if (!Array.isArray(tokens) || tokens.length < 1) {
+                throw new Error('Invalid NRAS response format: expected array')
+              }
+
+              // Verify Platform Token (index 0)
+              const platformEntry = tokens[0]
+              if (!Array.isArray(platformEntry) || platformEntry[0] !== 'JWT') {
+                throw new Error('Invalid platform token format')
+              }
+
+              const platformJwt = platformEntry[1]
+              const platformClaims = JSON.parse(atob(platformJwt.split('.')[1]))
+
+              if (platformClaims['x-nvidia-overall-att-result'] !== true) {
+                console.error(
+                  'NRAS Claims:',
+                  JSON.stringify(platformClaims, null, 2),
+                )
+                failures.push({
+                  componentId: 'app-main',
+                  error:
+                    'Nvidia GPU attestation failed: x-nvidia-overall-att-result is not true',
+                })
+              } else {
+                console.log('Nvidia GPU attestation passed successfully')
+              }
+            } catch (error) {
+              failures.push({
+                componentId: 'app-main',
+                error: `GPU verification failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              })
+            }
+          }
+        } else {
+          console.warn(
+            `Redpill API failed: ${response.status} ${response.statusText}`,
+          )
+        }
+      } else {
+        console.warn(`Model not found for app ${this.appId}`)
+      }
+    } catch (error) {
+      console.warn(
+        `Failed to fetch GPU attestation for app ${this.appId}:`,
+        error,
+      )
+    }
   }
 
   public async verifyOperatingSystem(): Promise<{
