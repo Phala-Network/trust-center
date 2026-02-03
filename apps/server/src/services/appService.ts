@@ -47,6 +47,7 @@ export const createAppService = (
           ...appData,
           updatedAt: new Date(),
           lastSyncedAt: new Date(),
+          deleted: false, // Reset deleted flag when app reappears in upstream
         })
         .where(eq(appsTable.id, existing.id))
         .returning()
@@ -123,6 +124,7 @@ export const createAppService = (
             customUser: sql`EXCLUDED.custom_user`,
             updatedAt: sql`EXCLUDED.updated_at`,
             lastSyncedAt: sql`EXCLUDED.last_synced_at`,
+            deleted: sql`false`, // Reset deleted flag when app reappears in upstream
           },
         })
         .returning()

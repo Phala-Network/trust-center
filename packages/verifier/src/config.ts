@@ -98,7 +98,7 @@ export const DEFAULT_VERIFICATION_FLAGS: VerificationFlags = {
   certificateKey: true,
   dnsCAA: true,
   ctLog: false, // Skip CT log queries
-  maskSensitiveData: true, // Mask sensitive data by default
+  maskSensitiveData: false, // Do not mask sensitive data by default
 }
 
 /**

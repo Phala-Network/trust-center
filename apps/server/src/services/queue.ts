@@ -192,8 +192,8 @@ export const createQueueService = (
         })
 
         // Determine if sensitive data should be masked
-        // Only Rena Labs apps should have unmasked sensitive data
-        const shouldMaskSensitiveData = app.customUser !== 'rena-labs'
+        // Only Rena Labs apps should have masked sensitive data
+        const shouldMaskSensitiveData = app.customUser === 'rena-labs'
 
         // Merge verification flags with maskSensitiveData setting
         const finalVerificationFlags = {
