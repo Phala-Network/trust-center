@@ -98,6 +98,7 @@ export default async function UserPage({params, searchParams}: UserPageProps & {
                   <AvatarImage
                     src={profile.avatarUrl}
                     alt={profile.displayName}
+                    className="object-contain"
                   />
                 )}
                 <AvatarFallback className="rounded-lg text-3xl font-bold">

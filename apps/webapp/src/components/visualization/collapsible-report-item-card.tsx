@@ -572,9 +572,9 @@ export const ReportItemCard: React.FC<{
   }
 
   // For non-collapsible mode (report view style)
+  // Use div instead of button to avoid nesting button elements (CopyButton inside)
   return (
-    <button
-      type="button"
+    <div
       className={cn(
         'w-full rounded-lg border bg-card text-left transition-all duration-200',
         selectable && isSelected && 'border-primary ring-2 ring-primary/30',
@@ -583,19 +583,24 @@ export const ReportItemCard: React.FC<{
           'border-border hover:border-muted-foreground/30 cursor-pointer',
         !selectable && 'border-border',
       )}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        if (selectable && (e.key === 'Enter' || e.key === ' ')) {
-          e.preventDefault()
-          handleClick(e)
-        }
-      }}
-      disabled={!selectable}
+      onClick={selectable ? handleClick : undefined}
+      onKeyDown={
+        selectable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                handleClick(e)
+              }
+            }
+          : undefined
+      }
+      role={selectable ? 'button' : undefined}
+      tabIndex={selectable ? 0 : undefined}
     >
       <div className="p-3">
         <ReportItemContent item={item} />
       </div>
-    </button>
+    </div>
   )
 }
 

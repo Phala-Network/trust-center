@@ -43,7 +43,7 @@ export function UserGallery() {
               >
                 {logoUrl ? (
                   <Avatar className="w-12 h-12 rounded-lg shrink-0">
-                    <AvatarImage src={logoUrl} alt={item.displayName} />
+                    <AvatarImage src={logoUrl} alt={item.displayName} className="object-contain" />
                     <AvatarFallback className="rounded-lg text-sm font-semibold">
                       {item.displayName.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
