@@ -1,9 +1,11 @@
 'use client'
 
+import {ArrowRight} from 'lucide-react'
 import Link from 'next/link'
 
 import {AppLogo} from '@/components/app-logo'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
+import {Button} from '@/components/ui/button'
 import {useUsers} from '@/lib/queries'
 
 export function UserGallery() {
@@ -17,7 +19,19 @@ export function UserGallery() {
     <div className="space-y-6">
       {/* Section Header */}
       <div className="space-y-1">
-        <h2 className="text-2xl font-bold tracking-tight">Featured Builders</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold tracking-tight">Featured Builders</h2>
+          <Button variant="outline" size="sm" asChild>
+            <a
+              href="https://docs.phala.com/phala-cloud/attestation/feature-builder"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Become a featured builder
+              <ArrowRight className="ml-1 size-4" />
+            </a>
+          </Button>
+        </div>
         <p className="text-sm text-muted-foreground">
           Trusted workspaces deploying verified applications on dstack
         </p>
