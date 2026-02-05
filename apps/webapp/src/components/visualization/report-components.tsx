@@ -80,7 +80,7 @@ export const ReportHeader: React.FC<{
             {/* Use profile avatar if available, otherwise fallback to AppLogo */}
             {avatarUrl ? (
               <Avatar className="w-14 h-14 shrink-0 ring-2 ring-background shadow-sm rounded-lg">
-                <AvatarImage src={avatarUrl} alt={displayName} />
+                <AvatarImage src={avatarUrl} alt={displayName} className="object-contain" />
                 <AvatarFallback className="rounded-lg">
                   {displayName.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
