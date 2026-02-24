@@ -24,11 +24,12 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
     quoteData: QuoteData,
     verificationResult: VerifyQuoteResult,
     attestationBundle?: AttestationBundle,
+    itaResult?: Record<string, unknown> | null,
   ): DataObject[] {
     const objects: DataObject[] = []
 
     // App CPU hardware object
-    objects.push(this.generateCpuHardwareObject(verificationResult))
+    objects.push(this.generateCpuHardwareObject(verificationResult, itaResult))
     objects.push(this.generateQuoteObject(verificationResult))
     objects.push(...this.generateEventLogObjects(quoteData.eventlog))
 
@@ -65,7 +66,7 @@ export class AppDataObjectGenerator extends BaseDataObjectGenerator {
         fields: {
           nonce: attestationBundle.nvidia_payload.nonce || '',
           evidence_list:
-            attestationBundle.nvidia_payload.evidence_list?.map((evidence) => ({
+            attestationBundle.nvidia_payload.evidence_list?.map(evidence => ({
               certificate: evidence.certificate,
               evidence: evidence.evidence,
               arch: evidence.arch,

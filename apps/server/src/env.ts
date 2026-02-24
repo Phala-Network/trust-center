@@ -19,6 +19,9 @@ export const env = createEnv({
     // Verification flags (optional)
     VERIFICATION_FLAGS: z.string().optional(),
 
+    // Intel Trust Authority
+    INTEL_TRUST_AUTHORITY_API_KEY: z.string().optional(),
+
     // Database configuration
     DATABASE_URL: z
       .string()

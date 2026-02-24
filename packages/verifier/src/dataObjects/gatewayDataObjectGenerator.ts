@@ -45,11 +45,12 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
   generateHardwareDataObjects(
     quoteData: QuoteData,
     verificationResult: VerifyQuoteResult,
+    itaResult?: Record<string, unknown> | null,
   ): DataObject[] {
     const objects: DataObject[] = []
 
     // Gateway hardware object
-    objects.push(this.generateCpuHardwareObject(verificationResult))
+    objects.push(this.generateCpuHardwareObject(verificationResult, itaResult))
 
     // Gateway quote object
     objects.push(this.generateQuoteObject(verificationResult))

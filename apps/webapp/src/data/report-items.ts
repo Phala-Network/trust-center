@@ -47,6 +47,13 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
         copyable: true,
         isCode: true,
       },
+      {
+        objectId: 'app-cpu',
+        field: 'intel_trust_authority',
+        label: 'Intel Trust Authority',
+        copyable: true,
+        isJson: true,
+      },
     ],
   },
   'app-gpu': {
