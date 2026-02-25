@@ -1,6 +1,6 @@
 'use client'
 
-import {ChevronDown, Copy} from 'lucide-react'
+import {ChevronDown, Copy, ShieldCheck} from 'lucide-react'
 import type React from 'react'
 import {useEffect, useState} from 'react'
 
@@ -20,6 +20,31 @@ const getVendorIconSrc = (icon: string) => {
     dark: darkIcons[icon] || icon,
   }
 }
+
+const shouldShowItaCertifiedBadge = (
+  itemId: string,
+  attestationData: Array<{id: string; fields?: Record<string, unknown>}>,
+): boolean => {
+  if (itemId !== 'app-cpu') {
+    return false
+  }
+
+  const itaValue = attestationData.find((o) => o.id === 'app-cpu')?.fields
+    ?.intel_trust_authority
+
+  if (typeof itaValue === 'string') {
+    return itaValue.trim() !== '' && itaValue !== 'N/A'
+  }
+
+  return itaValue !== undefined && itaValue !== null
+}
+
+const ItaCertifiedBadge: React.FC = () => (
+  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/70 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:border-emerald-800/80 dark:bg-emerald-950/60 dark:text-emerald-300">
+    <ShieldCheck className="h-3.5 w-3.5" />
+    ITA Certified
+  </span>
+)
 
 export interface ReportItemField {
   objectId: DataObjectId
@@ -240,14 +265,16 @@ const CardHeader: React.FC<{
   showChevron?: boolean
   isExpanded?: boolean
 }> = ({item, showChevron, isExpanded}) => {
+  const {attestationData} = useAttestationData()
   const icons = item.vendorIcon ? getVendorIconSrc(item.vendorIcon) : null
+  const showItaBadge = shouldShowItaCertifiedBadge(item.id, attestationData)
 
   return (
     <div className="flex items-center justify-between gap-2">
       <h4 className="font-medium text-sm truncate text-foreground flex-1 min-w-0">
         {item.title}
       </h4>
-      <div className="flex items-center gap-2 shrink-0 h-4">
+      <div className="flex items-center gap-2 shrink-0">
         {icons && (
           <>
             <img
@@ -262,6 +289,7 @@ const CardHeader: React.FC<{
             />
           </>
         )}
+        {showItaBadge && <ItaCertifiedBadge />}
         {showChevron && (
           <ChevronDown
             className={cn(
@@ -405,25 +433,29 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
   }
 
   const icons = item.vendorIcon ? getVendorIconSrc(item.vendorIcon) : null
+  const showItaBadge = shouldShowItaCertifiedBadge(item.id, attestationData)
 
   return (
     <div className="flex h-full flex-col justify-start space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h4 className="font-medium text-foreground text-sm">{item.title}</h4>
-        {icons && (
-          <>
-            <img
-              src={icons.light}
-              alt="Vendor"
-              className="block h-4 w-auto dark:hidden"
-            />
-            <img
-              src={icons.dark}
-              alt="Vendor"
-              className="hidden dark:block h-4 w-auto"
-            />
-          </>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {icons && (
+            <>
+              <img
+                src={icons.light}
+                alt="Vendor"
+                className="block h-4 w-auto dark:hidden"
+              />
+              <img
+                src={icons.dark}
+                alt="Vendor"
+                className="hidden dark:block h-4 w-auto"
+              />
+            </>
+          )}
+          {showItaBadge && <ItaCertifiedBadge />}
+        </div>
       </div>
 
       <p className="text-muted-foreground text-xs">{item.intro}</p>
