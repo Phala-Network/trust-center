@@ -74,6 +74,7 @@ CLAUDE.md
 
 # Rust build artifacts (will be built in separate stage)
 Cargo.lock
+!packages/verifier/external/dcap-qvl/Cargo.lock
 **/target/
 
 # Development tools and configs

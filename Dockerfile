@@ -48,7 +48,8 @@ RUN apt-get update && \
 WORKDIR /app
 COPY packages/verifier/external/dcap-qvl ./dcap-qvl
 WORKDIR /app/dcap-qvl/cli
-RUN cargo build --release
+RUN cp /app/dcap-qvl/Cargo.lock /app/dcap-qvl/cli/Cargo.lock && \
+    cargo build --release
 
 # dstack-acpi-tables: QEMU with TDX ACPI table extraction
 FROM debian:bookworm@sha256:0d8498a0e9e6a60011df39aab78534cfe940785e7c59d19dfae1eb53ea59babe AS qemu-builder
