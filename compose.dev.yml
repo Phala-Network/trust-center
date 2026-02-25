@@ -94,6 +94,9 @@ services:
 
       # Phala Cloud API sync (optional)
       PHALA_CLOUD_API_KEY: ${PHALA_CLOUD_API_KEY:-}
+
+      # Intel Trust Authority (optional)
+      INTEL_TRUST_AUTHORITY_API_KEY: ${INTEL_TRUST_AUTHORITY_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
