@@ -31,6 +31,10 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
         text: 'Learn about Intel TDX',
         url: 'https://www.intel.com/content/www/us/en/developer/tools/trust-domain-extensions/overview.html',
       },
+      {
+        text: 'Learn about Intel Trust Authority',
+        url: 'https://docs.trustauthority.intel.com/main/articles/articles/overview.html',
+      },
     ],
     vendorIcon: '/intel.svg',
     fields: [
