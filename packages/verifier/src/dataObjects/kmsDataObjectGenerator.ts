@@ -21,11 +21,12 @@ export class KmsDataObjectGenerator extends BaseDataObjectGenerator {
   generateHardwareDataObjects(
     quoteData: QuoteData,
     verificationResult: VerifyQuoteResult,
+    itaResult?: Record<string, unknown> | null,
   ): DataObject[] {
     const objects: DataObject[] = []
 
     // KMS hardware object
-    objects.push(this.generateCpuHardwareObject(verificationResult))
+    objects.push(this.generateCpuHardwareObject(verificationResult, itaResult))
 
     // KMS quote object
     objects.push(this.generateQuoteObject(verificationResult))

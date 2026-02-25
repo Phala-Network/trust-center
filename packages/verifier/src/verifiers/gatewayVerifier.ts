@@ -27,7 +27,11 @@ import {
   verifyDnsCAA,
   verifyTeeControlledKey,
 } from '../verification/domainVerification'
-import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
+import {
+  isUpToDate,
+  verifyTeeQuote,
+  verifyWithIntelTrustAuthority,
+} from '../verification/hardwareVerification'
 import {verifyOSIntegrity} from '../verification/osVerification'
 import {verifyComposeHash} from '../verification/sourceCodeVerification'
 import {type OwnDomain, Verifier} from '../verifier'
@@ -99,7 +103,9 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   protected async getAppInfo(): Promise<AppInfo> {
     // Use gateway_guest_agent_info from SystemInfo if available (avoids extra request)
     if (this.systemInfo.gateway_guest_agent_info) {
-      return convertGuestAgentInfoToAppInfo(this.systemInfo.gateway_guest_agent_info)
+      return convertGuestAgentInfoToAppInfo(
+        this.systemInfo.gateway_guest_agent_info,
+      )
     }
 
     // Fallback to fetching from Gateway RPC endpoint
@@ -138,12 +144,22 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     const verificationResult = await verifyTeeQuote(quoteData)
     const failures: VerificationFailure[] = []
 
+    let itaResult: Record<string, unknown> | null = null
+    const itaApiKey = process.env.INTEL_TRUST_AUTHORITY_API_KEY
+    if (itaApiKey) {
+      itaResult = await verifyWithIntelTrustAuthority(
+        quoteData.quote,
+        itaApiKey,
+      )
+    }
+
     // Generate DataObjects for Gateway hardware verification
     const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
       quoteData,
       verificationResult,
+      itaResult,
     )
-    dataObjects.forEach((obj) => {
+    dataObjects.forEach(obj => {
       this.createDataObject(obj)
     })
 
@@ -182,7 +198,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
 
     // Generate DataObjects for Gateway OS verification
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(appInfo)
-    dataObjects.forEach((obj) => {
+    dataObjects.forEach(obj => {
       this.createDataObject(obj)
     })
 
@@ -225,7 +241,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       this.rpcEndpoint,
       acmeInfo.active_cert,
     )
-    dataObjects.forEach((obj) => {
+    dataObjects.forEach(obj => {
       this.createDataObject(obj)
     })
 
@@ -313,7 +329,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
         result,
         acmeInfo,
       )
-    dataObjects.forEach((obj) => {
+    dataObjects.forEach(obj => {
       this.createDataObject(obj)
     })
 

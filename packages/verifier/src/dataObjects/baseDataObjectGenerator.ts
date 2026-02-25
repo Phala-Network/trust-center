@@ -95,6 +95,7 @@ export abstract class BaseDataObjectGenerator {
    */
   protected generateCpuHardwareObject(
     verificationResult: VerifyQuoteResult,
+    itaResult?: Record<string, unknown> | null,
   ): DataObject {
     return {
       id: this.generateObjectId('cpu'),
@@ -105,6 +106,9 @@ export abstract class BaseDataObjectGenerator {
         model: this.metadata.hardware.cpuModel,
         security_feature: this.metadata.hardware.securityFeature,
         verification_status: verificationResult.status,
+        ...(itaResult
+          ? {intel_trust_authority: JSON.stringify(itaResult)}
+          : {}),
       },
       kind: this.verifierType,
       measuredBy: [
