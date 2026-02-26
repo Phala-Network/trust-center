@@ -96,8 +96,9 @@ async function getRedisClient(): Promise<IORedis | null> {
   }
 
   redisClientInitPromise = (async () => {
+    let candidateClient: IORedis | null = null
     try {
-      const client = new IORedis(redisUrl, {
+      candidateClient = new IORedis(redisUrl, {
         lazyConnect: true,
         enableOfflineQueue: false,
         maxRetriesPerRequest: 1,
@@ -105,16 +106,19 @@ async function getRedisClient(): Promise<IORedis | null> {
         retryStrategy: () => null,
       })
 
-      client.on('close', () => {
+      candidateClient.on('close', () => {
         redisClient = null
         distributedRateLimiter = null
       })
 
-      await client.connect()
-      redisClient = client
+      await candidateClient.connect()
+      redisClient = candidateClient
       redisUnavailableLogged = false
-      return client
+      return candidateClient
     } catch (error) {
+      if (candidateClient) {
+        candidateClient.disconnect()
+      }
       redisRetryAfterMs = Date.now() + ITA_REDIS_RETRY_INTERVAL_MS
       logRedisUnavailableOnce(
         'Redis unavailable for ITA cache/rate limiter, falling back to in-memory controls',
@@ -173,18 +177,40 @@ async function waitForItaRateLimitSlot(): Promise<void> {
       await limiter.consume(ITA_RATE_LIMIT_KEY, 1)
       return
     } catch (error) {
-      const waitMs = extractMsBeforeNext(error) ?? 500
+      const waitMs = extractMsBeforeNext(error)
+      if (waitMs !== null) {
+        await sleep(waitMs)
+        continue
+      }
 
-      if (extractMsBeforeNext(error) === null && !redisRateLimitWarningLogged) {
+      if (!redisRateLimitWarningLogged) {
         redisRateLimitWarningLogged = true
         console.warn(
-          `[ITA] Rate limiter fallback wait triggered due to unexpected limiter error: ${
+          `[ITA] Distributed limiter unavailable, falling back to local limiter: ${
             error instanceof Error ? error.message : String(error)
           }`,
         )
       }
 
-      await sleep(waitMs)
+      try {
+        await localRateLimiter.consume(ITA_RATE_LIMIT_KEY, 1)
+        return
+      } catch (localError) {
+        const localWaitMs = extractMsBeforeNext(localError)
+        if (localWaitMs !== null) {
+          await sleep(localWaitMs)
+          continue
+        }
+        // ITA is optional; fail-open to avoid blocking verification forever.
+        console.warn(
+          `[ITA] Local limiter error, proceeding without limiter gate: ${
+            localError instanceof Error
+              ? localError.message
+              : String(localError)
+          }`,
+        )
+        return
+      }
     }
   }
 }
