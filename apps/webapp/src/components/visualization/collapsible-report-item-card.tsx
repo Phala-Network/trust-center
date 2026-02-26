@@ -437,9 +437,11 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
 
   return (
     <div className="flex h-full flex-col justify-start space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <h4 className="font-medium text-foreground text-sm">{item.title}</h4>
-        <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="min-w-0 flex-1 font-medium text-foreground text-sm">
+          {item.title}
+        </h4>
+        <div className="ml-auto flex max-w-full items-center gap-2">
           {icons && (
             <>
               <img
