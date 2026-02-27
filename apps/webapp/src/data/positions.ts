@@ -27,7 +27,7 @@ const getColumnX = (column: number): number => {
 const BASE_LAYOUT: Record<string, {x: number; y: number}> = {
   main: {x: getColumnX(0), y: 0},
   code: {x: getColumnX(0), y: 300},
-  cpu: {x: getColumnX(1), y: -420},
+  cpu: {x: getColumnX(1), y: -440},
   os: {x: getColumnX(0), y: 510},
   'os-code': {x: getColumnX(-1), y: 410},
   quote: {x: getColumnX(2), y: 7},

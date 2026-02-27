@@ -25,11 +25,7 @@ const shouldShowItaCertifiedBadge = (
   itemId: string,
   attestationData: Array<{id: string; fields?: Record<string, unknown>}>,
 ): boolean => {
-  if (itemId !== 'app-cpu') {
-    return false
-  }
-
-  const itaValue = attestationData.find((o) => o.id === 'app-cpu')?.fields
+  const itaValue = attestationData.find((o) => o.id === itemId)?.fields
     ?.intel_trust_authority
 
   if (typeof itaValue === 'string') {
@@ -270,8 +266,8 @@ const CardHeader: React.FC<{
   const showItaBadge = shouldShowItaCertifiedBadge(item.id, attestationData)
 
   return (
-    <div className="flex items-center justify-between gap-2">
-      <h4 className="font-medium text-sm truncate text-foreground flex-1 min-w-0">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <h4 className="flex-auto font-medium text-sm text-foreground">
         {item.title}
       </h4>
       <div className="flex items-center gap-2 shrink-0">
@@ -437,11 +433,11 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
 
   return (
     <div className="flex h-full flex-col justify-start space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="min-w-0 flex-1 font-medium text-foreground text-sm">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <h4 className="flex-auto font-medium text-foreground text-sm">
           {item.title}
         </h4>
-        <div className="ml-auto flex max-w-full items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {icons && (
             <>
               <img
@@ -594,7 +590,11 @@ export const ReportItemCard: React.FC<{
         tabIndex={0}
       >
         <div className="p-3">
-          <CardHeader item={item} showChevron={showContent} isExpanded={isExpanded} />
+          <CardHeader
+            item={item}
+            showChevron={showContent}
+            isExpanded={isExpanded}
+          />
           {shouldShowContent && (
             <div className="mt-2">
               <CardContent item={item} />
