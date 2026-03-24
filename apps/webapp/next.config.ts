@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
           {
             key: 'Content-Security-Policy',
             value:
-              "frame-ancestors 'self' https://*.phala.com https://*.phala.network http://localhost:* https://localhost:* http://*.localhost:* https://*.localhost:*",
+              "frame-ancestors 'self' https://*.phala.com https://*.phala.network https://*.clawdi.ai http://localhost:* https://localhost:* http://*.localhost:* https://*.localhost:*",
           },
         ],
       },
