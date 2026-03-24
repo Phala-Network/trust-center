@@ -280,6 +280,8 @@ export class PhalaCloudVerifier extends Verifier {
 					eventlog: instance.eventlog!,
 					image_version: createImageVersion(instance.image_version!),
 				})),
+				kms_guest_agent_info: parseResult.data.kms_guest_agent_info ?? undefined,
+				gateway_guest_agent_info: parseResult.data.gateway_guest_agent_info ?? undefined,
 			};
 
 			return transformedData;
