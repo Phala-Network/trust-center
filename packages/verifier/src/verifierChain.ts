@@ -40,9 +40,19 @@ export function createVerifiers(
     appConfig.metadata as AppMetadata | undefined,
   )
 
-  if (!supportsOnchainKms(systemInfo.kms_info.version)) {
+  const useLegacyStubs =
+    !supportsOnchainKms(systemInfo.kms_info.version) ||
+    !systemInfo.kms_guest_agent_info ||
+    !systemInfo.gateway_guest_agent_info
+
+  if (useLegacyStubs) {
+    const reason = !supportsOnchainKms(systemInfo.kms_info.version)
+      ? 'legacy KMS version (< 0.5.3)'
+      : !systemInfo.kms_guest_agent_info
+        ? 'kms_guest_agent_info not available'
+        : 'gateway_guest_agent_info not available'
     console.log(
-      '[VerifierChain] Detected legacy KMS version (< 0.5.3), using stub verifiers',
+      `[VerifierChain] Using stub verifiers: ${reason}`,
     )
     // Legacy Phala Cloud app: use stub verifiers + PhalaApp verifier
     verifiers.push(

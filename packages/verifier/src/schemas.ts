@@ -155,6 +155,23 @@ export const GuestAgentInfoSchema = z.object({
     .optional(),
 })
 
+export const AcmeInfoSchema = z.object({
+  account_uri: z.string(),
+  hist_keys: z.array(z.string()).optional().default([]),
+  quoted_hist_keys: z
+    .array(
+      z.object({
+        public_key: z.string(),
+        quote: z.string(),
+      }),
+    )
+    .optional()
+    .default([]),
+  account_quote: z.string(),
+  active_cert: z.string(),
+  base_domain: z.string(),
+})
+
 export const SystemInfoSchema = z.object({
   app_id: AppIdSchema,
   contract_address: z

@@ -1,5 +1,6 @@
 import {GatewayDataObjectGenerator} from '../dataObjects/gatewayDataObjectGenerator'
 import {
+  AcmeInfoSchema,
   KeyProviderSchema,
   safeParseEventLog,
   safeParseQuoteExt,
@@ -276,7 +277,14 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
           `Gateway ACME info request failed: ${response.status} ${response.statusText} (URL: ${acmeInfoUrl})`,
         )
       }
-      return (await response.json()) as AcmeInfo
+      const data = await response.json()
+      const parsed = AcmeInfoSchema.safeParse(data)
+      if (!parsed.success) {
+        throw new Error(
+          `Invalid ACME info response: ${parsed.error.message}`,
+        )
+      }
+      return parsed.data as AcmeInfo
     } catch (error) {
       const errorMessage =
         error instanceof Error
