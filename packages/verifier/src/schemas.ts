@@ -38,33 +38,62 @@ export const KmsInfoSchema = z.object({
   gateway_app_url: z.string(),
 })
 
-export const DstackInstanceSchema = z.object({
-  quote: z.string().optional(),
-  eventlog: EventLogSchema.optional(),
-  image_version: z
-    .string()
-    .optional()
-    .transform((val) => {
-      if (!val) return val
-
-      const trimmed = val.trim()
-
-      // Fix common malformation: "vnvidia-" instead of "dstack-nvidia-"
-      if (trimmed.startsWith('vnvidia-')) {
-        const corrected = `dstack-nvidia-${trimmed.slice(8)}`
-        console.warn(
-          `[Schema] Auto-corrected malformed image_version from API: "${val}" -> "${corrected}"`,
-        )
-        return corrected
-      }
-
-      return trimmed
-    })
-    .refine((val) => !val || val.startsWith('dstack-'), {
-      message:
-        'image_version must start with "dstack-" (format: dstack-[nvidia-][dev-]<version>)',
-    }),
+/**
+ * TcbInfo schema embedded in new-format instance responses.
+ * Contains measurement registers and event log.
+ */
+export const InstanceTcbInfoSchema = z.object({
+  mrtd: z.string(),
+  rootfs_hash: z.string().nullable(),
+  rtmr0: z.string(),
+  rtmr1: z.string(),
+  rtmr2: z.string(),
+  rtmr3: z.string(),
+  event_log: EventLogSchema,
+  app_compose: z.string(),
 })
+
+/**
+ * DstackInstance schema that supports both old and new Cloud API formats:
+ * - Old format: top-level `eventlog` field
+ * - New format: `tcb_info.event_log` field (no top-level eventlog)
+ */
+export const DstackInstanceSchema = z
+  .object({
+    quote: z.string().optional(),
+    // Old format: top-level eventlog
+    eventlog: EventLogSchema.optional(),
+    // New format: tcb_info with nested event_log
+    tcb_info: InstanceTcbInfoSchema.optional(),
+    image_version: z
+      .string()
+      .optional()
+      .transform((val) => {
+        if (!val) return val
+
+        const trimmed = val.trim()
+
+        // Fix common malformation: "vnvidia-" instead of "dstack-nvidia-"
+        if (trimmed.startsWith('vnvidia-')) {
+          const corrected = `dstack-nvidia-${trimmed.slice(8)}`
+          console.warn(
+            `[Schema] Auto-corrected malformed image_version from API: "${val}" -> "${corrected}"`,
+          )
+          return corrected
+        }
+
+        return trimmed
+      })
+      .refine((val) => !val || val.startsWith('dstack-'), {
+        message:
+          'image_version must start with "dstack-" (format: dstack-[nvidia-][dev-]<version>)',
+      }),
+  })
+  .transform((data) => ({
+    ...data,
+    // Normalize: prefer top-level eventlog, fall back to tcb_info.event_log
+    eventlog: data.eventlog ?? data.tcb_info?.event_log,
+  }))
 
 /**
  * Guest Agent Info schema for KMS and Gateway responses from Cloud API.
