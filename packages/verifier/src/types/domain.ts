@@ -17,6 +17,10 @@ export interface AcmeInfo {
   base_domain: string
 }
 
+/** AcmeInfo with optional fields matching actual API responses */
+export type AcmeInfoRaw = Partial<AcmeInfo> &
+  Pick<AcmeInfo, 'account_uri' | 'account_quote' | 'active_cert' | 'base_domain'>
+
 /**
  * Certificate Transparency Log structures.
  */

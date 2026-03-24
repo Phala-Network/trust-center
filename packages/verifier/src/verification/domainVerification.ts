@@ -89,6 +89,15 @@ export function verifyCertificateKey(acmeInfo: AcmeInfo): {
   error?: string
 } {
   const {active_cert: activeCertificate, hist_keys: historicalKeys} = acmeInfo
+
+  if (!historicalKeys || historicalKeys.length === 0) {
+    return {
+      isValid: false,
+      error:
+        'Certificate verification failed: No historical keys available in ACME info',
+    }
+  }
+
   const teePublicKey = historicalKeys[0]
 
   if (!activeCertificate) {
