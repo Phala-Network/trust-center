@@ -219,6 +219,8 @@ export interface KmsInfo {
   gateway_app_id: AppId | null
   /** URL endpoint for the associated Gateway service */
   gateway_app_url: string
+  /** KMS type identifier (e.g. "phala"), present in new Cloud API format */
+  kms_type?: string
 }
 
 /**

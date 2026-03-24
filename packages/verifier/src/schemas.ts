@@ -36,6 +36,7 @@ export const KmsInfoSchema = z.object({
     .nullable()
     .pipe(z.union([z.null(), AppIdSchema])),
   gateway_app_url: z.string(),
+  kms_type: z.string().optional(),
 })
 
 /**
@@ -163,9 +164,9 @@ export const SystemInfoSchema = z.object({
     .pipe(z.union([z.null(), ContractAddressSchema])),
   kms_info: KmsInfoSchema,
   instances: z.array(DstackInstanceSchema),
-  qemu_version: z.string().nullable(),
-  kms_guest_agent_info: GuestAgentInfoSchema.nullable(),
-  gateway_guest_agent_info: GuestAgentInfoSchema.nullable(),
+  qemu_version: z.string().nullable().optional(),
+  kms_guest_agent_info: GuestAgentInfoSchema.nullable().optional(),
+  gateway_guest_agent_info: GuestAgentInfoSchema.nullable().optional(),
 })
 
 export const AppComposeSchema = z.object({
