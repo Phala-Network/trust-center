@@ -183,17 +183,6 @@ export const AcmeInfoSchema = z
       data.quoted_hist_keys.map((k) => k.public_key),
   }))
 
-/**
- * Gateway info from /.dstack/info endpoint.
- * Provides base_domain and other gateway metadata.
- */
-export const GatewayInfoSchema = z.object({
-  base_domain: z.string(),
-  external_port: z.number().optional(),
-  app_address_ns_prefix: z.string().optional(),
-  version: z.string().optional(),
-})
-
 export const SystemInfoSchema = z.object({
   app_id: AppIdSchema,
   contract_address: z
