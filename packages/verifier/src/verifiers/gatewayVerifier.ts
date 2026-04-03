@@ -21,6 +21,7 @@ import {
   type VerificationFailure,
 } from '../types'
 import type {DataObjectCollector} from '../utils/dataObjectCollector'
+import {fetchDstack} from '../utils/fetchDstack'
 import {DstackApp} from '../utils/dstackContract'
 import {
   verifyCertificateKey,
@@ -119,7 +120,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     // Fallback to fetching from Gateway RPC endpoint
     const appInfoUrl = `${this.rpcEndpoint}/.dstack/app-info`
     try {
-      const response = await fetch(appInfoUrl)
+      const response = await fetchDstack(appInfoUrl)
       if (!response.ok) {
         throw new Error(
           `Gateway app-info request failed: ${response.status} ${response.statusText} (URL: ${appInfoUrl})`,
@@ -277,7 +278,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
 
     const acmeInfoUrl = `${this.rpcEndpoint}/.dstack/acme-info`
     try {
-      const response = await fetch(acmeInfoUrl)
+      const response = await fetchDstack(acmeInfoUrl)
       if (!response.ok) {
         throw new Error(
           `Gateway ACME info request failed: ${response.status} ${response.statusText} (URL: ${acmeInfoUrl})`,
