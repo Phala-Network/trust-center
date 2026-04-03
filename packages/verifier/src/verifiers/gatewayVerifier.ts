@@ -1,7 +1,6 @@
 import {GatewayDataObjectGenerator} from '../dataObjects/gatewayDataObjectGenerator'
 import {
   AcmeInfoSchema,
-  GatewayInfoSchema,
   KeyProviderSchema,
   safeParseEventLog,
   safeParseQuoteExt,
@@ -53,8 +52,6 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   public lastQuoteHex: string | null = null
   /** Cached ACME info to avoid redundant HTTP calls within a single verification run */
   private cachedAcmeInfo: AcmeInfo | null = null
-  /** Cached base domain from /.dstack/info */
-  private cachedBaseDomain: string | null = null
 
   /**
    * Creates a new Gateway verifier instance.
@@ -301,54 +298,17 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   }
 
   /**
-   * Retrieves the base_domain from the Gateway's /.dstack/info endpoint.
-   * This is the canonical source for base_domain in newer gateway versions
-   * where ACME info no longer includes it.
+   * Returns which domain verification capabilities are available
+   * based on the ACME info from this gateway.
    */
-  private async getBaseDomain(): Promise<string> {
-    if (this.cachedBaseDomain) {
-      return this.cachedBaseDomain
-    }
-
-    // First try ACME info (legacy gateways include base_domain)
-    try {
-      const acmeInfo = await this.getAcmeInfo()
-      if (acmeInfo.base_domain) {
-        this.cachedBaseDomain = acmeInfo.base_domain
-        return this.cachedBaseDomain
-      }
-    } catch (error) {
-      console.warn(
-        `[GatewayVerifier] ACME info unavailable for base_domain, falling back to /.dstack/info: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      )
-    }
-
-    // Fetch from /.dstack/info endpoint (newer gateways)
-    const infoUrl = `${this.rpcEndpoint}/.dstack/info`
-    try {
-      const response = await fetch(infoUrl)
-      if (!response.ok) {
-        throw new Error(
-          `Gateway info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
-        )
-      }
-      const data = await response.json()
-      const parsed = GatewayInfoSchema.safeParse(data)
-      if (!parsed.success) {
-        throw new Error(
-          `Invalid Gateway info response: ${parsed.error.message}`,
-        )
-      }
-      this.cachedBaseDomain = parsed.data.base_domain
-      return this.cachedBaseDomain
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : `Unknown error fetching Gateway info from ${infoUrl}`
-      throw new Error(`Failed to fetch base_domain from Gateway: ${errorMessage}`)
+  public async getDomainVerificationCapabilities(): Promise<{
+    hasActiveCert: boolean
+    hasBaseDomain: boolean
+  }> {
+    const acmeInfo = await this.getAcmeInfo()
+    return {
+      hasActiveCert: !!acmeInfo.active_cert,
+      hasBaseDomain: !!acmeInfo.base_domain,
     }
   }
 
@@ -365,46 +325,44 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
 
   /**
    * Verifies that the TLS certificate matches the TEE-controlled public key.
-   * Skipped on newer gateways where active_cert is no longer in ACME response.
+   * Requires active_cert in ACME info.
    */
   public async verifyCertificateKey(): Promise<{
     isValid: boolean
     error?: string
   }> {
     const acmeInfo = await this.getAcmeInfo()
-    if (!acmeInfo.active_cert) {
-      console.log(
-        '[GatewayVerifier] Skipping certificateKey verification: active_cert not available (new gateway format)',
-      )
-      return {isValid: true}
-    }
     return verifyCertificateKey(acmeInfo)
   }
 
   /**
    * Verifies domain control through DNS CAA records.
+   * Requires base_domain in ACME info.
    */
   public async verifyDnsCAA(): Promise<{isValid: boolean; error?: string}> {
-    const baseDomain = await this.getBaseDomain()
     const acmeInfo = await this.getAcmeInfo()
-    return verifyDnsCAA(baseDomain, acmeInfo.account_uri)
+    if (!acmeInfo.base_domain) {
+      throw new Error('base_domain is required for DNS CAA verification')
+    }
+    return verifyDnsCAA(acmeInfo.base_domain, acmeInfo.account_uri)
   }
 
   /**
    * Verifies complete TEE control over the domain through Certificate Transparency logs.
+   * Requires base_domain in ACME info.
    */
   public async verifyCTLog(): Promise<CTResult> {
     const acmeInfo = await this.getAcmeInfo()
-    const baseDomain = await this.getBaseDomain()
-    // Enrich acmeInfo with resolved base_domain for verifyCTLog
-    const enrichedAcmeInfo = {...acmeInfo, base_domain: baseDomain}
-    const result = await verifyCTLog(enrichedAcmeInfo)
+    if (!acmeInfo.base_domain) {
+      throw new Error('base_domain is required for CT log verification')
+    }
+    const result = await verifyCTLog(acmeInfo)
 
     // Generate DataObjects for domain verification results
     const dataObjects =
       this.dataObjectGenerator.generateDomainVerificationDataObjects(
         result,
-        enrichedAcmeInfo,
+        acmeInfo,
       )
     dataObjects.forEach(obj => {
       this.createDataObject(obj)
