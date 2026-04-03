@@ -205,12 +205,12 @@ export async function executeVerifiers(
   }
 
   // Run Intel Trust Authority verification as the final step.
-  // Skip if prior verification steps produced errors (early drop).
-  if (errors.length === 0) {
+  // Skip if prior verification steps produced errors or failures (early drop).
+  if (errors.length === 0 && failures.length === 0) {
     await runDeferredIta(verifiers, collector)
   } else {
     console.log(
-      `[VerifierChain] Skipping ITA verification: ${errors.length} prior error(s)`,
+      `[VerifierChain] Skipping ITA verification: ${errors.length} error(s), ${failures.length} failure(s)`,
     )
   }
 
@@ -234,6 +234,13 @@ async function runDeferredIta(
     return
   }
 
+  // Collect all verifiers that have quotes to verify
+  const itaTasks: Array<{
+    verifierName: string
+    quoteHex: string
+    cpuObjectId: string
+  }> = []
+
   for (const verifier of verifiers) {
     let quoteHex: string | null = null
     let cpuObjectId: string | null = null
@@ -249,28 +256,45 @@ async function runDeferredIta(
       cpuObjectId = 'gateway-cpu'
     }
 
-    if (!quoteHex || !cpuObjectId) {
-      continue
+    if (quoteHex && cpuObjectId) {
+      itaTasks.push({
+        verifierName: verifier.constructor.name,
+        quoteHex,
+        cpuObjectId,
+      })
     }
+  }
 
-    const verifierName = verifier.constructor.name
-    console.log(`[VerifierChain] Running deferred ITA for ${verifierName}`)
+  if (itaTasks.length === 0) {
+    return
+  }
 
-    try {
+  console.log(
+    `[VerifierChain] Running deferred ITA for ${itaTasks.length} verifier(s)`,
+  )
+
+  // Run ITA calls in parallel — they are independent
+  const results = await Promise.allSettled(
+    itaTasks.map(async ({verifierName, quoteHex, cpuObjectId}) => {
       const itaResult = await verifyWithIntelTrustAuthority(quoteHex, itaApiKey)
       if (itaResult) {
         collector.updateObjectFields(cpuObjectId, {
           intel_trust_authority: JSON.stringify(itaResult),
         })
-        console.log(
-          `[VerifierChain] ITA result added to ${cpuObjectId}`,
-        )
+        console.log(`[VerifierChain] ITA result added to ${cpuObjectId}`)
       }
-    } catch (error) {
+      return {verifierName, cpuObjectId}
+    }),
+  )
+
+  for (const result of results) {
+    if (result.status === 'rejected') {
       // ITA is optional — log and continue
       console.warn(
-        `[VerifierChain] ITA failed for ${verifierName}: ${
-          error instanceof Error ? error.message : String(error)
+        `[VerifierChain] ITA failed: ${
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason)
         }`,
       )
     }

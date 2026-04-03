@@ -51,6 +51,10 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   protected systemInfo: SystemInfo
   /** Cached quote data from hardware verification, used for deferred ITA */
   public lastQuoteHex: string | null = null
+  /** Cached ACME info to avoid redundant HTTP calls within a single verification run */
+  private cachedAcmeInfo: AcmeInfo | null = null
+  /** Cached base domain from /.dstack/info */
+  private cachedBaseDomain: string | null = null
 
   /**
    * Creates a new Gateway verifier instance.
@@ -266,6 +270,10 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    * Retrieves ACME account information from the Gateway service.
    */
   public async getAcmeInfo(): Promise<AcmeInfo> {
+    if (this.cachedAcmeInfo) {
+      return this.cachedAcmeInfo
+    }
+
     const acmeInfoUrl = `${this.rpcEndpoint}/.dstack/acme-info`
     try {
       const response = await fetch(acmeInfoUrl)
@@ -281,7 +289,8 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
           `Invalid ACME info response: ${parsed.error.message}`,
         )
       }
-      return parsed.data as AcmeInfo
+      this.cachedAcmeInfo = parsed.data as AcmeInfo
+      return this.cachedAcmeInfo
     } catch (error) {
       const errorMessage =
         error instanceof Error
@@ -297,10 +306,15 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    * where ACME info no longer includes it.
    */
   private async getBaseDomain(): Promise<string> {
+    if (this.cachedBaseDomain) {
+      return this.cachedBaseDomain
+    }
+
     // First try ACME info (legacy gateways include base_domain)
     const acmeInfo = await this.getAcmeInfo()
     if (acmeInfo.base_domain) {
-      return acmeInfo.base_domain
+      this.cachedBaseDomain = acmeInfo.base_domain
+      return this.cachedBaseDomain
     }
 
     // Fetch from /.dstack/info endpoint (newer gateways)
@@ -319,7 +333,8 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
           `Invalid Gateway info response: ${parsed.error.message}`,
         )
       }
-      return parsed.data.base_domain
+      this.cachedBaseDomain = parsed.data.base_domain
+      return this.cachedBaseDomain
     } catch (error) {
       const errorMessage =
         error instanceof Error
