@@ -70,7 +70,7 @@ export function createVerifiers(
   } else {
     verifiers.push(
       new PhalaCloudKmsVerifier(kmsMetadata, systemInfo, collector),
-      new GatewayVerifier(gatewayMetadata, systemInfo, collector),
+      new GatewayVerifier(gatewayMetadata, systemInfo, collector, appConfig.domain),
       new PhalaCloudVerifier(
         systemInfo,
         appConfig.domain,
@@ -137,9 +137,6 @@ export async function executeVerifiers(
 
       // Run domain verification for Gateway verifier
       if (verifier instanceof GatewayVerifier) {
-        const capabilities =
-          await verifier.getDomainVerificationCapabilities()
-
         if (flags.teeControlledKey) {
           const result = await verifier.verifyTeeControlledKey()
           console.log(
@@ -156,64 +153,45 @@ export async function executeVerifiers(
           }
         }
         if (flags.certificateKey) {
-          if (capabilities.hasActiveCert) {
-            const result = await verifier.verifyCertificateKey()
-            console.log(
-              `[VerifierChain] ${verifierName}.verifyCertificateKey() returned:`,
-              result,
-            )
-            if (!result.isValid) {
-              failures.push({
-                componentId: 'gateway-main',
-                error:
-                  result.error ||
-                  `${verifierName}: Certificate key verification failed`,
-              })
-            }
-          } else {
-            console.log(
-              `[VerifierChain] ${verifierName}.verifyCertificateKey() skipped: active_cert not available (new gateway format)`,
-            )
+          const result = await verifier.verifyCertificateKey()
+          console.log(
+            `[VerifierChain] ${verifierName}.verifyCertificateKey() returned:`,
+            result,
+          )
+          if (!result.isValid) {
+            failures.push({
+              componentId: 'gateway-main',
+              error:
+                result.error ||
+                `${verifierName}: Certificate key verification failed`,
+            })
           }
         }
         if (flags.dnsCAA) {
-          if (capabilities.hasBaseDomain) {
-            const result = await verifier.verifyDnsCAA()
-            console.log(
-              `[VerifierChain] ${verifierName}.verifyDnsCAA() returned:`,
-              result,
-            )
-            if (!result.isValid) {
-              failures.push({
-                componentId: 'gateway-main',
-                error:
-                  result.error ||
-                  `${verifierName}: DNS CAA verification failed`,
-              })
-            }
-          } else {
-            console.log(
-              `[VerifierChain] ${verifierName}.verifyDnsCAA() skipped: base_domain not available (new gateway format)`,
-            )
+          const result = await verifier.verifyDnsCAA()
+          console.log(
+            `[VerifierChain] ${verifierName}.verifyDnsCAA() returned:`,
+            result,
+          )
+          if (!result.isValid) {
+            failures.push({
+              componentId: 'gateway-main',
+              error:
+                result.error || `${verifierName}: DNS CAA verification failed`,
+            })
           }
         }
         if (flags.ctLog) {
-          if (capabilities.hasBaseDomain) {
-            const result = await verifier.verifyCTLog()
-            console.log(
-              `[VerifierChain] ${verifierName}.verifyCTLog() returned:`,
-              result,
-            )
-            if (!result.tee_controlled) {
-              failures.push({
-                componentId: 'gateway-main',
-                error: `${verifierName}: Certificate Transparency log verification failed`,
-              })
-            }
-          } else {
-            console.log(
-              `[VerifierChain] ${verifierName}.verifyCTLog() skipped: base_domain not available (new gateway format)`,
-            )
+          const result = await verifier.verifyCTLog()
+          console.log(
+            `[VerifierChain] ${verifierName}.verifyCTLog() returned:`,
+            result,
+          )
+          if (!result.tee_controlled) {
+            failures.push({
+              componentId: 'gateway-main',
+              error: `${verifierName}: Certificate Transparency log verification failed`,
+            })
           }
         }
       }
