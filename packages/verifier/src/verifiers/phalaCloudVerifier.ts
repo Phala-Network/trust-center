@@ -37,7 +37,6 @@ import { verifyEventLog } from "../verification/eventLogVerification";
 import {
 	isUpToDate,
 	verifyTeeQuote,
-	verifyWithIntelTrustAuthority,
 } from "../verification/hardwareVerification";
 import {
 	verifyOSIntegrity,
@@ -54,6 +53,8 @@ export class PhalaCloudVerifier extends Verifier {
 	private appMetadata: CompleteAppMetadata;
 	private systemInfo: SystemInfo;
 	private attestationBundle?: AttestationBundle;
+	/** Cached quote data from hardware verification, used for deferred ITA */
+	public lastQuoteHex: string | null = null;
 
 	// Cache for Redpill models
 	private static modelCache: { models: any[]; timestamp: number } | null = null;
@@ -335,24 +336,18 @@ export class PhalaCloudVerifier extends Verifier {
 
 		this.attestationBundle = undefined;
 
+		// Save quote hex for deferred ITA verification
+		this.lastQuoteHex = quoteData.quote;
+
 		// Check for GPU support via Redpill API
 		await this.verifyNvidiaGpu(failures);
 
-		let itaResult: Record<string, unknown> | null = null;
-		const itaApiKey = process.env.INTEL_TRUST_AUTHORITY_API_KEY;
-		if (itaApiKey) {
-			itaResult = await verifyWithIntelTrustAuthority(
-				quoteData.quote,
-				itaApiKey,
-			);
-		}
-
-		// Generate DataObjects for App hardware verification
+		// Generate DataObjects for App hardware verification (ITA result added later)
 		const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
 			quoteData,
 			verificationResult,
 			this.attestationBundle,
-			itaResult,
+			null,
 		);
 		dataObjects.forEach((obj) => {
 			this.createDataObject(obj);

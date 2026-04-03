@@ -155,21 +155,43 @@ export const GuestAgentInfoSchema = z.object({
     .optional(),
 })
 
-export const AcmeInfoSchema = z.object({
-  account_uri: z.string(),
-  hist_keys: z.array(z.string()).optional().default([]),
-  quoted_hist_keys: z
-    .array(
-      z.object({
-        public_key: z.string(),
-        quote: z.string(),
-      }),
-    )
-    .optional()
-    .default([]),
-  account_quote: z.string(),
-  active_cert: z.string(),
+export const AcmeInfoSchema = z
+  .object({
+    account_uri: z.string(),
+    quoted_hist_keys: z
+      .array(
+        z.object({
+          public_key: z.string(),
+          quote: z.string(),
+          attestation: z.string().optional(),
+        }),
+      )
+      .optional()
+      .default([]),
+    account_quote: z.string(),
+    account_attestation: z.string().optional(),
+    // Legacy fields - present in older gateway versions, absent in newer ones
+    hist_keys: z.array(z.string()).optional(),
+    active_cert: z.string().optional(),
+    base_domain: z.string().optional(),
+  })
+  .transform((data) => ({
+    ...data,
+    // Derive hist_keys from quoted_hist_keys if not provided by legacy API
+    hist_keys:
+      data.hist_keys ??
+      data.quoted_hist_keys.map((k) => k.public_key),
+  }))
+
+/**
+ * Gateway info from /.dstack/info endpoint.
+ * Provides base_domain and other gateway metadata.
+ */
+export const GatewayInfoSchema = z.object({
   base_domain: z.string(),
+  external_port: z.number().optional(),
+  app_address_ns_prefix: z.string().optional(),
+  version: z.string().optional(),
 })
 
 export const SystemInfoSchema = z.object({

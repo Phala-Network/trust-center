@@ -66,6 +66,28 @@ export class DataObjectCollector {
   }
 
   /**
+   * Update specific fields on an existing DataObject.
+   * Merges new fields into the existing object's fields map.
+   */
+  public updateObjectFields(
+    objectId: string,
+    fields: Record<string, unknown>,
+  ): boolean {
+    const existing = this.dataObjects.get(objectId)
+    if (!existing) {
+      return false
+    }
+
+    const updated = {
+      ...existing,
+      fields: {...existing.fields, ...fields},
+    }
+    this.dataObjects.set(objectId, updated)
+    this.emitEvent('object_updated', objectId, updated)
+    return true
+  }
+
+  /**
    * Get all DataObjects as an array
    */
   public getAllObjects(): DataObject[] {

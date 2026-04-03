@@ -82,7 +82,7 @@ export class VerificationService {
       // Create and execute verifier chain with this collector instance
       const verifiers = createVerifiers(appConfig, systemInfo, this.collector)
 
-      const result = await executeVerifiers(verifiers, mergedFlags)
+      const result = await executeVerifiers(verifiers, mergedFlags, this.collector)
       this.configureVerifierRelationships(systemInfo)
 
       // Convert errors to the expected format

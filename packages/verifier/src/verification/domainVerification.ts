@@ -255,6 +255,11 @@ export async function verifyDnsCAA(
  */
 export async function verifyCTLog(acmeInfo: AcmeInfo): Promise<CTResult> {
   const {base_domain: domainName, hist_keys: teePublicKeys} = acmeInfo
+  if (!domainName) {
+    throw new Error(
+      'CT Log verification requires base_domain in ACME info',
+    )
+  }
   const certificateHistory = await queryCTLogs(domainName)
 
   let teeControlledCertificateCount = 0

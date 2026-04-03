@@ -11,8 +11,10 @@ import {
   createKmsMetadata,
   supportsOnchainKms,
 } from './utils/metadataUtils'
+import {verifyWithIntelTrustAuthority} from './verification/hardwareVerification'
 import type {Verifier} from './verifier'
 import {GatewayVerifier} from './verifiers/gatewayVerifier'
+import {KmsVerifier} from './verifiers/kmsVerifier'
 import {
   LegacyGatewayStubVerifier,
   LegacyKmsStubVerifier,
@@ -87,6 +89,7 @@ export function createVerifiers(
 export async function executeVerifiers(
   verifiers: Verifier[],
   flags: VerificationFlags,
+  collector: DataObjectCollector,
 ): Promise<{
   success: boolean
   errors: string[]
@@ -201,9 +204,101 @@ export async function executeVerifiers(
     }
   }
 
+  // Run Intel Trust Authority verification as the final step.
+  // Each verifier is evaluated independently — ITA runs for verifiers that
+  // successfully completed hardware verification (have a quote), even if
+  // other verifiers in the chain failed.
+  await runDeferredIta(verifiers, collector)
+
   return {
     success: errors.length === 0,
     errors,
     failures,
   }
+}
+
+/**
+ * Runs Intel Trust Authority appraisal for verifiers that successfully
+ * completed hardware verification (have a non-null lastQuoteHex).
+ * Each verifier is evaluated independently — a failure or error in one
+ * verifier does not prevent ITA for others.
+ */
+async function runDeferredIta(
+  verifiers: Verifier[],
+  collector: DataObjectCollector,
+): Promise<void> {
+  const itaApiKey = process.env.INTEL_TRUST_AUTHORITY_API_KEY
+  if (!itaApiKey) {
+    return
+  }
+
+  // Collect verifiers that successfully produced a quote
+  const itaTasks: Array<{
+    verifierName: string
+    quoteHex: string
+    cpuObjectId: string
+  }> = []
+
+  for (const verifier of verifiers) {
+    let quoteHex: string | null = null
+    let cpuObjectId: string | null = null
+
+    if (verifier instanceof PhalaCloudVerifier) {
+      quoteHex = verifier.lastQuoteHex
+      cpuObjectId = 'app-cpu'
+    } else if (verifier instanceof KmsVerifier) {
+      quoteHex = verifier.lastQuoteHex
+      cpuObjectId = 'kms-cpu'
+    } else if (verifier instanceof GatewayVerifier) {
+      quoteHex = verifier.lastQuoteHex
+      cpuObjectId = 'gateway-cpu'
+    }
+
+    if (quoteHex && cpuObjectId) {
+      itaTasks.push({
+        verifierName: verifier.constructor.name,
+        quoteHex,
+        cpuObjectId,
+      })
+    }
+  }
+
+  if (itaTasks.length === 0) {
+    return
+  }
+
+  console.log(
+    `[VerifierChain] Running deferred ITA for ${itaTasks.length} verifier(s)`,
+  )
+
+  // Run ITA calls in parallel — they are independent
+  const results = await Promise.allSettled(
+    itaTasks.map(async ({verifierName, quoteHex, cpuObjectId}) => {
+      try {
+        const itaResult = await verifyWithIntelTrustAuthority(
+          quoteHex,
+          itaApiKey,
+        )
+        if (itaResult) {
+          const updated = collector.updateObjectFields(cpuObjectId, {
+            intel_trust_authority: JSON.stringify(itaResult),
+          })
+          if (updated) {
+            console.log(`[VerifierChain] ITA result added to ${cpuObjectId}`)
+          } else {
+            console.warn(
+              `[VerifierChain] ITA for ${verifierName}: CPU DataObject '${cpuObjectId}' not found`,
+            )
+          }
+        }
+      } catch (error) {
+        // ITA is optional — log and continue
+        console.warn(
+          `[VerifierChain] ITA failed for ${verifierName}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        )
+      }
+    }),
+  )
 }
