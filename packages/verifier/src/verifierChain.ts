@@ -205,14 +205,10 @@ export async function executeVerifiers(
   }
 
   // Run Intel Trust Authority verification as the final step.
-  // Skip if prior verification steps produced errors or failures (early drop).
-  if (errors.length === 0 && failures.length === 0) {
-    await runDeferredIta(verifiers, collector)
-  } else {
-    console.log(
-      `[VerifierChain] Skipping ITA verification: ${errors.length} error(s), ${failures.length} failure(s)`,
-    )
-  }
+  // Each verifier is evaluated independently — ITA runs for verifiers that
+  // successfully completed hardware verification (have a quote), even if
+  // other verifiers in the chain failed.
+  await runDeferredIta(verifiers, errors, collector)
 
   return {
     success: errors.length === 0,
@@ -222,11 +218,14 @@ export async function executeVerifiers(
 }
 
 /**
- * Runs Intel Trust Authority appraisal for all verifiers that collected quotes.
- * Updates existing CPU DataObjects with the ITA result.
+ * Runs Intel Trust Authority appraisal for verifiers that successfully
+ * completed hardware verification (have a quote). Each verifier is evaluated
+ * independently — a failure in one verifier does not prevent ITA for others.
+ * Skipped entirely if the chain had hard errors (thrown exceptions).
  */
 async function runDeferredIta(
   verifiers: Verifier[],
+  chainErrors: string[],
   collector: DataObjectCollector,
 ): Promise<void> {
   const itaApiKey = process.env.INTEL_TRUST_AUTHORITY_API_KEY
@@ -234,7 +233,14 @@ async function runDeferredIta(
     return
   }
 
-  // Collect all verifiers that have quotes to verify
+  if (chainErrors.length > 0) {
+    console.log(
+      `[VerifierChain] Skipping ITA verification: ${chainErrors.length} prior error(s)`,
+    )
+    return
+  }
+
+  // Collect verifiers that successfully produced a quote
   const itaTasks: Array<{
     verifierName: string
     quoteHex: string
@@ -278,10 +284,16 @@ async function runDeferredIta(
     itaTasks.map(async ({verifierName, quoteHex, cpuObjectId}) => {
       const itaResult = await verifyWithIntelTrustAuthority(quoteHex, itaApiKey)
       if (itaResult) {
-        collector.updateObjectFields(cpuObjectId, {
+        const updated = collector.updateObjectFields(cpuObjectId, {
           intel_trust_authority: JSON.stringify(itaResult),
         })
-        console.log(`[VerifierChain] ITA result added to ${cpuObjectId}`)
+        if (updated) {
+          console.log(`[VerifierChain] ITA result added to ${cpuObjectId}`)
+        } else {
+          console.warn(
+            `[VerifierChain] ITA result for ${verifierName}: CPU DataObject '${cpuObjectId}' not found`,
+          )
+        }
       }
       return {verifierName, cpuObjectId}
     }),
