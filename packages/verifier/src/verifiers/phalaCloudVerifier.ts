@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { AppDataObjectGenerator } from "../dataObjects/appDataObjectGenerator";
+import { fetchDstack } from "../utils/fetchInsecure";
 import {
 	AppInfoSchema,
 	BasicVmConfigSchema,
@@ -134,7 +135,7 @@ export class PhalaCloudVerifier extends Verifier {
 		if (supportsInfoRpcEndpoint(this.systemInfo.kms_info.version)) {
 			const infoUrl = `${this.rpcEndpoint}/prpc/Info`;
 			try {
-				const response = await fetch(infoUrl);
+				const response = await fetchDstack(infoUrl);
 				if (!response.ok) {
 					throw new Error(
 						`Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
@@ -177,7 +178,7 @@ export class PhalaCloudVerifier extends Verifier {
 		} else {
 			const infoUrl = `${this.rpcEndpoint}/prpc/Worker.Info`;
 			try {
-				const response = await fetch(infoUrl);
+				const response = await fetchDstack(infoUrl);
 				if (!response.ok) {
 					throw new Error(
 						`Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,

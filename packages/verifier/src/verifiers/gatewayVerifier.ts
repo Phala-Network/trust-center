@@ -21,6 +21,7 @@ import {
   type VerificationFailure,
 } from '../types'
 import type {DataObjectCollector} from '../utils/dataObjectCollector'
+import {fetchDstack} from '../utils/fetchInsecure'
 import {DstackApp} from '../utils/dstackContract'
 import {
   verifyCertificateKey,
@@ -52,6 +53,8 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   public lastQuoteHex: string | null = null
   /** Cached ACME info to avoid redundant HTTP calls within a single verification run */
   private cachedAcmeInfo: AcmeInfo | null = null
+  /** Base domain for DNS CAA and CT log verification (from app config, not ACME) */
+  private baseDomain: string
 
   /**
    * Creates a new Gateway verifier instance.
@@ -60,6 +63,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     metadata: GatewayMetadata,
     systemInfo: SystemInfo,
     collector: DataObjectCollector,
+    baseDomain: string,
   ) {
     super(metadata, 'gateway', collector)
 
@@ -79,6 +83,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     this.rpcEndpoint = systemInfo.kms_info.gateway_app_url
     this.dataObjectGenerator = new GatewayDataObjectGenerator(metadata)
     this.systemInfo = systemInfo
+    this.baseDomain = baseDomain
   }
 
   /**
@@ -115,7 +120,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     // Fallback to fetching from Gateway RPC endpoint
     const appInfoUrl = `${this.rpcEndpoint}/.dstack/app-info`
     try {
-      const response = await fetch(appInfoUrl)
+      const response = await fetchDstack(appInfoUrl)
       if (!response.ok) {
         throw new Error(
           `Gateway app-info request failed: ${response.status} ${response.statusText} (URL: ${appInfoUrl})`,
@@ -230,7 +235,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     )
 
     // Generate DataObjects for Gateway source code verification
-    const acmeInfo = await this.getAcmeInfo()
+    // Use app_cert from app-info as active certificate (new gateways removed it from ACME)
     const dataObjects = this.dataObjectGenerator.generateSourceCodeDataObjects(
       appInfo,
       quoteData,
@@ -238,7 +243,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       isRegistered ?? false,
       this.registrySmartContract?.address ?? '0x',
       this.rpcEndpoint,
-      acmeInfo.active_cert,
+      appInfo.app_cert,
     )
     dataObjects.forEach(obj => {
       this.createDataObject(obj)
@@ -273,7 +278,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
 
     const acmeInfoUrl = `${this.rpcEndpoint}/.dstack/acme-info`
     try {
-      const response = await fetch(acmeInfoUrl)
+      const response = await fetchDstack(acmeInfoUrl)
       if (!response.ok) {
         throw new Error(
           `Gateway ACME info request failed: ${response.status} ${response.statusText} (URL: ${acmeInfoUrl})`,
@@ -298,21 +303,6 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   }
 
   /**
-   * Returns which domain verification capabilities are available
-   * based on the ACME info from this gateway.
-   */
-  public async getDomainVerificationCapabilities(): Promise<{
-    hasActiveCert: boolean
-    hasBaseDomain: boolean
-  }> {
-    const acmeInfo = await this.getAcmeInfo()
-    return {
-      hasActiveCert: !!acmeInfo.active_cert,
-      hasBaseDomain: !!acmeInfo.base_domain,
-    }
-  }
-
-  /**
    * Verifies that the ACME account key is controlled by the TEE.
    */
   public async verifyTeeControlledKey(): Promise<{
@@ -325,38 +315,87 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
 
   /**
    * Verifies that the TLS certificate matches the TEE-controlled public key.
-   * Requires active_cert in ACME info.
+   * Uses active_cert from ACME (legacy) or fetches the certificate directly
+   * from the gateway's TLS handshake (new gateways).
    */
   public async verifyCertificateKey(): Promise<{
     isValid: boolean
     error?: string
   }> {
     const acmeInfo = await this.getAcmeInfo()
+    if (!acmeInfo.active_cert) {
+      const tlsCert = await this.fetchTlsCertificate()
+      return verifyCertificateKey({...acmeInfo, active_cert: tlsCert})
+    }
     return verifyCertificateKey(acmeInfo)
   }
 
   /**
+   * Fetches the TLS certificate chain directly from the gateway's HTTPS endpoint.
+   * This is the actual certificate users see when connecting to the gateway.
+   */
+  private async fetchTlsCertificate(): Promise<string> {
+    const {connect} = await import('node:tls')
+    const url = new URL(this.rpcEndpoint)
+    const host = url.hostname
+    const port = Number(url.port) || 443
+
+    return new Promise<string>((resolve, reject) => {
+      const socket = connect(
+        {host, port, servername: host, rejectUnauthorized: false},
+        () => {
+          const cert = socket.getPeerCertificate(true)
+          if (!cert || !cert.raw) {
+            socket.destroy()
+            reject(new Error(`No TLS certificate from ${host}:${port}`))
+            return
+          }
+
+          // Build PEM chain from the peer certificate and its issuer chain
+          const pems: string[] = []
+          let current: typeof cert | undefined = cert
+          const seen = new Set<string>()
+          while (current?.raw) {
+            const fingerprint = current.fingerprint256
+            if (seen.has(fingerprint)) break
+            seen.add(fingerprint)
+            const b64 = current.raw.toString('base64')
+            const lines = b64.match(/.{1,64}/g) || []
+            pems.push(
+              `-----BEGIN CERTIFICATE-----\n${lines.join('\n')}\n-----END CERTIFICATE-----`,
+            )
+            current = current.issuerCertificate as typeof cert | undefined
+          }
+
+          socket.destroy()
+          resolve(pems.join('\n'))
+        },
+      )
+      socket.on('error', (err) => reject(new Error(`TLS connection to ${host}:${port} failed: ${err.message}`)))
+      socket.setTimeout(10_000, () => {
+        socket.destroy()
+        reject(new Error(`TLS connection to ${host}:${port} timed out`))
+      })
+    })
+  }
+
+  /**
    * Verifies domain control through DNS CAA records.
-   * Requires base_domain in ACME info.
+   * Uses baseDomain from app config (passed at construction).
    */
   public async verifyDnsCAA(): Promise<{isValid: boolean; error?: string}> {
     const acmeInfo = await this.getAcmeInfo()
-    if (!acmeInfo.base_domain) {
-      throw new Error('base_domain is required for DNS CAA verification')
-    }
-    return verifyDnsCAA(acmeInfo.base_domain, acmeInfo.account_uri)
+    return verifyDnsCAA(this.baseDomain, acmeInfo.account_uri)
   }
 
   /**
    * Verifies complete TEE control over the domain through Certificate Transparency logs.
-   * Requires base_domain in ACME info.
+   * Uses baseDomain from app config (passed at construction).
    */
   public async verifyCTLog(): Promise<CTResult> {
     const acmeInfo = await this.getAcmeInfo()
-    if (!acmeInfo.base_domain) {
-      throw new Error('base_domain is required for CT log verification')
-    }
-    const result = await verifyCTLog(acmeInfo)
+    const enrichedAcmeInfo = {...acmeInfo, base_domain: this.baseDomain}
+    const result = await verifyCTLog(enrichedAcmeInfo)
 
     // Generate DataObjects for domain verification results
     const dataObjects =
