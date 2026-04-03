@@ -18,7 +18,7 @@ export interface AcmeInfo {
   account_attestation?: string
   /** Legacy field - only present in older gateway versions */
   active_cert?: string
-  /** Legacy field - only present in older gateway versions; use GatewayVerifier.getGatewayInfo() instead */
+  /** Legacy field - only present in older gateway versions */
   base_domain?: string
 }
 
