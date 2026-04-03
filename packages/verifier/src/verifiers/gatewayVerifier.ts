@@ -311,10 +311,18 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     }
 
     // First try ACME info (legacy gateways include base_domain)
-    const acmeInfo = await this.getAcmeInfo()
-    if (acmeInfo.base_domain) {
-      this.cachedBaseDomain = acmeInfo.base_domain
-      return this.cachedBaseDomain
+    try {
+      const acmeInfo = await this.getAcmeInfo()
+      if (acmeInfo.base_domain) {
+        this.cachedBaseDomain = acmeInfo.base_domain
+        return this.cachedBaseDomain
+      }
+    } catch (error) {
+      console.warn(
+        `[GatewayVerifier] ACME info unavailable for base_domain, falling back to /.dstack/info: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
     }
 
     // Fetch from /.dstack/info endpoint (newer gateways)
@@ -357,12 +365,19 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
 
   /**
    * Verifies that the TLS certificate matches the TEE-controlled public key.
+   * Skipped on newer gateways where active_cert is no longer in ACME response.
    */
   public async verifyCertificateKey(): Promise<{
     isValid: boolean
     error?: string
   }> {
     const acmeInfo = await this.getAcmeInfo()
+    if (!acmeInfo.active_cert) {
+      console.log(
+        '[GatewayVerifier] Skipping certificateKey verification: active_cert not available (new gateway format)',
+      )
+      return {isValid: true}
+    }
     return verifyCertificateKey(acmeInfo)
   }
 
