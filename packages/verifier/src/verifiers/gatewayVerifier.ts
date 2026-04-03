@@ -1,6 +1,7 @@
 import {GatewayDataObjectGenerator} from '../dataObjects/gatewayDataObjectGenerator'
 import {
   AcmeInfoSchema,
+  GatewayInfoSchema,
   KeyProviderSchema,
   safeParseEventLog,
   safeParseQuoteExt,
@@ -31,7 +32,6 @@ import {
 import {
   isUpToDate,
   verifyTeeQuote,
-  verifyWithIntelTrustAuthority,
 } from '../verification/hardwareVerification'
 import {verifyOSIntegrity} from '../verification/osVerification'
 import {verifyComposeHash} from '../verification/sourceCodeVerification'
@@ -49,6 +49,8 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   private dataObjectGenerator: GatewayDataObjectGenerator
   /** System information for this Gateway instance */
   protected systemInfo: SystemInfo
+  /** Cached quote data from hardware verification, used for deferred ITA */
+  public lastQuoteHex: string | null = null
 
   /**
    * Creates a new Gateway verifier instance.
@@ -136,6 +138,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
 
   /**
    * Verifies the hardware attestation by validating the TDX quote.
+   * ITA verification is deferred to executeVerifiers final step.
    */
   public async verifyHardware(): Promise<{
     isValid: boolean
@@ -145,20 +148,14 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     const verificationResult = await verifyTeeQuote(quoteData)
     const failures: VerificationFailure[] = []
 
-    let itaResult: Record<string, unknown> | null = null
-    const itaApiKey = process.env.INTEL_TRUST_AUTHORITY_API_KEY
-    if (itaApiKey) {
-      itaResult = await verifyWithIntelTrustAuthority(
-        quoteData.quote,
-        itaApiKey,
-      )
-    }
+    // Save quote hex for deferred ITA verification
+    this.lastQuoteHex = quoteData.quote
 
-    // Generate DataObjects for Gateway hardware verification
+    // Generate DataObjects for Gateway hardware verification (ITA result added later)
     const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
       quoteData,
       verificationResult,
-      itaResult,
+      null,
     )
     dataObjects.forEach(obj => {
       this.createDataObject(obj)
@@ -295,6 +292,44 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   }
 
   /**
+   * Retrieves the base_domain from the Gateway's /.dstack/info endpoint.
+   * This is the canonical source for base_domain in newer gateway versions
+   * where ACME info no longer includes it.
+   */
+  private async getBaseDomain(): Promise<string> {
+    // First try ACME info (legacy gateways include base_domain)
+    const acmeInfo = await this.getAcmeInfo()
+    if (acmeInfo.base_domain) {
+      return acmeInfo.base_domain
+    }
+
+    // Fetch from /.dstack/info endpoint (newer gateways)
+    const infoUrl = `${this.rpcEndpoint}/.dstack/info`
+    try {
+      const response = await fetch(infoUrl)
+      if (!response.ok) {
+        throw new Error(
+          `Gateway info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
+        )
+      }
+      const data = await response.json()
+      const parsed = GatewayInfoSchema.safeParse(data)
+      if (!parsed.success) {
+        throw new Error(
+          `Invalid Gateway info response: ${parsed.error.message}`,
+        )
+      }
+      return parsed.data.base_domain
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching Gateway info from ${infoUrl}`
+      throw new Error(`Failed to fetch base_domain from Gateway: ${errorMessage}`)
+    }
+  }
+
+  /**
    * Verifies that the ACME account key is controlled by the TEE.
    */
   public async verifyTeeControlledKey(): Promise<{
@@ -320,8 +355,9 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    * Verifies domain control through DNS CAA records.
    */
   public async verifyDnsCAA(): Promise<{isValid: boolean; error?: string}> {
+    const baseDomain = await this.getBaseDomain()
     const acmeInfo = await this.getAcmeInfo()
-    return verifyDnsCAA(acmeInfo.base_domain, acmeInfo.account_uri)
+    return verifyDnsCAA(baseDomain, acmeInfo.account_uri)
   }
 
   /**
@@ -329,13 +365,16 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    */
   public async verifyCTLog(): Promise<CTResult> {
     const acmeInfo = await this.getAcmeInfo()
-    const result = await verifyCTLog(acmeInfo)
+    const baseDomain = await this.getBaseDomain()
+    // Enrich acmeInfo with resolved base_domain for verifyCTLog
+    const enrichedAcmeInfo = {...acmeInfo, base_domain: baseDomain}
+    const result = await verifyCTLog(enrichedAcmeInfo)
 
     // Generate DataObjects for domain verification results
     const dataObjects =
       this.dataObjectGenerator.generateDomainVerificationDataObjects(
         result,
-        acmeInfo,
+        enrichedAcmeInfo,
       )
     dataObjects.forEach(obj => {
       this.createDataObject(obj)

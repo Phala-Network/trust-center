@@ -86,7 +86,7 @@ export class GatewayDataObjectGenerator extends BaseDataObjectGenerator {
     isRegistered: boolean,
     contractAddress: string,
     gatewayRpcEndpoint: string,
-    activeCertificate: string,
+    activeCertificate?: string,
     allowedComposeHashes?: string[],
     guardedDomains?: string[],
     registeredApps?: string[],

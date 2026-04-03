@@ -7,19 +7,20 @@
  */
 export interface AcmeInfo {
   account_uri: string
+  /** Derived from quoted_hist_keys if not provided by legacy API */
   hist_keys: string[]
   quoted_hist_keys: Array<{
     public_key: string
     quote: string
+    attestation?: string
   }>
   account_quote: string
-  active_cert: string
-  base_domain: string
+  account_attestation?: string
+  /** Legacy field - only present in older gateway versions */
+  active_cert?: string
+  /** Legacy field - only present in older gateway versions; use GatewayVerifier.getGatewayInfo() instead */
+  base_domain?: string
 }
-
-/** AcmeInfo with optional fields matching actual API responses */
-export type AcmeInfoRaw = Partial<AcmeInfo> &
-  Pick<AcmeInfo, 'account_uri' | 'account_quote' | 'active_cert' | 'base_domain'>
 
 /**
  * Certificate Transparency Log structures.

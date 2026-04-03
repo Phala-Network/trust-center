@@ -11,8 +11,10 @@ import {
   createKmsMetadata,
   supportsOnchainKms,
 } from './utils/metadataUtils'
+import {verifyWithIntelTrustAuthority} from './verification/hardwareVerification'
 import type {Verifier} from './verifier'
 import {GatewayVerifier} from './verifiers/gatewayVerifier'
+import {KmsVerifier} from './verifiers/kmsVerifier'
 import {
   LegacyGatewayStubVerifier,
   LegacyKmsStubVerifier,
@@ -87,6 +89,7 @@ export function createVerifiers(
 export async function executeVerifiers(
   verifiers: Verifier[],
   flags: VerificationFlags,
+  collector: DataObjectCollector,
 ): Promise<{
   success: boolean
   errors: string[]
@@ -201,9 +204,75 @@ export async function executeVerifiers(
     }
   }
 
+  // Run Intel Trust Authority verification as the final step.
+  // Skip if prior verification steps produced errors (early drop).
+  if (errors.length === 0) {
+    await runDeferredIta(verifiers, collector)
+  } else {
+    console.log(
+      `[VerifierChain] Skipping ITA verification: ${errors.length} prior error(s)`,
+    )
+  }
+
   return {
     success: errors.length === 0,
     errors,
     failures,
+  }
+}
+
+/**
+ * Runs Intel Trust Authority appraisal for all verifiers that collected quotes.
+ * Updates existing CPU DataObjects with the ITA result.
+ */
+async function runDeferredIta(
+  verifiers: Verifier[],
+  collector: DataObjectCollector,
+): Promise<void> {
+  const itaApiKey = process.env.INTEL_TRUST_AUTHORITY_API_KEY
+  if (!itaApiKey) {
+    return
+  }
+
+  for (const verifier of verifiers) {
+    let quoteHex: string | null = null
+    let cpuObjectId: string | null = null
+
+    if (verifier instanceof PhalaCloudVerifier) {
+      quoteHex = verifier.lastQuoteHex
+      cpuObjectId = 'app-cpu'
+    } else if (verifier instanceof KmsVerifier) {
+      quoteHex = verifier.lastQuoteHex
+      cpuObjectId = 'kms-cpu'
+    } else if (verifier instanceof GatewayVerifier) {
+      quoteHex = verifier.lastQuoteHex
+      cpuObjectId = 'gateway-cpu'
+    }
+
+    if (!quoteHex || !cpuObjectId) {
+      continue
+    }
+
+    const verifierName = verifier.constructor.name
+    console.log(`[VerifierChain] Running deferred ITA for ${verifierName}`)
+
+    try {
+      const itaResult = await verifyWithIntelTrustAuthority(quoteHex, itaApiKey)
+      if (itaResult) {
+        collector.updateObjectFields(cpuObjectId, {
+          intel_trust_authority: JSON.stringify(itaResult),
+        })
+        console.log(
+          `[VerifierChain] ITA result added to ${cpuObjectId}`,
+        )
+      }
+    } catch (error) {
+      // ITA is optional — log and continue
+      console.warn(
+        `[VerifierChain] ITA failed for ${verifierName}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
   }
 }

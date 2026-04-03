@@ -14,7 +14,6 @@ import { DstackKms } from "../utils/dstackContract";
 import {
 	isUpToDate,
 	verifyTeeQuote,
-	verifyWithIntelTrustAuthority,
 } from "../verification/hardwareVerification";
 import { verifyOSIntegrity } from "../verification/osVerification";
 import { verifyComposeHash } from "../verification/sourceCodeVerification";
@@ -37,6 +36,8 @@ export abstract class KmsVerifier extends Verifier {
 	protected kmsInfo: KmsInfo;
 	/** Full system info for accessing kms_guest_agent_info */
 	protected systemInfo: SystemInfo;
+	/** Cached quote data from hardware verification, used for deferred ITA */
+	public lastQuoteHex: string | null = null;
 
 	/**
 	 * Creates a new KMS verifier instance.
@@ -115,6 +116,7 @@ export abstract class KmsVerifier extends Verifier {
 
 	/**
 	 * Verifies the hardware attestation by validating the TDX quote.
+	 * ITA verification is deferred to executeVerifiers final step.
 	 */
 	public async verifyHardware(): Promise<{
 		isValid: boolean;
@@ -124,20 +126,14 @@ export abstract class KmsVerifier extends Verifier {
 		const verificationResult = await verifyTeeQuote(quoteData);
 		const failures: VerificationFailure[] = [];
 
-		let itaResult: Record<string, unknown> | null = null;
-		const itaApiKey = process.env.INTEL_TRUST_AUTHORITY_API_KEY;
-		if (itaApiKey) {
-			itaResult = await verifyWithIntelTrustAuthority(
-				quoteData.quote,
-				itaApiKey,
-			);
-		}
+		// Save quote hex for deferred ITA verification
+		this.lastQuoteHex = quoteData.quote;
 
-		// Generate DataObjects for KMS hardware verification
+		// Generate DataObjects for KMS hardware verification (ITA result added later)
 		const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
 			quoteData,
 			verificationResult,
-			itaResult,
+			null,
 		);
 		dataObjects.forEach((obj) => {
 			this.createDataObject(obj);
