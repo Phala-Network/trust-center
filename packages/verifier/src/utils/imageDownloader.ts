@@ -39,6 +39,22 @@ interface ImageInfo {
 }
 
 /**
+ * Determines the GitHub repo for nvidia images based on version.
+ * Starting from v0.5.6, nvidia images moved from nearai/private-ml-sdk to Dstack-TEE/meta-dstack.
+ */
+function getNvidiaRepo(version: string): string {
+  const parts = version.replace(/^v/, '').split('.').map(Number)
+  const threshold = [0, 5, 6]
+  for (let i = 0; i < 3; i++) {
+    const p = parts[i] ?? 0
+    const t = threshold[i] ?? 0
+    if (p < t) return 'nearai/private-ml-sdk'
+    if (p > t) return 'Dstack-TEE/meta-dstack'
+  }
+  return 'Dstack-TEE/meta-dstack'
+}
+
+/**
  * Parses a dstack image folder name to extract variant, version, and download URL
  * @param folderName - e.g., "dstack-0.5.3", "dstack-dev-0.5.3", "dstack-nvidia-0.5.3", "dstack-nvidia-dev-0.5.3"
  * @returns Parsed image information
@@ -60,10 +76,11 @@ function parseImageFolderName(folderName: string): ImageInfo {
     const version = createNormalizedVersion(
       versionPart.startsWith('v') ? versionPart : `v${versionPart}`,
     )
+    const repo = getNvidiaRepo(version)
     return {
       variant: 'nvidia',
       version,
-      downloadUrl: `https://github.com/nearai/private-ml-sdk/releases/download/${version}/dstack-nvidia-dev-${version.slice(1)}.tar.gz`,
+      downloadUrl: `https://github.com/${repo}/releases/download/${version}/dstack-nvidia-dev-${version.slice(1)}.tar.gz`,
     }
   }
 
@@ -73,10 +90,11 @@ function parseImageFolderName(folderName: string): ImageInfo {
     const version = createNormalizedVersion(
       versionPart.startsWith('v') ? versionPart : `v${versionPart}`,
     )
+    const repo = getNvidiaRepo(version)
     return {
       variant: 'nvidia',
       version,
-      downloadUrl: `https://github.com/nearai/private-ml-sdk/releases/download/${version}/dstack-nvidia-${version.slice(1)}.tar.gz`,
+      downloadUrl: `https://github.com/${repo}/releases/download/${version}/dstack-nvidia-${version.slice(1)}.tar.gz`,
     }
   }
 
