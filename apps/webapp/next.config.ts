@@ -14,13 +14,13 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Allow all other routes to be embedded only by *.phala.com and *.phala.network
+        // Allow all other routes to be embedded only by *.phala.com, *.phala.network, *.clawdi.ai, and *.redpill.ai
         source: '/((?!widget).*)',
         headers: [
           {
             key: 'Content-Security-Policy',
             value:
-              "frame-ancestors 'self' https://*.phala.com https://*.phala.network https://*.clawdi.ai http://localhost:* https://localhost:* http://*.localhost:* https://*.localhost:*",
+              "frame-ancestors 'self' https://*.phala.com https://*.phala.network https://*.clawdi.ai https://*.redpill.ai http://localhost:* https://localhost:* http://*.localhost:* https://*.localhost:*",
           },
         ],
       },

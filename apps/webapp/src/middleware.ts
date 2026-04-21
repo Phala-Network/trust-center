@@ -15,7 +15,12 @@ export function middleware(request: NextRequest) {
       host.includes('localhost') || host.includes('127.0.0.1')
 
     // Check if the request is from an allowed domain
-    const allowedDomains = ['.phala.com', '.phala.network', '.clawdi.ai']
+    const allowedDomains = [
+      '.phala.com',
+      '.phala.network',
+      '.clawdi.ai',
+      '.redpill.ai',
+    ]
     const isAllowedHost = (url: string) => {
       try {
         const hostname = new URL(url).hostname
@@ -35,7 +40,7 @@ export function middleware(request: NextRequest) {
     const isDirectAccess = !referer && !origin
     if (isDirectAccess && !isDevelopment) {
       return new NextResponse(
-        'Forbidden: Embed only accessible via iframe from *.phala.com, *.phala.network, or *.clawdi.ai',
+        'Forbidden: Embed only accessible via iframe from *.phala.com, *.phala.network, *.clawdi.ai, or *.redpill.ai',
         {
           status: 403,
           headers: {
@@ -53,7 +58,7 @@ export function middleware(request: NextRequest) {
       !isDevelopment
     ) {
       return new NextResponse(
-        'Forbidden: Embed only accessible via iframe from *.phala.com, *.phala.network, or *.clawdi.ai',
+        'Forbidden: Embed only accessible via iframe from *.phala.com, *.phala.network, *.clawdi.ai, or *.redpill.ai',
         {
           status: 403,
           headers: {
@@ -67,7 +72,7 @@ export function middleware(request: NextRequest) {
     const response = NextResponse.next()
     response.headers.set(
       'Content-Security-Policy',
-      "frame-ancestors 'self' https://*.phala.com https://*.phala.network https://*.clawdi.ai http://localhost:* https://localhost:* http://*.localhost:* https://*.localhost:*",
+      "frame-ancestors 'self' https://*.phala.com https://*.phala.network https://*.clawdi.ai https://*.redpill.ai http://localhost:* https://localhost:* http://*.localhost:* https://*.localhost:*",
     )
     return response
   }

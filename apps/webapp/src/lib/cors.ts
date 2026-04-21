@@ -3,12 +3,16 @@ import {NextResponse} from 'next/server'
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https?:\/\/[a-zA-Z0-9-]+\.phala\.network$/,
   /^https?:\/\/[a-zA-Z0-9-]+\.phala\.com$/,
+  /^https?:\/\/[a-zA-Z0-9-]+\.clawdi\.ai$/,
+  /^https?:\/\/[a-zA-Z0-9-]+\.redpill\.ai$/,
   /^https?:\/\/.*\.?localhost(:\d+)?$/,
 ]
 
 const FRAME_ANCESTORS = [
   '*.phala.network',
   '*.phala.com',
+  '*.clawdi.ai',
+  '*.redpill.ai',
   '*.localhost:*',
   'localhost:*',
 ]
