@@ -12,6 +12,7 @@ import {
   sql,
   type Task,
   type VerificationFlags,
+  type VerificationTaskStatus,
   verificationTasksTable,
 } from '@phala/trust-center-db'
 
@@ -880,3 +881,94 @@ export async function getTask(
 export type AppProfile = ProfileDisplay
 export type WorkspaceProfile = ProfileDisplay
 export type UserProfile = ProfileDisplay
+
+// Compact task info returned by the public REST API routes.
+// Separate from AppWithTask (which carries profile/join data we don't expose).
+export interface TaskApiInfo {
+  taskId: string
+  appId: string
+  status: VerificationTaskStatus
+  errorMessage: string | null
+  verificationFlags: VerificationFlags | null
+  createdAt: string
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+const taskApiSelection = {
+  id: verificationTasksTable.id,
+  appId: verificationTasksTable.appId,
+  status: verificationTasksTable.status,
+  errorMessage: verificationTasksTable.errorMessage,
+  verificationFlags: verificationTasksTable.verificationFlags,
+  createdAt: verificationTasksTable.createdAt,
+  startedAt: verificationTasksTable.startedAt,
+  finishedAt: verificationTasksTable.finishedAt,
+}
+
+function toTaskApiInfo(row: {
+  id: string
+  appId: string
+  status: VerificationTaskStatus
+  errorMessage: string | null
+  verificationFlags: unknown
+  createdAt: Date
+  startedAt: Date | null
+  finishedAt: Date | null
+}): TaskApiInfo {
+  return {
+    taskId: row.id,
+    appId: row.appId,
+    status: row.status,
+    errorMessage: row.errorMessage,
+    verificationFlags:
+      (row.verificationFlags as VerificationFlags | null) ?? null,
+    createdAt: row.createdAt.toISOString(),
+    startedAt: row.startedAt?.toISOString() ?? null,
+    finishedAt: row.finishedAt?.toISOString() ?? null,
+  }
+}
+
+async function fetchLatestTaskByStatus(
+  appId: string,
+  status: VerificationTaskStatus,
+): Promise<TaskApiInfo | null> {
+  const rows = await db
+    .select(taskApiSelection)
+    .from(verificationTasksTable)
+    .where(
+      and(
+        eq(verificationTasksTable.appId, appId),
+        eq(verificationTasksTable.status, status),
+      ),
+    )
+    .orderBy(desc(verificationTasksTable.createdAt))
+    .limit(1)
+
+  return rows[0] ? toTaskApiInfo(rows[0]) : null
+}
+
+// Returns the task result for a given app, preferring the latest 'completed' task
+// over the latest 'failed' one. Used by the public GET /api/app/[app-id] endpoint.
+// Returns null if the app has neither a completed nor a failed task.
+export async function getLatestReportedTaskForApp(
+  appId: string,
+): Promise<TaskApiInfo | null> {
+  const completed = await fetchLatestTaskByStatus(appId, 'completed')
+  if (completed) return completed
+  return fetchLatestTaskByStatus(appId, 'failed')
+}
+
+// Returns a single task by its ID with no status filtering.
+// Used by the public GET /api/task/[task-id] endpoint.
+export async function getTaskApiInfoById(
+  taskId: string,
+): Promise<TaskApiInfo | null> {
+  const rows = await db
+    .select(taskApiSelection)
+    .from(verificationTasksTable)
+    .where(eq(verificationTasksTable.id, taskId))
+    .limit(1)
+
+  return rows[0] ? toTaskApiInfo(rows[0]) : null
+}
