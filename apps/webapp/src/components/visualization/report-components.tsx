@@ -175,10 +175,13 @@ export const ReportHeader: React.FC<{
               Attestation Time
             </span>
             <span className="text-muted-foreground">
-              {new Date(app.task.createdAt).toLocaleDateString('en-US', {
+              {new Date(app.task.createdAt).toLocaleString('en-US', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
               })}
             </span>
           </div>
