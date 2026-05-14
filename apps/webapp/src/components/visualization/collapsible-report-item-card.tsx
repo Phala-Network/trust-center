@@ -354,10 +354,7 @@ const CardHeader: React.FC<{
             <img
               src={icons.dark}
               alt="Vendor"
-              className={cn(
-                'hidden h-5 max-w-[72px] object-contain dark:block',
-                icons.light === icons.dark && 'brightness-0 invert',
-              )}
+              className="hidden h-5 max-w-[72px] object-contain dark:block"
             />
           </>
         )}
@@ -532,10 +529,7 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
               <img
                 src={icons.dark}
                 alt="Vendor"
-                className={cn(
-                  'hidden h-5 max-w-[72px] object-contain dark:block',
-                  icons.light === icons.dark && 'brightness-0 invert',
-                )}
+                className="hidden h-5 max-w-[72px] object-contain dark:block"
               />
             </>
           )}

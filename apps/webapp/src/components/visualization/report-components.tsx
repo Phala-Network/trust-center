@@ -178,7 +178,6 @@ export const ReportHeader: React.FC<{
                     alt="Intel"
                     width={28}
                     height={11}
-                    className="dark:brightness-0 dark:invert"
                   />
                   {hasGpu && (
                     <>
