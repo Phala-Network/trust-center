@@ -36,7 +36,7 @@ export const REPORT_ITEMS: Record<ReportItemId, ReportItem> = {
         url: 'https://docs.trustauthority.intel.com/main/articles/articles/overview.html',
       },
     ],
-    vendorIcon: '/intel.svg',
+    vendorIcon: '/intel_white.png',
     fields: [
       {objectId: 'app-cpu', field: 'model', label: 'Model'},
       {

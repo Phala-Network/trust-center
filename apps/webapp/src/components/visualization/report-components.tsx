@@ -174,7 +174,7 @@ export const ReportHeader: React.FC<{
                 <span className="inline-flex items-center gap-1.5">
                   <span>attested by</span>
                   <Image
-                    src="/intel.svg"
+                    src="/intel_white.png"
                     alt="Intel"
                     width={28}
                     height={11}

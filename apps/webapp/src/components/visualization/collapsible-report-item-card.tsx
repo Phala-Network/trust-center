@@ -11,7 +11,6 @@ import {cn} from '@/lib/utils'
 // Helper to get dark mode version of vendor icon
 const getVendorIconSrc = (icon: string) => {
   const darkIcons: Record<string, string> = {
-    '/intel.svg': '/intel.svg',
     '/nvidia.svg': '/nvidia_dark.svg',
     '/dstack.svg': '/dstack_dark.svg',
     '/logo.svg': '/logo_dark.svg',
