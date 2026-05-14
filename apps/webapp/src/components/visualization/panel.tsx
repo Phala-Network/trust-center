@@ -24,10 +24,10 @@ const Panel: React.FC<PanelProps> = ({view, onBack}) => {
   }, [view])
 
   return (
-    <div className="flex h-full flex-col border-r last:border-none dark:border-border/50">
+    <div className="flex h-full flex-col border-r border-border last:border-none">
       {/* Panel header - only show back button for compact mode on values view */}
       {view === 'values' && onBack && (
-        <div className="flex items-center gap-2 border-b px-2 py-1 text-sm">
+        <div className="flex items-center gap-2 border-b border-border px-2 py-1 text-sm">
           <Button onClick={onBack} variant="ghost">
             <ArrowLeft className="size-4" />
             Back

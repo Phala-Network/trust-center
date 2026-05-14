@@ -49,7 +49,7 @@ export default async function EmbedLayout({
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/60"
+              className="gap-2 rounded-[4px] border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60"
               asChild
             >
               <a

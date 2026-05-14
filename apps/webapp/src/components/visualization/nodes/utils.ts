@@ -1,6 +1,6 @@
 import {Position} from '@xyflow/react'
 
-import {INITIAL_POSITIONS} from '@/data/positions'
+import {computePositions} from '@/data/positions'
 import type {DataObject} from '@/data/schema'
 import type {HandleConfig, ObjectNodeData} from './types'
 
@@ -154,12 +154,10 @@ export const calculateHandleShowProps = (
   return result
 }
 
-// Unified layout selection function
-export const getLayoutPositions = (attestationData: DataObject[]) => {
-  return INITIAL_POSITIONS
-  // const hasAppGpu = attestationData.some((o) => o.id === 'app-gpu')
-  // return hasAppGpu ? INITIAL_POSITIONS_GPU : INITIAL_POSITIONS
-}
+// Unified layout selection function — derives positions from the actual
+// `attestationData` so empty columns/rows don't claim canvas space.
+export const getLayoutPositions = (attestationData: DataObject[]) =>
+  computePositions(attestationData)
 
 // Unified position calculation function
 export const calculatePosition = (

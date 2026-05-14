@@ -75,11 +75,13 @@ export default function Header() {
   }, [appId, taskId])
 
   return (
-    <header className="flex items-center gap-6 border-b px-4 py-2">
+    <header className="flex items-center gap-6 border-border border-b bg-card px-4 py-2">
       <Link href="/" className="flex items-center gap-3">
         <Image src="/logo.svg" alt="Phala" width={72} height={24} />
         <hr className="h-6 border-r" />
-        <h1 className="text-sm font-semibold">Trust Center</h1>
+        <h1 className="font-mono text-[12px] uppercase tracking-[.14em] text-foreground">
+          Trust Center
+        </h1>
       </Link>
       <div className="relative max-w-sm flex-1 md:max-w-md">
         <Input
@@ -97,12 +99,12 @@ export default function Header() {
           }}
         />
         {showAutocomplete && filteredObjects.length > 0 && (
-          <div className="absolute top-full right-0 left-0 z-50 mt-1 max-h-60 overflow-auto rounded-md border bg-white shadow-lg">
+          <div className="absolute top-full right-0 left-0 z-50 mt-1 max-h-60 overflow-auto border border-border bg-popover">
             {filteredObjects.map((object) => (
               <button
                 key={object.id}
                 type="button"
-                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100"
+                className="w-full px-3 py-2 text-left text-sm text-popover-foreground hover:bg-muted"
                 onClick={() => handleObjectSelect(object.id)}
               >
                 {object.name}

@@ -1,16 +1,16 @@
 import {dehydrate, HydrationBoundary, QueryClient} from '@tanstack/react-query'
 import {Suspense} from 'react'
 
+import Footer from '@/components/footer'
 import {Hero} from '@/components/hero'
 import {PhalaNavbar} from '@/components/navbar'
-import {UserGallery} from '@/components/user-gallery'
+import {UserGalleryStrip} from '@/components/user-gallery'
 import {getApps, getDstackVersions, getUsers} from '@/lib/db'
 import {HomeClient} from './_components/home-client'
 
 export default async function HomePage() {
   const queryClient = new QueryClient()
 
-  // Prefetch initial data with empty filters (first page)
   await queryClient.prefetchInfiniteQuery({
     queryKey: ['apps', {sortBy: 'appName', perPage: 24}],
     queryFn: () => getApps({sortBy: 'appName', page: 1, perPage: 24}),
@@ -26,7 +26,6 @@ export default async function HomePage() {
     queryFn: () => getDstackVersions(),
   })
 
-  // Prefetch featured builders for gallery
   await queryClient.prefetchQuery({
     queryKey: ['users'],
     queryFn: () => getUsers(),
@@ -35,43 +34,42 @@ export default async function HomePage() {
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <PhalaNavbar />
-      <div className="min-h-screen pt-[72px]">
-        {/* Hero Section - Background (lighter) */}
+      <main className="min-h-screen pt-[72px]">
         <section className="relative bg-background">
           <Hero />
         </section>
 
-        {/* Featured Builders Section - Muted background */}
-        <section className="bg-muted pt-16 pb-8 sm:pt-20 sm:pb-10 lg:pt-24 lg:pb-12">
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <Suspense fallback={<div className="w-full h-64" />}>
-              <UserGallery />
-            </Suspense>
-          </div>
-        </section>
-
-        {/* Applications Section - Muted background */}
         <section
           id="verified-apps"
-          className="bg-muted pt-8 pb-16 sm:pt-10 sm:pb-20 lg:pt-12 lg:pb-24"
+          className="border-border border-t bg-background py-16 md:py-20"
         >
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[1280px] px-5 sm:px-8 lg:px-12">
             <div className="space-y-6">
-              <div className="space-y-1">
-                <h2 className="text-2xl font-bold tracking-tight">
-                  Verified Applications
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Browse all verified TEE applications on dstack
-                </p>
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="mb-3 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+                    Verified applications
+                  </p>
+                  <h2 className="font-display text-[clamp(30px,2.8vw,46px)] leading-[1.08] text-foreground">
+                    Browse the registry.
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+                    Every public TEE application on dstack with a completed
+                    verification, filterable by dstack version.
+                  </p>
+                </div>
+                <Suspense fallback={null}>
+                  <UserGalleryStrip max={6} />
+                </Suspense>
               </div>
-              <Suspense fallback={<div className="w-full h-96" />}>
+              <Suspense fallback={<div className="h-96 w-full" />}>
                 <HomeClient />
               </Suspense>
             </div>
           </div>
         </section>
-      </div>
+      </main>
+      <Footer />
     </HydrationBoundary>
   )
 }

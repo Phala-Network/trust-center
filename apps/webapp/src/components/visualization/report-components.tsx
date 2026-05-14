@@ -1,18 +1,48 @@
-import {Check, ExternalLink, HelpCircle} from 'lucide-react'
+import {Check, Copy, ExternalLink} from 'lucide-react'
 import Image from 'next/image'
 import type React from 'react'
+import {useState} from 'react'
 
 import {AppLogo} from '@/components/app-logo'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
-import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {getAppBadges} from '@/lib/app-badges'
 import type {AppWithTask} from '@/lib/db'
 
+const CopyHashButton: React.FC<{value: string}> = ({value}) => {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1400)
+    } catch {
+      console.error('Failed to copy')
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label="Copy address"
+      className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+      onClick={handleCopy}
+    >
+      <Copy className="size-3" />
+      {copied ? 'copied' : 'copy'}
+    </button>
+  )
+}
+
+const truncateMiddle = (s: string, head = 6, tail = 4): string =>
+  s.length > head + tail + 1 ? `${s.slice(0, head)}…${s.slice(-tail)}` : s
+
 // Top branding component - Phala Trust Certificate
 export const TopBranding: React.FC = () => (
-  <div className="bg-gradient-to-br from-muted/40 to-muted/20 px-5 py-3 border-b border-border/50">
+  <div className="border-b border-border bg-muted/40 px-5 py-3">
     <div className="flex items-center justify-center gap-2">
       <Image
         src="/logo.svg"
@@ -28,7 +58,7 @@ export const TopBranding: React.FC = () => (
         height={20}
         className="hidden dark:block"
       />
-      <span className="text-xs font-semibold text-muted-foreground">
+      <span className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
         Trust Certificate
       </span>
     </div>
@@ -72,126 +102,178 @@ export const ReportHeader: React.FC<{
     app.userProfile?.fullAvatarUrl
 
   return (
-    <div>
-      {/* Header section - controlled by showAppInfo */}
+    <div className="overflow-hidden rounded-[4px] border border-border bg-card">
+      {/* Identity row — eyebrow + title + status pill in one tight zone */}
       {showAppInfo && (
-        <div className="px-5 mb-4">
-          <div className="flex items-center gap-4">
-            {/* Use profile avatar if available, otherwise fallback to AppLogo */}
+        <div className="px-5 pt-4 pb-4">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
+              App
+            </p>
+            {showVerificationStatus && (
+              <span className="inline-flex items-center gap-1.5 border border-emerald-300 bg-emerald-50 px-2 py-1 font-mono text-[10px] uppercase tracking-[.14em] text-emerald-800">
+                <Check className="size-3 text-emerald-700" strokeWidth={3} />
+                Verified
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-start gap-3">
             {avatarUrl ? (
-              <Avatar className="w-14 h-14 shrink-0 ring-2 ring-background shadow-sm rounded-lg">
-                <AvatarImage src={avatarUrl} alt={displayName} className="object-contain" />
-                <AvatarFallback className="rounded-lg">
+              <Avatar className="size-12 shrink-0 rounded-[4px] border border-border">
+                <AvatarImage
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="object-contain"
+                />
+                <AvatarFallback className="rounded-[4px]">
                   {displayName.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             ) : (
               <AppLogo
-                user={displayUser}
+                appId={app.id ?? undefined}
                 appName={displayName}
-                size="lg"
-                className="w-14 h-14 shrink-0 ring-2 ring-background shadow-sm"
+                size="md"
+                className="size-12 shrink-0"
               />
             )}
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
+            <div className="flex min-w-0 flex-1 flex-col">
               {displayUser && (
-                <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
+                <p className="truncate font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
                   {displayUser}
                 </p>
               )}
-              <h1 className="text-lg font-semibold tracking-tight truncate leading-tight">
+              <h1 className="truncate font-display text-2xl leading-tight text-foreground">
                 {displayName}
               </h1>
-              <div className="flex items-center gap-2 mt-1">
+              {/* compact one-liner: dstack version · attested by intel/nvidia */}
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                 {badges.versionBadge.show && (
-                  <Badge
-                    variant="secondary"
-                    className="flex items-center gap-1.5 text-xs h-5 px-2"
-                  >
+                  <span className="inline-flex items-center gap-1">
                     <Image
                       src="/dstack.svg"
-                      alt="DStack"
-                      width={48}
-                      height={12}
+                      alt="dstack"
+                      width={42}
+                      height={11}
                       className="opacity-70 dark:hidden"
                     />
                     <Image
                       src="/dstack_dark.svg"
-                      alt="DStack"
-                      width={48}
-                      height={12}
+                      alt="dstack"
+                      width={42}
+                      height={11}
                       className="opacity-70 hidden dark:block"
                     />
-                    <span className="font-semibold">
+                    <span className="font-mono text-[11px]">
                       {badges.versionBadge.fullVersion}
                     </span>
-                  </Badge>
+                  </span>
                 )}
+                <span className="text-muted-foreground/40">·</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span>attested by</span>
+                  <Image
+                    src="/intel_white.png"
+                    alt="Intel"
+                    width={28}
+                    height={11}
+                  />
+                  {hasGpu && (
+                    <>
+                      <span>+</span>
+                      <Image
+                        src="/nvidia.svg"
+                        alt="NVIDIA"
+                        width={42}
+                        height={11}
+                        className="dark:hidden"
+                      />
+                      <Image
+                        src="/nvidia_dark.svg"
+                        alt="NVIDIA"
+                        width={42}
+                        height={11}
+                        className="hidden dark:block"
+                      />
+                    </>
+                  )}
+                </span>
                 {badges.kmsBadge.show && (
-                  <Badge
-                    variant="outline"
-                    className="text-xs h-5 px-2 font-medium"
-                  >
-                    {badges.kmsBadge.text}
-                  </Badge>
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <Badge
+                      variant="outline"
+                      className="h-5 rounded-[4px] px-2 font-mono text-[10px] uppercase tracking-wider"
+                    >
+                      {badges.kmsBadge.text}
+                    </Badge>
+                  </>
                 )}
               </div>
             </div>
           </div>
-          {/* Description in header section */}
+
           {app.profile?.description && (
-            <div className="mt-3">
-              <p className="text-sm text-muted-foreground/80 leading-relaxed">
-                {app.profile.description}
-              </p>
-            </div>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground/80">
+              {app.profile.description}
+            </p>
           )}
         </div>
       )}
 
-      {/* Attributes Section - controlled by showAttributes (and implicitly by showAppInfo) */}
+      {/* Compact metadata grid */}
       {showAppInfo && showAttributes && (
-        <div className="px-5 mb-4 space-y-3">
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
-              Domain
-            </span>
-            <span className="flex-1 truncate text-foreground">
-              {displayDomain}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
-              Contract
-            </span>
-            <span className="flex-1 font-mono text-xs break-all">
-              {app.contractAddress}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3 text-sm pt-3 mt-3 border-t border-border/50">
-            <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
-              Attestation Time
-            </span>
-            <span className="text-muted-foreground">
-              {new Date(app.task.createdAt).toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-              })}
-            </span>
-          </div>
+        <div className="border-t border-border">
+          <dl className="divide-y divide-border">
+            <div className="flex items-center gap-3 px-5 py-2 text-sm">
+              <dt className="w-[72px] shrink-0 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
+                Domain
+              </dt>
+              <dd className="min-w-0 flex-1 truncate text-foreground">
+                {displayDomain}
+              </dd>
+            </div>
+            <div className="flex items-center gap-3 px-5 py-2 text-sm">
+              <dt className="w-[72px] shrink-0 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
+                Contract
+              </dt>
+              <dd
+                className="min-w-0 flex-1 truncate font-mono text-xs text-foreground"
+                title={app.contractAddress}
+              >
+                {truncateMiddle(app.contractAddress, 8, 6)}
+              </dd>
+              <CopyHashButton value={app.contractAddress} />
+            </div>
+            <div className="flex items-center gap-3 px-5 py-2 text-sm">
+              <dt className="w-[72px] shrink-0 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
+                Time
+              </dt>
+              <dd className="min-w-0 flex-1 font-mono text-xs text-muted-foreground">
+                {new Date(app.task.createdAt).toLocaleString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                })}
+              </dd>
+            </div>
+          </dl>
         </div>
       )}
 
-      {/* View in Trust Center button - above verification status */}
+      {/* View in Trust Center button (widget-mode only) */}
       {showTrustCenterButton && appId && taskId && (
-        <div className="px-5 mb-4">
-          <Button variant="outline" size="sm" className="w-full gap-2" asChild>
+        <div className="border-t border-border px-5 py-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2 rounded-[4px]"
+            asChild
+          >
             <a
               href={`/app/${appId}/${taskId}`}
               target="_blank"
@@ -201,100 +283,6 @@ export const ReportHeader: React.FC<{
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </Button>
-        </div>
-      )}
-
-      {/* Verification Status Section */}
-      {showVerificationStatus && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 px-5 py-4 mb-4">
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-            <Check className="h-4 w-4" />
-            <h2 className="font-medium">This App Has Been Verified</h2>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="ml-1 text-emerald-600/70 dark:text-emerald-400/70 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                >
-                  <HelpCircle className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="text-xs">
-                  We display the complete chain of trust, including server
-                  hardware, operating system, application code, network
-                  infrastructure, and trust authority. Each component provides
-                  verifiable attestation reports, along with all the information
-                  and tools you need for independent verification.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-
-          {/* Attested by */}
-          <div className="flex items-center gap-1.5 mt-3 text-sm text-muted-foreground">
-            <span>Attested by</span>
-            {hasGpu && (
-              <>
-                <Image
-                  src="/nvidia.svg"
-                  alt="NVIDIA"
-                  width={56}
-                  height={14}
-                  className="dark:hidden"
-                />
-                <Image
-                  src="/nvidia_dark.svg"
-                  alt="NVIDIA"
-                  width={56}
-                  height={14}
-                  className="hidden dark:block"
-                />
-                <span>and</span>
-              </>
-            )}
-            <Image
-              src="/intel.svg"
-              alt="Intel"
-              width={32}
-              height={14}
-              className="dark:hidden"
-            />
-            <Image
-              src="/intel_dark.svg"
-              alt="Intel"
-              width={32}
-              height={14}
-              className="hidden dark:block"
-            />
-          </div>
-
-          {/* Description */}
-          <p className="mt-2 text-xs text-muted-foreground">
-            This automated verification tool lets you independently confirm that
-            the model is running in the TEE (Trusted Execution Environment).
-          </p>
-
-          {/* Related Links */}
-          <div className="flex items-center gap-3 mt-3">
-            <span className="text-xs text-muted-foreground">Related Links</span>
-            <a
-              href="https://docs.phala.com/phala-cloud/attestation/overview"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
-            >
-              How It Works
-            </a>
-            <a
-              href="https://docs.phala.com/phala-cloud/attestation/get-attestation"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
-            >
-              TEE Attestation
-            </a>
-          </div>
         </div>
       )}
     </div>
@@ -307,11 +295,13 @@ export const SectionHeader: React.FC<{
 }> = ({title}) => (
   <div>
     <div className="flex items-center gap-2 px-1">
-      <div className="flex-shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/50 p-1">
-        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+      <div className="flex-shrink-0 rounded-[4px] bg-primary/15 p-1">
+        <Check className="h-4 w-4 text-primary-700 dark:text-primary" />
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="font-semibold text-foreground">{title}</h3>
+        <h3 className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+          {title}
+        </h3>
       </div>
     </div>
   </div>

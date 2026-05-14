@@ -129,9 +129,11 @@ export default function WidgetPlaygroundModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col rounded-[4px]">
         <DialogHeader>
-          <DialogTitle>Widget Playground</DialogTitle>
+          <DialogTitle className="font-display text-2xl leading-tight">
+            Widget Playground
+          </DialogTitle>
           <DialogDescription>
             Customize the report widget and preview it in real-time
           </DialogDescription>
@@ -140,15 +142,13 @@ export default function WidgetPlaygroundModal({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 flex-1 min-h-0">
           {/* Control Panel - Left Side */}
           <div className="space-y-4 overflow-y-auto pr-2">
-            <div>
-              <h3 className="text-sm font-semibold mb-4">
-                Widget Configuration
-              </h3>
-            </div>
+            <p className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+              Widget configuration
+            </p>
 
             {/* Theme Controls */}
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <h4 className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
                 Theme
               </h4>
 
@@ -170,7 +170,7 @@ export default function WidgetPlaygroundModal({
 
             {/* Header Controls */}
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <h4 className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
                 Header Components
               </h4>
 
@@ -239,7 +239,7 @@ export default function WidgetPlaygroundModal({
 
             {/* Section Controls */}
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <h4 className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
                 Trust Sections
               </h4>
 
@@ -311,7 +311,7 @@ export default function WidgetPlaygroundModal({
 
             {/* Card Display Controls */}
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <h4 className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
                 Card Display
               </h4>
 
@@ -355,11 +355,11 @@ export default function WidgetPlaygroundModal({
             {/* Actions */}
             <div className="space-y-3">
               <Button
-                variant="secondary"
-                className="w-full"
+                variant="outline"
+                className="w-full rounded-[4px]"
                 onClick={() => setConfig(defaultConfig)}
               >
-                Reset to Default
+                Reset to default
               </Button>
             </div>
           </div>
@@ -368,8 +368,10 @@ export default function WidgetPlaygroundModal({
           <div className="flex flex-col lg:col-span-2 min-h-0">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-sm font-semibold">Widget Preview</h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+                  Widget preview
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
                   Live preview of your customized report widget
                 </p>
               </div>
@@ -377,7 +379,7 @@ export default function WidgetPlaygroundModal({
                 variant="outline"
                 size="sm"
                 onClick={() => window.open(demoUrl, '_blank')}
-                className="gap-1.5"
+                className="gap-1.5 rounded-[4px]"
               >
                 Preview in App
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -390,7 +392,7 @@ export default function WidgetPlaygroundModal({
               className={`${config.darkMode ? 'dark' : ''} flex-1 min-h-0 overflow-y-auto`}
             >
               {false ? (
-                <div className="border border-border rounded-lg bg-background overflow-hidden h-[600px] flex flex-col">
+                <div className="border border-border rounded-[4px] bg-background overflow-hidden h-[600px] flex flex-col">
                   {/* AI Chat App Header */}
                   <div className="border-b bg-card px-4 py-3 flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -461,7 +463,7 @@ export default function WidgetPlaygroundModal({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-lg overflow-auto flex-1">
+                <div className="rounded-[4px] overflow-auto flex-1">
                   {attestationData && attestationData.length > 0 ? (
                     <CompactReportWidget config={config} />
                   ) : (
@@ -476,16 +478,18 @@ export default function WidgetPlaygroundModal({
         </div>
 
         {/* Embed Code - Bottom Fixed Section */}
-        <div className="border-t pt-4 mt-4">
-          <Label className="text-sm font-semibold">Embed Code</Label>
+        <div className="border-t border-border pt-4 mt-4">
+          <Label className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+            Embed code
+          </Label>
           <div className="relative mt-2">
-            <pre className="text-xs bg-secondary text-secondary-foreground p-3 rounded-md overflow-x-auto max-h-24">
+            <pre className="rounded-[4px] border border-white/10 bg-[var(--surface-trust-path)] p-3 font-mono text-xs text-white/85 overflow-x-auto max-h-24">
               <code>{embedCode}</code>
             </pre>
             <Button
               size="sm"
-              variant="secondary"
-              className="absolute top-2 right-2 h-7 w-7 p-0"
+              variant="ghost"
+              className="absolute top-2 right-2 h-7 w-7 rounded-[4px] p-0 text-white/70 hover:bg-white/10 hover:text-white"
               onClick={() => {
                 navigator.clipboard.writeText(embedCode)
               }}

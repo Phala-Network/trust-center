@@ -1,7 +1,6 @@
 'use client'
 
-import slugify from '@sindresorhus/slugify'
-import {AlertCircle, SearchX} from 'lucide-react'
+import {SearchX} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {memo} from 'react'
@@ -11,11 +10,9 @@ import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {getAppBadges} from '@/lib/app-badges'
 import {type AppWithTask} from '@/lib/db'
-import {isReportStale} from '@/lib/utils'
 
 const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
   const badges = getAppBadges(app.dstackVersion, app.task.dataObjects)
-  const stale = isReportStale(app.task.createdAt)
 
   // Determine display name: use profile displayName if available, fallback to appName
   const displayName = app.profile?.displayName || app.appName
@@ -33,59 +30,66 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
   return (
     <Link
       href={`/app/${app.id}`}
-      className="group block bg-card rounded-xl border border-border hover:border-border/80 hover:shadow-lg transition-all duration-300 overflow-hidden"
+      className="group block overflow-hidden rounded-[4px] border border-border bg-card transition-colors hover:border-primary-700 dark:hover:border-primary"
     >
-      {/* Header with gradient background */}
-      <div className="bg-gradient-to-br from-muted/40 to-muted/20 p-5 border-b border-border/50">
-        <div className="flex items-center gap-4">
-          {/* Use profile avatar if available (app/workspace/user priority), otherwise fallback to AppLogo */}
+      {/* Identity row */}
+      <div className="border-border border-b p-4">
+        <div className="flex items-center gap-3">
           {avatarUrl ? (
-            <Avatar className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm rounded-lg">
-              <AvatarImage src={avatarUrl} alt={displayName} className="object-contain" />
-              <AvatarFallback className="rounded-lg">
+            <Avatar className="size-12 shrink-0 rounded-[4px] border border-border">
+              <AvatarImage
+                src={avatarUrl}
+                alt={displayName}
+                className="object-contain"
+              />
+              <AvatarFallback className="rounded-[4px] font-mono text-xs">
                 {displayName.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
           ) : (
             <AppLogo
-              user={displayOwner}
-              appName={app.appName}
-              size="lg"
-              className="w-14 h-14 flex-shrink-0 ring-2 ring-background shadow-sm"
+              appId={app.id}
+              appName={displayName}
+              size="md"
+              className="size-12 shrink-0"
             />
           )}
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            {/* Owner: show workspace displayName if available, otherwise user field */}
+          <div className="flex min-w-0 flex-1 flex-col">
             {displayOwner && (
-              <div className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
+              <p className="truncate font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
                 {displayOwner}
-              </div>
+              </p>
             )}
-            <h3 className="text-lg font-semibold tracking-tight truncate leading-tight">
+            <h3 className="truncate font-display text-lg leading-tight text-foreground">
               {displayName}
             </h3>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
               {badges.versionBadge.show && (
                 <Badge
                   variant="secondary"
-                  className="flex items-center gap-1.5 text-xs h-5 px-2"
+                  className="flex h-5 items-center gap-1.5 rounded-[4px] px-2 font-mono text-[10px]"
                 >
                   <Image
                     src="/dstack.svg"
-                    alt="DStack"
-                    width={48}
-                    height={12}
-                    className="opacity-70"
+                    alt="dstack"
+                    width={36}
+                    height={10}
+                    className="opacity-70 dark:hidden"
                   />
-                  <span className="font-semibold">
-                    {badges.versionBadge.fullVersion}
-                  </span>
+                  <Image
+                    src="/dstack_dark.svg"
+                    alt="dstack"
+                    width={36}
+                    height={10}
+                    className="hidden opacity-70 dark:block"
+                  />
+                  <span>{badges.versionBadge.fullVersion}</span>
                 </Badge>
               )}
               {badges.kmsBadge.show && (
                 <Badge
                   variant="outline"
-                  className="text-xs h-5 px-2 font-medium"
+                  className="h-5 rounded-[4px] px-2 font-mono text-[10px] uppercase tracking-wider"
                 >
                   {badges.kmsBadge.text}
                 </Badge>
@@ -95,53 +99,43 @@ const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
         </div>
       </div>
 
-      {/* Attributes Section */}
-      <div className="p-5 space-y-3">
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
+      {/* Metadata grid */}
+      <dl className="divide-y divide-border">
+        <div className="flex items-center gap-3 px-4 py-2 text-sm">
+          <dt className="w-[72px] shrink-0 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
             Domain
-          </span>
-          <span className="flex-1 truncate text-foreground">
+          </dt>
+          <dd className="min-w-0 flex-1 truncate text-foreground">
             {displayDomain}
-          </span>
+          </dd>
         </div>
-
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
+        <div className="flex items-center gap-3 px-4 py-2 text-sm">
+          <dt className="w-[72px] shrink-0 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
             Contract
-          </span>
-          <span className="flex-1 truncate font-mono text-xs">
+          </dt>
+          <dd
+            className="min-w-0 flex-1 truncate font-mono text-xs text-foreground"
+            title={app.contractAddress}
+          >
             {app.contractAddress}
-          </span>
+          </dd>
         </div>
-
-        <div className="flex items-center gap-3 text-sm pt-3 mt-3 border-t border-border/50">
-          <span className="text-muted-foreground/70 min-w-[72px] font-medium text-xs uppercase tracking-wide">
+        <div className="flex items-center gap-3 px-4 py-2 text-sm">
+          <dt className="w-[72px] shrink-0 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
             Created
-          </span>
-          <div className="flex items-center gap-2 flex-1 flex-wrap">
-            <span className="text-muted-foreground">
-              {new Date(app.task.createdAt).toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-              })}
-            </span>
-            {/* {stale && (
-              <Badge
-                variant="outline"
-                className="flex items-center gap-1 text-xs h-5 px-2 text-amber-600 border-amber-600/30 bg-amber-50/50 dark:bg-amber-950/20"
-              >
-                <AlertCircle className="h-3 w-3" />
-                May be outdated
-              </Badge>
-            )} */}
-          </div>
+          </dt>
+          <dd className="min-w-0 flex-1 font-mono text-xs text-muted-foreground">
+            {new Date(app.task.createdAt).toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            })}
+          </dd>
         </div>
-      </div>
+      </dl>
     </Link>
   )
 })
@@ -155,14 +149,14 @@ interface AppListProps {
 export function AppList({apps, hasFilters = false, total}: AppListProps) {
   if (apps.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center text-center py-24 px-4">
-        <div className="bg-muted/50 rounded-full p-6 mb-6">
-          <SearchX className="h-12 w-12 text-muted-foreground" />
+      <div className="flex flex-col items-center justify-center px-4 py-24 text-center">
+        <div className="mb-6 rounded-[4px] border border-border bg-muted/40 p-5">
+          <SearchX className="size-10 text-muted-foreground" />
         </div>
-        <h3 className="text-2xl font-semibold mb-2">
+        <h3 className="mb-2 font-display text-2xl text-foreground">
           {hasFilters ? 'No matches found' : 'No applications yet'}
         </h3>
-        <p className="text-muted-foreground max-w-md leading-relaxed">
+        <p className="max-w-md leading-relaxed text-muted-foreground">
           {hasFilters
             ? "Try adjusting your search terms or filters to find what you're looking for."
             : 'No verified applications are available at the moment.'}
@@ -176,7 +170,7 @@ export function AppList({apps, hasFilters = false, total}: AppListProps) {
   return (
     <div className="w-full">
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+        <p className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
           {apps.length === displayTotal ? (
             <>
               {displayTotal}{' '}
@@ -192,7 +186,7 @@ export function AppList({apps, hasFilters = false, total}: AppListProps) {
           )}
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {apps.map((app) => (
           <AppCard key={app.id} app={app} />
         ))}

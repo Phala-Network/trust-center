@@ -1,19 +1,39 @@
-/* https://www.styleglide.ai/themes */
+/* Phala v3 typography — adopted from website-nextjs/src/app/theme/typography.css.
+   Trust-center is en-only; per-locale Noto Serif CJK cascade omitted. */
 :root {
-  --display-weight: 600;
-  --text-weight: 400;
+  --display-weight: 400;
+  --v3-heading: "ABCArizonaFlare", Georgia, serif;
+  --v3-body: "ABCDiatype", "Trebuchet MS", Arial, sans-serif;
+  --v3-ui: "ABCDiatype", "Trebuchet MS", Arial, sans-serif;
+  --v3-mono: "SuisseIntlMono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 @theme inline {
-  --font-display: var(--display-family);
-  --font-text: var(--text-family);
+  --font-sans: var(--v3-body);
+  --font-display: var(--v3-heading);
+  --font-mono: var(--v3-mono);
 }
 
 @layer base {
-  .font-display {
-    font-weight: var(--display-weight);
+  html,
+  body {
+    font-family: var(--v3-body);
   }
-  .font-text {
-    font-weight: var(--text-weight);
+
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: var(--display-weight);
+    letter-spacing: 0;
+  }
+
+  .font-sans {
+    font-family: var(--font-sans);
+  }
+
+  .font-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1, "ss01" 1;
+    letter-spacing: 0.01em;
   }
 }

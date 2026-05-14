@@ -7,6 +7,9 @@ export interface ObjectNodeData {
   isHighlighted: boolean
   isDimmed: boolean
   kind?: 'gateway' | 'kms' | 'app'
+  /** ID of the node currently selected globally — passed down so each
+   *  ItemWithHandles row can highlight when the selection links to it. */
+  selectedObjectId?: string | null
   edges: Array<{
     id: string
     source: string

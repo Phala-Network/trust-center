@@ -1,4 +1,5 @@
-/* https://www.styleglide.ai/themes */
+/* Phala v3 tokens — adopted from website-nextjs/src/app/theme/colors.css.
+   Source of truth: ../docs/v3-refactor-plan.md */
 :root {
   --base-50: oklch(0.983 0.0034 145.55);
   --base-100: oklch(0.9691 0.0037 146.57);
@@ -26,6 +27,43 @@
   --primary-950: oklch(0.2752 0.0724 126.79);
   --primary-1000: oklch(0.1899 0.0531 127.24);
 
+  /* Periwinkle blue accent (sole accent in v3 marketing). */
+  --phala-blue-50: #f0f2ff;
+  --phala-blue-100: #d5dbf8;
+  --phala-blue-200: #bfc8f0;
+  --phala-blue-300: #aabbff;
+  --phala-blue-400: #8b9fe0;
+  --phala-blue-500: #6b80cc;
+  --phala-blue-900: #2d3250;
+
+  /* Warm orange accent — re-introduced for trust-center categorical use
+     (gateway kind). Marketing surfaces still avoid orange per 2026 v3 spec. */
+  --phala-orange-50: #fff5e3;
+  --phala-orange-100: #fde4c3;
+  --phala-orange-200: #fbcf95;
+  --phala-orange-300: #f5b870;
+  --phala-orange-500: #e89240;
+  --phala-orange-700: #b56a1c;
+  --phala-orange-900: #5a3a14;
+
+  /* Vendor brand colors — used for hardware-section card themes (Intel TDX,
+     NVIDIA GPU CC). Strong shade = title strip, light shade = card body tint. */
+  --intel-blue-50: #eef5fc;
+  --intel-blue-100: #dde7f3;
+  --intel-blue-500: #0071c5;
+  --intel-blue-700: #003c71;
+
+  --nvidia-green-50: #f4f9e6;
+  --nvidia-green-100: #e5f0cc;
+  --nvidia-green-500: #76b900;
+  --nvidia-green-700: #4a7300;
+
+  /* Surface bands — used inline across v3 marketing pages. */
+  --surface-marketing: #f7f8f3;
+  --surface-marketing-light: #fbfcf8;
+  --surface-trust-path: #070908;
+  --surface-trust-card: #101310;
+
   --background: var(--base-50);
   --foreground: var(--base-800);
   --card: var(--color-white);
@@ -49,7 +87,7 @@
   --chart-3: var(--primary-400);
   --chart-4: var(--primary-300);
   --chart-5: var(--primary-100);
-  --radius: 0.75rem;
+  --radius: 4px;
   --sidebar: var(--color-white);
   --sidebar-foreground: var(--base-800);
   --sidebar-primary: var(--primary-300);
@@ -123,6 +161,37 @@
   --color-primary-950: var(--primary-950);
   --color-primary-1000: var(--primary-1000);
 
+  --color-phala-blue-50: var(--phala-blue-50);
+  --color-phala-blue-100: var(--phala-blue-100);
+  --color-phala-blue-200: var(--phala-blue-200);
+  --color-phala-blue-300: var(--phala-blue-300);
+  --color-phala-blue-400: var(--phala-blue-400);
+  --color-phala-blue-500: var(--phala-blue-500);
+  --color-phala-blue-900: var(--phala-blue-900);
+
+  --color-phala-orange-50: var(--phala-orange-50);
+  --color-phala-orange-100: var(--phala-orange-100);
+  --color-phala-orange-200: var(--phala-orange-200);
+  --color-phala-orange-300: var(--phala-orange-300);
+  --color-phala-orange-500: var(--phala-orange-500);
+  --color-phala-orange-700: var(--phala-orange-700);
+  --color-phala-orange-900: var(--phala-orange-900);
+
+  --color-intel-blue-50: var(--intel-blue-50);
+  --color-intel-blue-100: var(--intel-blue-100);
+  --color-intel-blue-500: var(--intel-blue-500);
+  --color-intel-blue-700: var(--intel-blue-700);
+
+  --color-nvidia-green-50: var(--nvidia-green-50);
+  --color-nvidia-green-100: var(--nvidia-green-100);
+  --color-nvidia-green-500: var(--nvidia-green-500);
+  --color-nvidia-green-700: var(--nvidia-green-700);
+
+  --color-surface-marketing: var(--surface-marketing);
+  --color-surface-marketing-light: var(--surface-marketing-light);
+  --color-surface-trust-path: var(--surface-trust-path);
+  --color-surface-trust-card: var(--surface-trust-card);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -155,6 +224,7 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

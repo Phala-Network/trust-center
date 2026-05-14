@@ -972,3 +972,51 @@ export async function getTaskApiInfoById(
 
   return rows[0] ? toTaskApiInfo(rows[0]) : null
 }
+
+export interface LandingStats {
+  verifiedApps: number
+  completedTasks: number
+  dstackVersions: number
+}
+
+// Aggregate counts powering the landing-page stats band.
+export async function getLandingStats(): Promise<LandingStats> {
+  const [appsRow] = await db
+    .select({count: sql<number>`count(distinct ${appsTable.id})`})
+    .from(appsTable)
+    .innerJoin(
+      verificationTasksTable,
+      eq(verificationTasksTable.appId, appsTable.id),
+    )
+    .where(
+      and(
+        eq(appsTable.isPublic, true),
+        eq(appsTable.deleted, false),
+        eq(verificationTasksTable.status, 'completed'),
+      ),
+    )
+
+  const [tasksRow] = await db
+    .select({count: sql<number>`count(*)`})
+    .from(verificationTasksTable)
+    .where(eq(verificationTasksTable.status, 'completed'))
+
+  const [versionsRow] = await db
+    .select({
+      count: sql<number>`count(distinct ${appsTable.dstackVersion})`,
+    })
+    .from(appsTable)
+    .where(
+      and(
+        eq(appsTable.isPublic, true),
+        eq(appsTable.deleted, false),
+        sql`${appsTable.dstackVersion} IS NOT NULL`,
+      ),
+    )
+
+  return {
+    verifiedApps: Number(appsRow?.count ?? 0),
+    completedTasks: Number(tasksRow?.count ?? 0),
+    dstackVersions: Number(versionsRow?.count ?? 0),
+  }
+}

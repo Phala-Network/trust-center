@@ -127,7 +127,7 @@ export function AppFilters({username}: {username?: string} = {}) {
               dstack version
             </h3>
             {selectedVersions.length > 0 && (
-              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-[4px] font-mono uppercase tracking-wider">
                 {selectedVersions.length} selected
               </span>
             )}
@@ -136,7 +136,7 @@ export function AppFilters({username}: {username?: string} = {}) {
             {dstackVersions.map((item) => (
               <label
                 key={item.version}
-                className="inline-flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2 cursor-pointer hover:bg-accent hover:border-accent-foreground/20 transition-colors has-[:checked]:bg-primary/10 has-[:checked]:border-primary has-[:checked]:text-primary"
+                className="inline-flex items-center gap-2 bg-card border border-border rounded-[4px] px-3 py-2 cursor-pointer hover:bg-accent hover:border-accent-foreground/20 transition-colors has-[:checked]:bg-primary/10 has-[:checked]:border-primary has-[:checked]:text-primary"
               >
                 <Checkbox
                   id={item.version}
