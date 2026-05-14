@@ -42,7 +42,7 @@ export function AppLogo({
   return (
     <div
       className={cn(
-        'bg-muted rounded-lg flex items-center justify-center flex-shrink-0',
+        'bg-muted rounded-[4px] flex items-center justify-center flex-shrink-0',
         sizeClasses[normalizedSize],
         className,
       )}
@@ -51,7 +51,7 @@ export function AppLogo({
         <img
           src={finalLogoUrl}
           alt={`${appName} logo`}
-          className="w-full h-full rounded-lg object-contain"
+          className="w-full h-full rounded-[4px] object-contain"
         />
       ) : (
         <Package

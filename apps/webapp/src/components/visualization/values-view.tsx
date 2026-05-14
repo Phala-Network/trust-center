@@ -211,7 +211,7 @@ const ValuesView: React.FC = () => {
       }
       // Check for URL
       if (value.startsWith('http://') || value.startsWith('https://')) {
-        return {type: 'url', color: 'text-blue-600'}
+        return {type: 'url', color: 'text-phala-blue-500 dark:text-phala-blue-300'}
       }
       // Check for JSON (try to parse)
       const trimmedValue = value.trim()
@@ -221,7 +221,7 @@ const ValuesView: React.FC = () => {
       ) {
         try {
           JSON.parse(value)
-          return {type: 'json', color: 'text-blue-600'}
+          return {type: 'json', color: 'text-phala-blue-500 dark:text-phala-blue-300'}
         } catch {
           // Not valid JSON
         }
@@ -235,7 +235,7 @@ const ValuesView: React.FC = () => {
       ) {
         try {
           parseYaml(value)
-          return {type: 'yaml', color: 'text-blue-600'}
+          return {type: 'yaml', color: 'text-phala-blue-500 dark:text-phala-blue-300'}
         } catch {
           // Not valid YAML
         }
@@ -249,7 +249,7 @@ const ValuesView: React.FC = () => {
       return {type: 'string', color: 'text-foreground'}
     }
     if (Array.isArray(value)) {
-      return {type: 'json', color: 'text-blue-600'}
+      return {type: 'json', color: 'text-phala-blue-500 dark:text-phala-blue-300'}
     }
     if (value === null) {
       return {type: 'string', color: 'text-foreground'}
@@ -278,7 +278,7 @@ const ValuesView: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="text-sm">{expandedField?.key}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[75vh] overflow-auto whitespace-pre-wrap break-all rounded bg-gray-50 p-3 font-mono text-xs">
+          <div className="max-h-[75vh] overflow-auto whitespace-pre-wrap break-all rounded-[4px] bg-[var(--surface-trust-path)] text-white/85 border border-white/10 p-3 font-mono text-xs">
             {expandedField && (
               <pre
                 className="hljs !bg-transparent"
@@ -295,52 +295,61 @@ const ValuesView: React.FC = () => {
         </DialogContent>
       </Dialog>
       {/* Object Header */}
-      <div className="p-2">
-        <div className="mb-1 flex items-center gap-2">
-          <h2 className="font-semibold text-sm">{displayObject.name}</h2>
-        </div>
+      <div className="border-b border-border px-3 pt-3 pb-4">
+        {displayObject.kind && (
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
+            {displayObject.kind}
+          </p>
+        )}
+        <h2 className="font-display text-xl leading-tight text-foreground">
+          {displayObject.name}
+        </h2>
         {(displayObject.id === 'app-main'
           ? appProfile?.description
           : displayObject.description) && (
-          <div className="text-muted-foreground text-xs">
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             {displayObject.id === 'app-main'
               ? appProfile?.description
               : displayObject.description}
-          </div>
+          </p>
         )}
       </div>
 
       {/* Object Fields */}
-      <div className="mt-4">
-        <h3 className="p-1 font-medium text-xs">Fields</h3>
-        <div>
+      <div className="mt-4 px-3">
+        <h3 className="mb-2 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+          Fields
+        </h3>
+        <div className="space-y-3">
           {Object.entries(displayObject.fields).map(([key, value]) => {
             const strValue = String(value)
             const valueType = getValueType(value)
             const fieldDescription = getFieldDescription(displayObject.id, key)
 
             return (
-              <div key={key}>
-                <div className="flex items-center justify-between bg-muted/60 px-2 py-1">
-                  <div className="flex items-center gap-1">
-                    <div className="font-bold text-xs">{key}</div>
-                    {fieldDescription && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p className="text-xs">{fieldDescription}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+              <div key={key} className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                    {key}
                   </div>
+                  {fieldDescription && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-xs">{fieldDescription}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
                 <button
                   type="button"
                   className={cn(
-                    'w-full cursor-pointer px-2 py-1 text-left font-mono text-xs hover:bg-gray-50',
-                    valueType.color,
+                    'block w-full cursor-pointer rounded-[4px] border border-white/10 bg-[var(--surface-trust-path)] px-2 py-1.5 text-left font-mono text-xs transition-colors',
+                    valueType.type === 'url'
+                      ? ''
+                      : 'text-white/85 hover:border-white/20',
                   )}
                   onClick={() => {
                     if (valueType.type !== 'url') {
@@ -350,20 +359,16 @@ const ValuesView: React.FC = () => {
                   }}
                 >
                   {value === null || value === undefined || value === '' ? (
-                    <span className="text-muted-foreground italic">
-                      &lt;empty&gt;
-                    </span>
+                    <span className="text-white/40 italic">&lt;empty&gt;</span>
                   ) : valueType.type === 'url' ? (
-                    <div className="break-all">
-                      <a
-                        href={strValue}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 underline hover:text-blue-800"
-                      >
-                        {strValue}
-                      </a>
-                    </div>
+                    <a
+                      href={strValue}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block break-all text-phala-blue-300 underline hover:text-white"
+                    >
+                      {strValue}
+                    </a>
                   ) : (
                     <div className="line-clamp-3 break-all">{strValue}</div>
                   )}
@@ -377,9 +382,11 @@ const ValuesView: React.FC = () => {
       {/* Calculations */}
       {displayObject.calculations &&
         displayObject.calculations.length > 0 && (
-          <div className="mt-4">
-            <h3 className="p-1 font-medium text-xs">Calculations</h3>
-            <div>
+          <div className="mt-4 px-3">
+            <h3 className="mb-2 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+              Calculations
+            </h3>
+            <div className="space-y-3">
               {displayObject.calculations.map((calc, index) => {
                 const calcFuncDescription = getCalcFuncDescription(
                   calc.calcFunc,
@@ -388,30 +395,23 @@ const ValuesView: React.FC = () => {
                 return (
                   <div
                     key={`calc-${index}-${calc.inputs.join('-')}-${calc.outputs.join('-')}`}
+                    className="space-y-1"
                   >
-                    {/* Output field name header */}
-                    <div className="flex items-center justify-between bg-muted/60 px-2 py-1">
-                      <div className="font-bold text-xs">
-                        {calc.outputs.join(', ')}
-                      </div>
+                    <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                      {calc.outputs.join(', ')}
                     </div>
-                    {/* Calculation details */}
-                    <div className="px-2 py-1">
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">Inputs: </span>
-                        <span className="font-mono">
-                          {calc.inputs.join(', ')}
-                        </span>
+                    <div className="rounded-[4px] border border-white/10 bg-[var(--surface-trust-path)] px-2 py-1.5 font-mono text-xs text-white/85 space-y-1">
+                      <div>
+                        <span className="text-white/45">Inputs: </span>
+                        <span>{calc.inputs.join(', ')}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs">
-                        <span className="text-muted-foreground">
-                          Function:{' '}
-                        </span>
-                        <span className="font-mono">{calc.calcFunc}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-white/45">Function: </span>
+                        <span>{calc.calcFunc}</span>
                         {calcFuncDescription && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                              <HelpCircle className="h-3 w-3 text-white/50" />
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs">
                               <p className="text-xs">{calcFuncDescription}</p>
@@ -430,7 +430,7 @@ const ValuesView: React.FC = () => {
       {/* What this selectedObject is measured by */}
       {measuredByRows.length > 0 && (
         <div className="mt-4">
-          <h3 className="p-1 font-medium text-xs">Measured By</h3>
+          <h3 className="mb-2 px-3 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">Measured By</h3>
           <div className="border-t border-b">
             <table className="w-full text-xs">
               <thead>
@@ -453,7 +453,7 @@ const ValuesView: React.FC = () => {
                       >
                         <button
                           type="button"
-                          className="text-left text-blue-600 underline hover:text-blue-800"
+                          className="text-left text-phala-blue-500 underline hover:text-foreground dark:text-phala-blue-300"
                           onClick={() =>
                             setSelectedObjectId(row.sourceObjectId)
                           }
@@ -489,7 +489,7 @@ const ValuesView: React.FC = () => {
       {/* What this selectedObject measures */}
       {measurementsRows.length > 0 && (
         <div className="mt-4">
-          <h3 className="p-1 font-medium text-xs">Measurements</h3>
+          <h3 className="mb-2 px-3 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">Measurements</h3>
           <div className="border-t border-b">
             <table className="w-full text-xs">
               <thead>
@@ -516,7 +516,7 @@ const ValuesView: React.FC = () => {
                       >
                         <button
                           type="button"
-                          className="text-left text-blue-600 underline hover:text-blue-800"
+                          className="text-left text-phala-blue-500 underline hover:text-foreground dark:text-phala-blue-300"
                           onClick={() =>
                             setSelectedObjectId(row.targetObjectId)
                           }

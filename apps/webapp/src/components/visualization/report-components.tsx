@@ -12,7 +12,7 @@ import type {AppWithTask} from '@/lib/db'
 
 // Top branding component - Phala Trust Certificate
 export const TopBranding: React.FC = () => (
-  <div className="bg-gradient-to-br from-muted/40 to-muted/20 px-5 py-3 border-b border-border/50">
+  <div className="border-b border-border bg-muted/40 px-5 py-3">
     <div className="flex items-center justify-center gap-2">
       <Image
         src="/logo.svg"
@@ -28,7 +28,7 @@ export const TopBranding: React.FC = () => (
         height={20}
         className="hidden dark:block"
       />
-      <span className="text-xs font-semibold text-muted-foreground">
+      <span className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
         Trust Certificate
       </span>
     </div>
@@ -79,9 +79,9 @@ export const ReportHeader: React.FC<{
           <div className="flex items-center gap-4">
             {/* Use profile avatar if available, otherwise fallback to AppLogo */}
             {avatarUrl ? (
-              <Avatar className="w-14 h-14 shrink-0 ring-2 ring-background shadow-sm rounded-lg">
+              <Avatar className="w-14 h-14 shrink-0 rounded-[4px] border border-border">
                 <AvatarImage src={avatarUrl} alt={displayName} className="object-contain" />
-                <AvatarFallback className="rounded-lg">
+                <AvatarFallback className="rounded-[4px]">
                   {displayName.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -95,11 +95,11 @@ export const ReportHeader: React.FC<{
             )}
             <div className="flex-1 min-w-0 flex flex-col justify-center">
               {displayUser && (
-                <p className="text-xs font-medium text-muted-foreground/90 truncate leading-tight">
+                <p className="font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground truncate leading-tight">
                   {displayUser}
                 </p>
               )}
-              <h1 className="text-lg font-semibold tracking-tight truncate leading-tight">
+              <h1 className="font-display text-xl truncate leading-tight text-foreground">
                 {displayName}
               </h1>
               <div className="flex items-center gap-2 mt-1">
@@ -206,15 +206,15 @@ export const ReportHeader: React.FC<{
 
       {/* Verification Status Section */}
       {showVerificationStatus && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/30 px-5 py-4 mb-4">
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+        <div className="border-y border-primary/30 bg-primary/10 px-5 py-4 mb-4">
+          <div className="flex items-center gap-2 text-primary-700 dark:text-primary">
             <Check className="h-4 w-4" />
-            <h2 className="font-medium">This App Has Been Verified</h2>
+            <h2 className="font-display text-base leading-tight">This App Has Been Verified</h2>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="ml-1 text-emerald-600/70 dark:text-emerald-400/70 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                  className="ml-1 text-primary-700/70 dark:text-primary/70 hover:text-primary-700 dark:hover:text-primary transition-colors"
                 >
                   <HelpCircle className="h-4 w-4" />
                 </button>
@@ -307,11 +307,13 @@ export const SectionHeader: React.FC<{
 }> = ({title}) => (
   <div>
     <div className="flex items-center gap-2 px-1">
-      <div className="flex-shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/50 p-1">
-        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+      <div className="flex-shrink-0 rounded-[4px] bg-primary/15 p-1">
+        <Check className="h-4 w-4 text-primary-700 dark:text-primary" />
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="font-semibold text-foreground">{title}</h3>
+        <h3 className="font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+          {title}
+        </h3>
       </div>
     </div>
   </div>

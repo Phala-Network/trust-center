@@ -13,16 +13,20 @@ interface ObjectNodeProps extends NodeProps {
   data: ObjectNodeData
 }
 
+// Categorical node-type colors — picked to stay distinct AND visible on both
+// the light report canvas and the dark `--surface-trust-path` nodes canvas.
+// Mirrors the original logic (per-kind switch + default + highlighted state),
+// just swapped onto the v3 palette family (phala-blue + base-300 + primary).
 const getBorderColor = (kind?: 'gateway' | 'kms' | 'app') => {
   switch (kind) {
     case 'gateway':
-      return 'border-blue-300'
+      return 'border-phala-blue-400'
     case 'kms':
-      return 'border-green-300'
+      return 'border-phala-blue-200'
     case 'app':
-      return 'border-purple-300'
+      return 'border-base-300'
     default:
-      return 'border-gray-200'
+      return 'border-base-200'
   }
 }
 
@@ -36,9 +40,9 @@ export const ObjectNode: React.FC<ObjectNodeProps> = (props) => {
   return (
     <div
       className={cn(
-        'relative min-w-[120px] max-w-[220px] select-none rounded-md bg-background p-2 text-left text-xs transition-all duration-200',
+        'relative min-w-[120px] max-w-[220px] select-none overflow-hidden bg-card text-left text-xs transition-all duration-200',
         isHighlighted
-          ? 'border-2 border-yellow-300 shadow-lg ring-2 ring-yellow-300'
+          ? 'border-2 border-primary shadow-lg ring-2 ring-primary/40'
           : `border-2 ${getBorderColor(kind)}`,
         isDimmed && 'opacity-30',
       )}
@@ -56,12 +60,12 @@ export const ObjectNode: React.FC<ObjectNodeProps> = (props) => {
           }}
         />
       ) : (
-        <div className="w-full font-medium text-sm">{name}</div>
+        <div className="w-full px-2 py-1.5 font-medium text-sm">{name}</div>
       )}
       {fields.length > 0 && (
         <>
-          <Separator className="my-2" />
-          <ul className="space-y-0">
+          <Separator className="my-1" />
+          <ul className="space-y-0 px-2 pb-1.5">
             {fields.map((field: string) => (
               <ItemWithHandles
                 key={field}
@@ -76,8 +80,8 @@ export const ObjectNode: React.FC<ObjectNodeProps> = (props) => {
       )}
       {calculations && calculations.length > 0 && (
         <>
-          <Separator className="my-2" />
-          <ul className="space-y-0">
+          <Separator className="my-1" />
+          <ul className="space-y-0 px-2 pb-1.5">
             {calculations.map((calculation: string) => (
               <ItemWithHandles
                 key={calculation}

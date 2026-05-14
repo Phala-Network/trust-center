@@ -16,29 +16,36 @@ export function UserGallery() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Section Header */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">Featured Builders</h2>
-          <Button variant="outline" size="sm" asChild>
-            <a
-              href="https://docs.phala.com/phala-cloud/attestation/feature-builder"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Become a featured builder
-              <ArrowRight className="ml-1 size-4" />
-            </a>
-          </Button>
+    <div className="space-y-8">
+      {/* Section header — eyebrow + display title */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+            Featured builders
+          </p>
+          <h2 className="font-display text-[clamp(28px,2.4vw,40px)] leading-[1.08] text-foreground">
+            Trusted workspaces, verified.
+          </h2>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Trusted workspaces deploying verified applications on dstack
-        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-[4px] self-start sm:self-end"
+          asChild
+        >
+          <a
+            href="https://docs.phala.com/phala-cloud/attestation/feature-builder"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Become a featured builder
+            <ArrowRight className="ml-1 size-4" />
+          </a>
+        </Button>
       </div>
 
-      {/* User Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      {/* Hairline grid */}
+      <div className="grid gap-px border border-border bg-border sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         {users.map(
           (item: {
             user: string
@@ -46,19 +53,22 @@ export function UserGallery() {
             count: number
             avatarUrl: string | null
           }) => {
-            // avatarUrl is either a featured builder logo (/logos/...) or database avatarUrl
             const logoUrl = item.avatarUrl
 
             return (
               <Link
                 key={item.user}
                 href={`/${item.user}`}
-                className="group flex items-center gap-3 p-4 bg-card rounded-xl border border-border hover:border-border/80 hover:shadow-lg transition-all duration-300"
+                className="group flex items-center gap-3 bg-card p-4 transition-colors hover:bg-muted/40"
               >
                 {logoUrl ? (
-                  <Avatar className="w-12 h-12 rounded-lg shrink-0">
-                    <AvatarImage src={logoUrl} alt={item.displayName} className="object-contain" />
-                    <AvatarFallback className="rounded-lg text-sm font-semibold">
+                  <Avatar className="size-12 shrink-0 rounded-[4px]">
+                    <AvatarImage
+                      src={logoUrl}
+                      alt={item.displayName}
+                      className="object-contain"
+                    />
+                    <AvatarFallback className="rounded-[4px] text-sm font-semibold">
                       {item.displayName.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -67,14 +77,14 @@ export function UserGallery() {
                     user={item.displayName}
                     appName={item.displayName}
                     size={48}
-                    className="w-12 h-12 rounded-lg shrink-0"
+                    className="size-12 shrink-0"
                   />
                 )}
-                <div className="flex flex-col min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold truncate">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <h3 className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary-700 dark:group-hover:text-primary">
                     {item.displayName}
                   </h3>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="font-mono text-[11px] uppercase tracking-[.08em] text-muted-foreground">
                     {item.count} {item.count === 1 ? 'app' : 'apps'}
                   </p>
                 </div>

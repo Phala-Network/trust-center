@@ -237,7 +237,7 @@ const LayoutFlow: React.FC = () => {
   }, [])
 
   return (
-    <div className="h-full min-h-[400px] w-full">
+    <div className="dark h-full min-h-[400px] w-full bg-[var(--surface-trust-path)] text-foreground [&_.react-flow__pane]:!bg-[var(--surface-trust-path)]">
       {isInitialized && (
         <ReactFlow
           nodes={nodes}
@@ -259,8 +259,8 @@ const LayoutFlow: React.FC = () => {
           preventScrolling={true}
           minZoom={0.1}
         >
-          <Controls />
-          <Background gap={16} size={1} />
+          <Controls className="!rounded-none !border !border-white/15 !bg-[var(--surface-trust-card)] !shadow-none [&_button]:!rounded-none [&_button]:!border-white/10 [&_button]:!bg-[var(--surface-trust-card)] [&_button]:!text-white/70 [&_button:hover]:!bg-white/5" />
+          <Background gap={20} size={1} color="#1a1d18" />
         </ReactFlow>
       )}
     </div>

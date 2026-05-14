@@ -90,14 +90,14 @@ const ReportView: React.FC = () => {
     // biome-ignore lint/a11y/noStaticElementInteractions: de-select all objects when clicking on the report view
     // biome-ignore lint/a11y/useKeyWithClickEvents: de-select all objects when clicking on the report view
     <div
-      className="pt-4 pb-6"
+      className="min-h-full bg-muted/40 pt-4 pb-6"
       onClick={() => {
         setSelectedObjectId(null)
       }}
     >
-      <ReportHeader app={app} />
+      <div className="mx-auto max-w-[460px] px-3">
+        <ReportHeader app={app} />
 
-      <div className="px-3">
         {TRUST_SECTIONS.map((section) => (
           <TrustSection key={section.id} section={section} />
         ))}

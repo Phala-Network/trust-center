@@ -41,7 +41,6 @@ export default async function AppLayout({searchParams, app}: AppLayoutProps) {
           <main className="flex-1 overflow-hidden">
             <Panels defaultLayout={defaultLayout} />
           </main>
-          {/* <Footer /> */}
         </div>
       </AttestationDataProvider>
     </HydrateProvider>
