@@ -13,7 +13,7 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {getCalcFuncDescription} from '@/data/calcfunc-documentation'
 import {getFieldDescription} from '@/data/field-documentation'
 import {cn} from '@/lib/utils'
-import 'highlight.js/styles/github.css'
+import 'highlight.js/styles/github-dark.css'
 import hljs from 'highlight.js'
 
 const ValuesView: React.FC = () => {
