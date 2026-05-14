@@ -12,7 +12,6 @@ import {
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip'
 import {getCalcFuncDescription} from '@/data/calcfunc-documentation'
 import {getFieldDescription} from '@/data/field-documentation'
-import {cn} from '@/lib/utils'
 import 'highlight.js/styles/github-dark.css'
 import hljs from 'highlight.js'
 
@@ -211,7 +210,10 @@ const ValuesView: React.FC = () => {
       }
       // Check for URL
       if (value.startsWith('http://') || value.startsWith('https://')) {
-        return {type: 'url', color: 'text-phala-blue-500 dark:text-phala-blue-300'}
+        return {
+          type: 'url',
+          color: 'text-phala-blue-500 dark:text-phala-blue-300',
+        }
       }
       // Check for JSON (try to parse)
       const trimmedValue = value.trim()
@@ -221,7 +223,10 @@ const ValuesView: React.FC = () => {
       ) {
         try {
           JSON.parse(value)
-          return {type: 'json', color: 'text-phala-blue-500 dark:text-phala-blue-300'}
+          return {
+            type: 'json',
+            color: 'text-phala-blue-500 dark:text-phala-blue-300',
+          }
         } catch {
           // Not valid JSON
         }
@@ -235,7 +240,10 @@ const ValuesView: React.FC = () => {
       ) {
         try {
           parseYaml(value)
-          return {type: 'yaml', color: 'text-phala-blue-500 dark:text-phala-blue-300'}
+          return {
+            type: 'yaml',
+            color: 'text-phala-blue-500 dark:text-phala-blue-300',
+          }
         } catch {
           // Not valid YAML
         }
@@ -249,7 +257,10 @@ const ValuesView: React.FC = () => {
       return {type: 'string', color: 'text-foreground'}
     }
     if (Array.isArray(value)) {
-      return {type: 'json', color: 'text-phala-blue-500 dark:text-phala-blue-300'}
+      return {
+        type: 'json',
+        color: 'text-phala-blue-500 dark:text-phala-blue-300',
+      }
     }
     if (value === null) {
       return {type: 'string', color: 'text-foreground'}
@@ -343,36 +354,38 @@ const ValuesView: React.FC = () => {
                     </Tooltip>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className={cn(
-                    'block w-full cursor-pointer rounded-[4px] border border-white/10 bg-[var(--surface-trust-path)] px-2 py-1.5 text-left font-mono text-xs transition-colors',
-                    valueType.type === 'url'
-                      ? ''
-                      : 'text-white/85 hover:border-white/20',
-                  )}
-                  onClick={() => {
-                    if (valueType.type !== 'url') {
+                {value === null || value === undefined || value === '' ? (
+                  <button
+                    type="button"
+                    className="block w-full cursor-pointer rounded-[4px] border border-white/10 bg-[var(--surface-trust-path)] px-2 py-1.5 text-left font-mono text-xs text-white/85 transition-colors hover:border-white/20"
+                    onClick={() => {
                       setExpandedField({key, value: value})
                       setIsDialogOpen(true)
-                    }
-                  }}
-                >
-                  {value === null || value === undefined || value === '' ? (
+                    }}
+                  >
                     <span className="text-white/40 italic">&lt;empty&gt;</span>
-                  ) : valueType.type === 'url' ? (
-                    <a
-                      href={strValue}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block break-all text-phala-blue-300 underline hover:text-white"
-                    >
-                      {strValue}
-                    </a>
-                  ) : (
+                  </button>
+                ) : valueType.type === 'url' ? (
+                  <a
+                    href={strValue}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full rounded-[4px] border border-white/10 bg-[var(--surface-trust-path)] px-2 py-1.5 text-left font-mono text-xs break-all text-phala-blue-300 underline transition-colors hover:border-white/20 hover:text-white"
+                  >
+                    {strValue}
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    className="block w-full cursor-pointer rounded-[4px] border border-white/10 bg-[var(--surface-trust-path)] px-2 py-1.5 text-left font-mono text-xs text-white/85 transition-colors hover:border-white/20"
+                    onClick={() => {
+                      setExpandedField({key, value: value})
+                      setIsDialogOpen(true)
+                    }}
+                  >
                     <div className="line-clamp-3 break-all">{strValue}</div>
-                  )}
-                </button>
+                  </button>
+                )}
               </div>
             )
           })}
@@ -380,57 +393,56 @@ const ValuesView: React.FC = () => {
       </div>
 
       {/* Calculations */}
-      {displayObject.calculations &&
-        displayObject.calculations.length > 0 && (
-          <div className="mt-4 px-3">
-            <h3 className="mb-2 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
-              Calculations
-            </h3>
-            <div className="space-y-3">
-              {displayObject.calculations.map((calc, index) => {
-                const calcFuncDescription = getCalcFuncDescription(
-                  calc.calcFunc,
-                )
+      {displayObject.calculations && displayObject.calculations.length > 0 && (
+        <div className="mt-4 px-3">
+          <h3 className="mb-2 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+            Calculations
+          </h3>
+          <div className="space-y-3">
+            {displayObject.calculations.map((calc, index) => {
+              const calcFuncDescription = getCalcFuncDescription(calc.calcFunc)
 
-                return (
-                  <div
-                    key={`calc-${index}-${calc.inputs.join('-')}-${calc.outputs.join('-')}`}
-                    className="space-y-1"
-                  >
-                    <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                      {calc.outputs.join(', ')}
+              return (
+                <div
+                  key={`calc-${index}-${calc.inputs.join('-')}-${calc.outputs.join('-')}`}
+                  className="space-y-1"
+                >
+                  <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                    {calc.outputs.join(', ')}
+                  </div>
+                  <div className="rounded-[4px] border border-white/10 bg-[var(--surface-trust-path)] px-2 py-1.5 font-mono text-xs text-white/85 space-y-1">
+                    <div>
+                      <span className="text-white/45">Inputs: </span>
+                      <span>{calc.inputs.join(', ')}</span>
                     </div>
-                    <div className="rounded-[4px] border border-white/10 bg-[var(--surface-trust-path)] px-2 py-1.5 font-mono text-xs text-white/85 space-y-1">
-                      <div>
-                        <span className="text-white/45">Inputs: </span>
-                        <span>{calc.inputs.join(', ')}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-white/45">Function: </span>
-                        <span>{calc.calcFunc}</span>
-                        {calcFuncDescription && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <HelpCircle className="h-3 w-3 text-white/50" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                              <p className="text-xs">{calcFuncDescription}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-white/45">Function: </span>
+                      <span>{calc.calcFunc}</span>
+                      {calcFuncDescription && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3 w-3 text-white/50" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p className="text-xs">{calcFuncDescription}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                   </div>
-                )
-              })}
-            </div>
+                </div>
+              )
+            })}
           </div>
-        )}
+        </div>
+      )}
 
       {/* What this selectedObject is measured by */}
       {measuredByRows.length > 0 && (
         <div className="mt-4">
-          <h3 className="mb-2 px-3 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">Measured By</h3>
+          <h3 className="mb-2 px-3 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+            Measured By
+          </h3>
           <div className="border-t border-b">
             <table className="w-full text-xs">
               <thead>
@@ -489,7 +501,9 @@ const ValuesView: React.FC = () => {
       {/* What this selectedObject measures */}
       {measurementsRows.length > 0 && (
         <div className="mt-4">
-          <h3 className="mb-2 px-3 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">Measurements</h3>
+          <h3 className="mb-2 px-3 font-mono text-[11px] uppercase tracking-[.14em] text-muted-foreground">
+            Measurements
+          </h3>
           <div className="border-t border-b">
             <table className="w-full text-xs">
               <thead>

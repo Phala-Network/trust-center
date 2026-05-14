@@ -11,7 +11,7 @@ import {cn} from '@/lib/utils'
 // Helper to get dark mode version of vendor icon
 const getVendorIconSrc = (icon: string) => {
   const darkIcons: Record<string, string> = {
-    '/intel.svg': '/intel_white.png',
+    '/intel.svg': '/intel.svg',
     '/nvidia.svg': '/nvidia_dark.svg',
     '/dstack.svg': '/dstack_dark.svg',
     '/logo.svg': '/logo_dark.svg',
@@ -76,7 +76,10 @@ const VENDOR_THEMES: Record<string, CardTheme> = {
 // Kind themes — same rhythm as vendor cards: strong title (white text) +
 // very light body in the same hue.
 const KIND_THEMES: Record<CardKind, CardTheme> = {
-  gateway: {title: 'bg-phala-orange-500 text-white', card: 'bg-phala-orange-50'},
+  gateway: {
+    title: 'bg-phala-orange-500 text-white',
+    card: 'bg-phala-orange-50',
+  },
   kms: {title: 'bg-primary-700 text-white', card: 'bg-primary-50'},
   app: {title: 'bg-phala-blue-500 text-white', card: 'bg-phala-blue-50'},
 }
@@ -218,7 +221,10 @@ const CopyableField: React.FC<{
           <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[var(--surface-trust-path)] to-transparent" />
           {/* Copy button positioned at bottom-right */}
           <div className="absolute bottom-1 right-1">
-            <CopyButton value={displayValue} className="bg-white/10 border-white/15 text-white/70 hover:bg-white/15 hover:text-white" />
+            <CopyButton
+              value={displayValue}
+              className="bg-white/10 border-white/15 text-white/70 hover:bg-white/15 hover:text-white"
+            />
           </div>
         </div>
       </div>
@@ -227,7 +233,9 @@ const CopyableField: React.FC<{
 
   return (
     <div className="space-y-1">
-      <p className="block font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">{label}</p>
+      <p className="block font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
+        {label}
+      </p>
       <div className="relative rounded-[4px] bg-[var(--surface-trust-path)] text-white/85 px-2 py-1.5 pb-4 border border-white/10">
         <p
           className={cn(
@@ -284,10 +292,13 @@ ${headerLines} \\
           </pre>
         </div>
         {/* Fade overlay at bottom of scroll container */}
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-muted/80 to-transparent" />
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-[var(--surface-trust-path)] to-transparent" />
         {/* Copy button positioned at bottom-right */}
         <div className="absolute bottom-1 right-1">
-          <CopyButton value={curlCommand} className="bg-white/10 border-white/15 text-white/70 hover:bg-white/15 hover:text-white" />
+          <CopyButton
+            value={curlCommand}
+            className="bg-white/10 border-white/15 text-white/70 hover:bg-white/15 hover:text-white"
+          />
         </div>
       </div>
     </div>
@@ -341,7 +352,10 @@ const CardHeader: React.FC<{
             <img
               src={icons.dark}
               alt="Vendor"
-              className="hidden dark:block h-6 w-auto object-contain"
+              className={cn(
+                'hidden h-6 w-auto object-contain dark:block',
+                icons.light === icons.dark && 'brightness-0 invert',
+              )}
             />
           </>
         )}
@@ -386,7 +400,9 @@ const CardContent: React.FC<{
   return (
     <div className="pt-2 space-y-3">
       {/* Intro text */}
-      <p className="text-xs italic leading-relaxed text-foreground/60">{item.intro}</p>
+      <p className="text-xs italic leading-relaxed text-foreground/60">
+        {item.intro}
+      </p>
 
       {/* Links section */}
       {item.links && item.links.length > 0 && (
@@ -512,7 +528,10 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
               <img
                 src={icons.dark}
                 alt="Vendor"
-                className="hidden dark:block h-6 w-auto object-contain"
+                className={cn(
+                  'hidden h-6 w-auto object-contain dark:block',
+                  icons.light === icons.dark && 'brightness-0 invert',
+                )}
               />
             </>
           )}
@@ -521,83 +540,85 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
       </div>
 
       <div className="space-y-2 px-3 py-2">
-      <p className="text-xs italic leading-relaxed text-foreground/60">{item.intro}</p>
+        <p className="text-xs italic leading-relaxed text-foreground/60">
+          {item.intro}
+        </p>
 
-      {/* Links */}
-      {item.links && item.links.length > 0 && (
-        <div className="flex flex-col items-start gap-1">
-          {item.links.map((link, index) => (
-            <ReportLink
-              key={`${item.id}-link-${index}`}
-              link={link}
-              quoteValue={quoteValue}
-            />
-          ))}
-        </div>
-      )}
+        {/* Links */}
+        {item.links && item.links.length > 0 && (
+          <div className="flex flex-col items-start gap-1">
+            {item.links.map((link, index) => (
+              <ReportLink
+                key={`${item.id}-link-${index}`}
+                link={link}
+                quoteValue={quoteValue}
+              />
+            ))}
+          </div>
+        )}
 
-      {/* Dynamic field rendering */}
-      {item.fields && item.fields.length > 0 && (
-        <div className="space-y-2">
-          {item.fields.map((f) => {
-            const value = fieldValues[f.field]
-            if (value === undefined || value === null || value === 'N/A') {
-              return null
-            }
+        {/* Dynamic field rendering */}
+        {item.fields && item.fields.length > 0 && (
+          <div className="space-y-2">
+            {item.fields.map((f) => {
+              const value = fieldValues[f.field]
+              if (value === undefined || value === null || value === 'N/A') {
+                return null
+              }
 
-            const valueString =
-              typeof value === 'object'
-                ? JSON.stringify(value, null, 2)
-                : String(value)
+              const valueString =
+                typeof value === 'object'
+                  ? JSON.stringify(value, null, 2)
+                  : String(value)
 
-            if (f.copyable) {
+              if (f.copyable) {
+                return (
+                  <CopyableField
+                    key={`${f.objectId}-${f.field}`}
+                    label={f.label ?? f.field}
+                    value={valueString}
+                    isJson={f.isJson}
+                    isCode={f.isCode}
+                    truncate={f.truncate}
+                  />
+                )
+              }
+
               return (
-                <CopyableField
-                  key={`${f.objectId}-${f.field}`}
-                  label={f.label ?? f.field}
-                  value={valueString}
-                  isJson={f.isJson}
-                  isCode={f.isCode}
-                  truncate={f.truncate}
-                />
-              )
-            }
-
-            return (
-              <div key={`${f.objectId}-${f.field}`} className="space-y-1">
-                <p className="block font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
-                  {f.label ?? f.field}
-                </p>
-                <div className="rounded-[4px] bg-[var(--surface-trust-path)] text-white/85 px-2 py-1.5 border border-white/10">
-                  {valueString.startsWith('https://') ? (
-                    <a
-                      href={valueString}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block break-all text-xs text-phala-blue-300 underline hover:text-white transition-colors"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {valueString}
-                    </a>
-                  ) : (
-                    <p className="line-clamp-3 break-all text-xs">
-                      {valueString}
-                    </p>
-                  )}
+                <div key={`${f.objectId}-${f.field}`} className="space-y-1">
+                  <p className="block font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
+                    {f.label ?? f.field}
+                  </p>
+                  <div className="rounded-[4px] bg-[var(--surface-trust-path)] text-white/85 px-2 py-1.5 border border-white/10">
+                    {valueString.startsWith('https://') ? (
+                      <a
+                        href={valueString}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block break-all text-xs text-phala-blue-300 underline hover:text-white transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {valueString}
+                      </a>
+                    ) : (
+                      <p className="line-clamp-3 break-all text-xs">
+                        {valueString}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+              )
+            })}
+          </div>
+        )}
 
-      {/* CURL request */}
-      {item.curlRequest && (
-        <CurlRequestDisplay
-          curlRequest={item.curlRequest}
-          fieldValues={fieldValues}
-        />
-      )}
+        {/* CURL request */}
+        {item.curlRequest && (
+          <CurlRequestDisplay
+            curlRequest={item.curlRequest}
+            fieldValues={fieldValues}
+          />
+        )}
       </div>
     </div>
   )

@@ -5,8 +5,8 @@
   --v3-heading: "ABCArizonaFlare", Georgia, serif;
   --v3-body: "ABCDiatype", "Trebuchet MS", Arial, sans-serif;
   --v3-ui: "ABCDiatype", "Trebuchet MS", Arial, sans-serif;
-  /* Two-family system: mono utility resolves to ABCDiatype with tnum + ss01. */
-  --v3-mono: "ABCDiatype", "Trebuchet MS", Arial, sans-serif;
+  --v3-mono: "SuisseIntlMono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 @theme inline {

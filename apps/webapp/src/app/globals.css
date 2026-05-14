@@ -19,6 +19,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "SuisseIntlMono";
+  src: url("/fonts/exa/SuisseIntlMono-Regular-WebTrial.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 @plugin "@tailwindcss/typography";
 
@@ -51,4 +59,8 @@
     stroke-linecap: square;
     stroke-linejoin: miter;
   }
+}
+
+.v3-chrome {
+  font-family: var(--v3-ui);
 }

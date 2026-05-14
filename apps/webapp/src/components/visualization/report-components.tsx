@@ -12,17 +12,24 @@ import type {AppWithTask} from '@/lib/db'
 
 const CopyHashButton: React.FC<{value: string}> = ({value}) => {
   const [copied, setCopied] = useState(false)
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1400)
+    } catch {
+      console.error('Failed to copy')
+    }
+  }
+
   return (
     <button
       type="button"
       aria-label="Copy address"
       className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-      onClick={(e) => {
-        e.stopPropagation()
-        navigator.clipboard.writeText(value)
-        setCopied(true)
-        window.setTimeout(() => setCopied(false), 1400)
-      }}
+      onClick={handleCopy}
     >
       <Copy className="size-3" />
       {copied ? 'copied' : 'copy'}
