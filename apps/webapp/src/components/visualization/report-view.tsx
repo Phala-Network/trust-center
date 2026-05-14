@@ -1,15 +1,12 @@
 import {useAtom} from 'jotai'
-import type React from 'react'
+import {Fragment, type FC} from 'react'
 
 import {useAttestationData} from '@/components/attestation-data-context'
 import {
   type ReportItem,
   ReportItemCard,
 } from '@/components/visualization/collapsible-report-item-card'
-import {
-  ReportHeader,
-  SectionHeader,
-} from '@/components/visualization/report-components'
+import {ReportHeader} from '@/components/visualization/report-components'
 import {REPORT_ITEMS} from '@/data/report-items'
 import {appWithTaskAtom} from '@/stores/app'
 
@@ -48,42 +45,37 @@ const TRUST_SECTIONS: TrustSection[] = [
   },
 ]
 
-// Section Component
-const TrustSection: React.FC<{
-  section: TrustSection
-}> = ({section}) => {
-  const {attestationData} = useAttestationData()
-
-  const filteredItems = section.items.filter((item) => {
-    // Only show items that have corresponding data in attestationData
-    return attestationData.some((obj) => obj.id === item.id)
-  })
-
-  // Don't render the section if no items have data
-  if (filteredItems.length === 0) {
-    return null
-  }
-
-  return (
-    <div className="mb-6">
-      <SectionHeader title={section.title} />
-
-      <div className="space-y-3 mt-3">
-        {filteredItems.map((item) => (
-          <ReportItemCard key={item.id} item={item} selectable={true} />
-        ))}
-      </div>
-    </div>
-  )
-}
+// Vertical line that connects two consecutive cards in the trust chain.
+// Sits in the gap between cards; the height controls the spacing.
+const Connector: FC = () => (
+  <div
+    className="flex h-12 items-center justify-center"
+    aria-hidden="true"
+  >
+    <div className="h-full w-px bg-border" />
+  </div>
+)
 
 // Main Report View Component
-const ReportView: React.FC = () => {
-  const {setSelectedObjectId} = useAttestationData()
+const ReportView: FC = () => {
+  const {setSelectedObjectId, attestationData} = useAttestationData()
   const [app] = useAtom(appWithTaskAtom)
 
   if (!app) {
     return null
+  }
+
+  // Flatten all sections into a single linear chain so connectors flow across
+  // sections too. sectionTitle is set on the first card of each section so
+  // the verification bookmark tab renders once per section.
+  const cards: Array<{item: ReportItem; sectionTitle?: string}> = []
+  for (const section of TRUST_SECTIONS) {
+    const visible = section.items.filter((it) =>
+      attestationData.some((obj) => obj.id === it.id),
+    )
+    visible.forEach((item, i) => {
+      cards.push({item, sectionTitle: i === 0 ? section.title : undefined})
+    })
   }
 
   return (
@@ -98,8 +90,15 @@ const ReportView: React.FC = () => {
       <div className="mx-auto max-w-[460px] px-3">
         <ReportHeader app={app} />
 
-        {TRUST_SECTIONS.map((section) => (
-          <TrustSection key={section.id} section={section} />
+        {cards.map((c) => (
+          <Fragment key={c.item.id}>
+            <Connector />
+            <ReportItemCard
+              item={c.item}
+              selectable={true}
+              sectionTitle={c.sectionTitle}
+            />
+          </Fragment>
         ))}
       </div>
     </div>

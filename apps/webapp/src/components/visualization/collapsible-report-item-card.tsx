@@ -1,6 +1,6 @@
 'use client'
 
-import {ChevronDown, Copy, ShieldCheck} from 'lucide-react'
+import {Check, ChevronDown, Copy, ShieldCheck} from 'lucide-react'
 import type React from 'react'
 import {useEffect, useState} from 'react'
 
@@ -56,6 +56,11 @@ const getKindFromItemId = (id: string): CardKind => {
   return 'app'
 }
 
+// Exported so node graph can render kind-tinted title strips on fallback
+// nodes (Event Logs, TEE Hardware, etc.) that don't have a REPORT_ITEMS entry.
+export type {CardKind, CardTheme}
+export {getKindFromItemId}
+
 // Strong-title + very-light-body themes for branded hardware cards.
 const VENDOR_THEMES: Record<string, CardTheme> = {
   intel: {
@@ -88,6 +93,9 @@ const getCardTheme = (item: ReportItem): CardTheme => {
   if (vendor && VENDOR_THEMES[vendor]) return VENDOR_THEMES[vendor]
   return KIND_THEMES[getKindFromItemId(item.id)]
 }
+
+// Kind-only theme (used by node-graph fallback nodes).
+export const getKindTheme = (kind: CardKind): CardTheme => KIND_THEMES[kind]
 
 const ItaCertifiedBadge: React.FC = () => (
   <span className="inline-flex items-center gap-1 rounded-[4px] border border-primary/40 bg-primary/10 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[.14em] text-primary-700 dark:text-primary">
@@ -197,7 +205,7 @@ const CopyableField: React.FC<{
   if (isCode || isJson) {
     return (
       <div className="space-y-1">
-        <p className="block font-medium text-xs text-muted-foreground">
+        <p className="block font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
           {label}
         </p>
         <div className="relative rounded-[4px] bg-[var(--surface-trust-path)] text-white/85 border border-white/10">
@@ -219,7 +227,7 @@ const CopyableField: React.FC<{
 
   return (
     <div className="space-y-1">
-      <p className="block font-medium text-xs text-muted-foreground">{label}</p>
+      <p className="block font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">{label}</p>
       <div className="relative rounded-[4px] bg-[var(--surface-trust-path)] text-white/85 px-2 py-1.5 pb-4 border border-white/10">
         <p
           className={cn(
@@ -266,7 +274,7 @@ ${headerLines} \\
 
   return (
     <div className="space-y-1">
-      <p className="block font-medium text-xs text-muted-foreground">
+      <p className="block font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
         CURL Request
       </p>
       <div className="relative rounded-[4px] bg-[var(--surface-trust-path)] text-white/85 border border-white/10">
@@ -301,7 +309,7 @@ const ReportLink: React.FC<{
       href={finalUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-xs text-muted-foreground underline hover:text-foreground transition-colors"
+      className="text-xs text-phala-blue-300 hover:text-foreground hover:underline transition-colors"
       onClick={(e) => e.stopPropagation()}
     >
       {link.text}
@@ -378,7 +386,7 @@ const CardContent: React.FC<{
   return (
     <div className="pt-2 space-y-3">
       {/* Intro text */}
-      <p className="text-muted-foreground text-xs">{item.intro}</p>
+      <p className="text-xs italic leading-relaxed text-foreground/60">{item.intro}</p>
 
       {/* Links section */}
       {item.links && item.links.length > 0 && (
@@ -422,7 +430,7 @@ const CardContent: React.FC<{
 
             return (
               <div key={`${f.objectId}-${f.field}`} className="space-y-1">
-                <p className="block font-medium text-xs text-muted-foreground">
+                <p className="block font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
                   {f.label ?? f.field}
                 </p>
                 <div className="rounded-[4px] bg-[var(--surface-trust-path)] text-white/85 px-2 py-1.5 border border-white/10">
@@ -513,7 +521,7 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
       </div>
 
       <div className="space-y-2 px-3 py-2">
-      <p className="text-muted-foreground text-xs">{item.intro}</p>
+      <p className="text-xs italic leading-relaxed text-foreground/60">{item.intro}</p>
 
       {/* Links */}
       {item.links && item.links.length > 0 && (
@@ -557,7 +565,7 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
 
             return (
               <div key={`${f.objectId}-${f.field}`} className="space-y-1">
-                <p className="block font-medium text-xs text-muted-foreground">
+                <p className="block font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
                   {f.label ?? f.field}
                 </p>
                 <div className="rounded-[4px] bg-[var(--surface-trust-path)] text-white/85 px-2 py-1.5 border border-white/10">
@@ -595,6 +603,24 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
   )
 }
 
+// Verification bookmark tab — sticks UP from the top-right of the card like a
+// real folder/file tab. It's a sibling above the card (not inside it), so the
+// area to its left is the panel background (transparent against the panel),
+// not the card's kind tint. -mb-px overlaps the card's top border by 1px so
+// the tab and the card read as one connected shape.
+const VerificationEyebrow: React.FC<{title: string}> = ({title}) => (
+  <div className="relative z-10 -mb-px flex justify-end">
+    <div className="inline-flex w-fit items-center gap-1.5 rounded-t-[6px] border border-b-0 border-black/15 bg-card px-2.5 py-1.5">
+      <span className="inline-flex size-3.5 items-center justify-center rounded-[2px] bg-emerald-100">
+        <Check className="size-2.5 text-emerald-700" strokeWidth={3} />
+      </span>
+      <span className="font-mono text-[10px] uppercase tracking-[.14em] text-emerald-800">
+        {title}
+      </span>
+    </div>
+  </div>
+)
+
 // Unified Report Item Card - supports both collapsible and expanded modes
 export const ReportItemCard: React.FC<{
   item: ReportItem
@@ -602,12 +628,15 @@ export const ReportItemCard: React.FC<{
   defaultExpanded?: boolean
   showContent?: boolean
   selectable?: boolean
+  /** When set, renders a "✓ {title} VERIFIED" eyebrow at the top of the card. */
+  sectionTitle?: string
 }> = ({
   item,
   collapsible = false,
   defaultExpanded = false,
   showContent = true,
   selectable = false,
+  sectionTitle,
 }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const {selectedObjectId, setSelectedObjectId} = useAttestationData()
@@ -634,39 +663,42 @@ export const ReportItemCard: React.FC<{
   // For collapsible mode - always show title row with chevron, content conditionally
   if (collapsible) {
     return (
-      <div
-        className={cn(
-          'w-full overflow-hidden rounded-[4px] border text-left transition-all duration-200',
-          theme.card,
-          'hover:border-muted-foreground/30 cursor-pointer',
-        )}
-        onClick={handleClick}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            handleClick(e)
-          }
-        }}
-        role="button"
-        tabIndex={0}
-      >
+      <div>
+        {sectionTitle && <VerificationEyebrow title={sectionTitle} />}
         <div
           className={cn(
-            'dark px-3 py-2 border-b border-black/10',
-            theme.title,
+            'w-full overflow-hidden rounded-[4px] border text-left transition-all duration-200',
+            theme.card,
+            'hover:border-muted-foreground/30 cursor-pointer',
           )}
+          onClick={handleClick}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleClick(e)
+            }
+          }}
+          role="button"
+          tabIndex={0}
         >
-          <CardHeader
-            item={item}
-            showChevron={showContent}
-            isExpanded={isExpanded}
-          />
-        </div>
-        {shouldShowContent && (
-          <div className="p-3">
-            <CardContent item={item} />
+          <div
+            className={cn(
+              'dark px-3 py-2 border-b border-black/10',
+              theme.title,
+            )}
+          >
+            <CardHeader
+              item={item}
+              showChevron={showContent}
+              isExpanded={isExpanded}
+            />
           </div>
-        )}
+          {shouldShowContent && (
+            <div className="p-3">
+              <CardContent item={item} />
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -674,31 +706,34 @@ export const ReportItemCard: React.FC<{
   // For non-collapsible mode (report view style)
   // Use div instead of button to avoid nesting button elements (CopyButton inside)
   return (
-    <div
-      className={cn(
-        'w-full overflow-hidden rounded-[4px] border text-left transition-all duration-200',
-        theme.card,
-        selectable && isSelected && 'border-primary ring-2 ring-primary/30',
-        selectable &&
-          !isSelected &&
-          'border-border hover:border-muted-foreground/30 cursor-pointer',
-        !selectable && 'border-border',
-      )}
-      onClick={selectable ? handleClick : undefined}
-      onKeyDown={
-        selectable
-          ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                handleClick(e)
+    <div>
+      {sectionTitle && <VerificationEyebrow title={sectionTitle} />}
+      <div
+        className={cn(
+          'w-full overflow-hidden rounded-[4px] border text-left transition-all duration-200',
+          theme.card,
+          selectable && isSelected && 'border-primary ring-2 ring-primary/30',
+          selectable &&
+            !isSelected &&
+            'border-border hover:border-muted-foreground/30 cursor-pointer',
+          !selectable && 'border-border',
+        )}
+        onClick={selectable ? handleClick : undefined}
+        onKeyDown={
+          selectable
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleClick(e)
+                }
               }
-            }
-          : undefined
-      }
-      role={selectable ? 'button' : undefined}
-      tabIndex={selectable ? 0 : undefined}
-    >
-      <ReportItemContent item={item} />
+            : undefined
+        }
+        role={selectable ? 'button' : undefined}
+        tabIndex={selectable ? 0 : undefined}
+      >
+        <ReportItemContent item={item} />
+      </div>
     </div>
   )
 }

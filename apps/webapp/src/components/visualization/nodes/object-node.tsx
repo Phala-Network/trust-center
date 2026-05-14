@@ -4,7 +4,10 @@ import type React from 'react'
 import {Separator} from '@/components/ui/separator'
 import {getReportItem} from '@/data/report-items'
 import {cn} from '@/lib/utils'
-import {ReportItemContent} from '../collapsible-report-item-card'
+import {
+  getKindTheme,
+  ReportItemContent,
+} from '../collapsible-report-item-card'
 import {HandleGroup} from './handle-group'
 import {ItemWithHandles} from './item-with-handles'
 import type {ObjectNodeData} from './types'
@@ -60,7 +63,14 @@ export const ObjectNode: React.FC<ObjectNodeProps> = (props) => {
           }}
         />
       ) : (
-        <div className="w-full px-2 py-1.5 font-medium text-sm">{name}</div>
+        <div
+          className={cn(
+            'dark w-full border-b border-black/10 px-2 py-1.5 font-medium text-sm',
+            kind ? getKindTheme(kind).title : 'bg-muted',
+          )}
+        >
+          {name}
+        </div>
       )}
       {fields.length > 0 && (
         <>

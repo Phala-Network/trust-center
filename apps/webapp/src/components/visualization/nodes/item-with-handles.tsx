@@ -21,7 +21,15 @@ export const ItemWithHandles: React.FC<ItemWithHandlesProps> = ({
   return (
     <li className="relative pb-0.5">
       <HandleGroup id={id} itemType={newItemType} item={item} edges={edges} />
-      <span className="text-xs">{item}</span>
+      <span
+        className={
+          itemType === 'calculation'
+            ? 'font-mono text-xs italic text-primary'
+            : 'text-xs text-foreground'
+        }
+      >
+        {item}
+      </span>
     </li>
   )
 }
