@@ -339,21 +339,23 @@ const CardHeader: React.FC<{
   const showItaBadge = shouldShowItaCertifiedBadge(item.id, attestationData)
 
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <h4 className="flex-auto font-medium text-sm">{item.title}</h4>
-      <div className="flex items-center gap-2 shrink-0">
+    <div className="flex min-w-0 items-center gap-2">
+      <h4 className="min-w-0 flex-1 truncate font-medium text-sm">
+        {item.title}
+      </h4>
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
         {icons && (
           <>
             <img
               src={icons.light}
               alt="Vendor"
-              className="block h-6 w-auto object-contain dark:hidden"
+              className="block h-5 max-w-[72px] object-contain dark:hidden"
             />
             <img
               src={icons.dark}
               alt="Vendor"
               className={cn(
-                'hidden h-6 w-auto object-contain dark:block',
+                'hidden h-5 max-w-[72px] object-contain dark:block',
                 icons.light === icons.dark && 'brightness-0 invert',
               )}
             />
@@ -512,24 +514,26 @@ export const ReportItemContent: React.FC<{item: ReportItem}> = ({item}) => {
     <div className="flex h-full flex-col">
       <div
         className={cn(
-          'dark flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-black/10 px-3 py-2',
+          'dark flex min-w-0 items-center gap-2 border-b border-black/10 px-3 py-2',
           theme.title,
         )}
       >
-        <h4 className="flex-auto font-medium text-sm">{item.title}</h4>
-        <div className="flex items-center gap-2 shrink-0">
+        <h4 className="min-w-0 flex-1 truncate font-medium text-sm">
+          {item.title}
+        </h4>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           {icons && (
             <>
               <img
                 src={icons.light}
                 alt="Vendor"
-                className="block h-6 w-auto object-contain dark:hidden"
+                className="block h-5 max-w-[72px] object-contain dark:hidden"
               />
               <img
                 src={icons.dark}
                 alt="Vendor"
                 className={cn(
-                  'hidden h-6 w-auto object-contain dark:block',
+                  'hidden h-5 max-w-[72px] object-contain dark:block',
                   icons.light === icons.dark && 'brightness-0 invert',
                 )}
               />
