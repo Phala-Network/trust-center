@@ -148,7 +148,13 @@ const LayoutFlow: React.FC = () => {
           targetHandle: edge.targetHandle,
         }))
 
-      node.data = {...node.data, isHighlighted, isDimmed, edges: nodeEdges}
+      node.data = {
+        ...node.data,
+        isHighlighted,
+        isDimmed,
+        edges: nodeEdges,
+        selectedObjectId,
+      }
     })
 
     return {nodes, edges}
@@ -184,7 +190,10 @@ const LayoutFlow: React.FC = () => {
                   (edge.target === selectedObjectId && edge.source === node.id),
               ),
           )
-        return {...node, data: {...node.data, isHighlighted, isDimmed}}
+        return {
+          ...node,
+          data: {...node.data, isHighlighted, isDimmed, selectedObjectId},
+        }
       }),
     )
   }, [selectedObjectId, edges, setNodes])

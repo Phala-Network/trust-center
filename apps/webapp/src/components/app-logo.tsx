@@ -1,17 +1,25 @@
 import {Package} from 'lucide-react'
 
+import {
+  classifyAppAvatar,
+  getAppAvatarIcon,
+  getAppAvatarToneClass,
+} from '@/lib/app-avatar'
 import {cn} from '@/lib/utils'
 
 interface AppLogoProps {
-  /** User/owner name (not used anymore, kept for compatibility) */
-  user?: string
-  /** App logo URL if available */
-  logoUrl?: string
-  /** App name for alt text */
+  /** Per-app id — kept for API compat (used as alt-text fallback). */
+  appId?: string
+  /** App display name — drives category classification + tone selection. */
   appName?: string
-  /** Size variant (string or number for compatibility) */
+  /** Optional uploaded logo URL — when present, takes precedence over the
+   *  generated category-icon avatar. */
+  logoUrl?: string
+  /** Owner / workspace name — kept for API compat; not used in rendering. */
+  user?: string
+  /** Size variant. */
   size?: 'xs' | 'sm' | 'md' | 'lg' | number
-  /** Additional CSS classes */
+  /** Additional CSS classes. */
   className?: string
 }
 
@@ -22,42 +30,74 @@ const sizeClasses = {
   lg: 'w-16 h-16',
 }
 
-const iconSizeClasses = {
-  xs: 'w-3 h-3',
-  sm: 'w-4 h-4',
-  md: 'w-6 h-6',
-  lg: 'w-8 h-8',
+const iconSize = {
+  xs: 'size-3',
+  sm: 'size-4',
+  md: 'size-5',
+  lg: 'size-7',
 }
 
 export function AppLogo({
+  appName,
   logoUrl,
-  appName = 'Application',
   size = 'md',
   className,
 }: AppLogoProps) {
-  // Normalize size to string if it's a number
   const normalizedSize = typeof size === 'number' ? 'md' : size
-  const finalLogoUrl = logoUrl
 
+  // Uploaded logo wins
+  if (logoUrl) {
+    return (
+      <div
+        className={cn(
+          'flex flex-shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-muted',
+          sizeClasses[normalizedSize],
+          className,
+        )}
+      >
+        <img
+          src={logoUrl}
+          alt={`${appName ?? 'app'} logo`}
+          className="h-full w-full rounded-[4px] object-contain"
+        />
+      </div>
+    )
+  }
+
+  // Category-icon avatar from app name
+  if (appName) {
+    const category = classifyAppAvatar(appName)
+    const Icon = getAppAvatarIcon(category)
+    const tone = getAppAvatarToneClass(appName)
+
+    return (
+      <div
+        className={cn(
+          'flex flex-shrink-0 items-center justify-center rounded-[4px] border',
+          tone,
+          sizeClasses[normalizedSize],
+          className,
+        )}
+        aria-label={`${appName} (${category})`}
+        title={category}
+      >
+        <Icon className={cn(iconSize[normalizedSize], 'stroke-[1.5]')} />
+      </div>
+    )
+  }
+
+  // Last-resort generic icon (no name available)
   return (
     <div
       className={cn(
-        'bg-muted rounded-[4px] flex items-center justify-center flex-shrink-0',
+        'flex flex-shrink-0 items-center justify-center rounded-[4px] bg-muted',
         sizeClasses[normalizedSize],
         className,
       )}
     >
-      {finalLogoUrl ? (
-        <img
-          src={finalLogoUrl}
-          alt={`${appName} logo`}
-          className="w-full h-full rounded-[4px] object-contain"
-        />
-      ) : (
-        <Package
-          className={cn('text-muted-foreground', iconSizeClasses[normalizedSize])}
-        />
-      )}
+      <Package
+        className={cn('text-muted-foreground', iconSize[normalizedSize])}
+      />
     </div>
   )
 }

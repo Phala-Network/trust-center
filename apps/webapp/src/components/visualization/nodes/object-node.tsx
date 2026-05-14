@@ -35,18 +35,38 @@ const getBorderColor = (kind?: 'gateway' | 'kms' | 'app') => {
 
 export const ObjectNode: React.FC<ObjectNodeProps> = (props) => {
   const {id, data} = props
-  const {name, fields, calculations, isHighlighted, isDimmed, kind, edges} =
-    data
+  const {
+    name,
+    fields,
+    calculations,
+    isHighlighted,
+    isDimmed,
+    kind,
+    edges,
+    selectedObjectId,
+  } = data
 
   const reportItem = getReportItem(id)
+
+  // A non-selected card is "connected" when something is selected and this
+  // card is not dimmed (i.e. at least one edge connects it to the selected
+  // node). Used to draw a subtle primary ring so cards wired at the OBJECT
+  // level — where no specific item handle matches — still read as part of
+  // the selection's neighborhood.
+  const isConnected =
+    !!selectedObjectId &&
+    selectedObjectId !== id &&
+    !isHighlighted &&
+    !isDimmed
 
   return (
     <div
       className={cn(
-        'relative min-w-[120px] max-w-[220px] select-none overflow-hidden bg-card text-left text-xs transition-all duration-200',
+        'relative min-w-[120px] max-w-[220px] select-none bg-card text-left text-xs transition-all duration-200',
         isHighlighted
           ? 'border-2 border-primary shadow-lg ring-2 ring-primary/40'
           : `border-2 ${getBorderColor(kind)}`,
+        isConnected && 'ring-1 ring-primary/40',
         isDimmed && 'opacity-30',
       )}
       draggable={false}
@@ -83,6 +103,7 @@ export const ObjectNode: React.FC<ObjectNodeProps> = (props) => {
                 item={field}
                 itemType="field"
                 edges={edges}
+                selectedObjectId={selectedObjectId}
               />
             ))}
           </ul>
@@ -99,6 +120,7 @@ export const ObjectNode: React.FC<ObjectNodeProps> = (props) => {
                 item={calculation}
                 itemType="calculation"
                 edges={edges}
+                selectedObjectId={selectedObjectId}
               />
             ))}
           </ul>

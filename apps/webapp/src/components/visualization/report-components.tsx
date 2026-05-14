@@ -125,7 +125,7 @@ export const ReportHeader: React.FC<{
               </Avatar>
             ) : (
               <AppLogo
-                user={displayUser}
+                appId={app.id ?? undefined}
                 appName={displayName}
                 size="md"
                 className="size-12 shrink-0"
