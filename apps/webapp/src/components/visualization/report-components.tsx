@@ -178,14 +178,7 @@ export const ReportHeader: React.FC<{
                     alt="Intel"
                     width={28}
                     height={11}
-                    className="dark:hidden"
-                  />
-                  <Image
-                    src="/intel_dark.svg"
-                    alt="Intel"
-                    width={28}
-                    height={11}
-                    className="hidden dark:block"
+                    className="dark:brightness-0 dark:invert"
                   />
                   {hasGpu && (
                     <>
