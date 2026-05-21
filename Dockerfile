@@ -103,9 +103,9 @@ RUN go install github.com/kvinwang/dstack-mr@latest
 # ------------------------------------------------------------------------------
 FROM deps AS runtime
 
-# Install runtime dependencies for QEMU
+# Install runtime dependencies for QEMU and dcap-qvl TLS trust.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libglib2.0-0 libslirp0 && \
+    apt-get install -y --no-install-recommends ca-certificates libglib2.0-0 libslirp0 && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy verification tool binaries
@@ -130,8 +130,10 @@ RUN chmod +x \
     /usr/local/bin/dstack-mr \
     /usr/local/bin/dstack-acpi-tables
 
-# Catch dcap-qvl dynamic linker/glibc mismatches while building the image.
-RUN /usr/local/bin/dcap-qvl --help >/dev/null
+# Catch dcap-qvl dynamic linker/glibc mismatches and missing runtime CA store.
+RUN test -s /etc/ssl/certs/ca-certificates.crt && \
+    grep -q "BEGIN CERTIFICATE" /etc/ssl/certs/ca-certificates.crt && \
+    /usr/local/bin/dcap-qvl --help >/dev/null
 
 # ------------------------------------------------------------------------------
 # Stage 5: Final Image - Application
