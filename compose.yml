@@ -9,7 +9,7 @@ services:
   # DStack Verifier Server
   server:
     platform: linux/amd64
-    image: kdon1204/dstack-verifier:latest
+    image: ghcr.io/phala-network/trust-center:latest
     container_name: dstack-verifier-server
     restart: unless-stopped
     pull_policy: always
