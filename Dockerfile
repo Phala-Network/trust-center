@@ -103,7 +103,7 @@ FROM deps AS runtime
 
 # Install runtime dependencies for QEMU
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libglib2.0-0 libslirp0 && \
+    apt-get install -y --no-install-recommends libglib2.0-0 libslirp0 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy verification tool binaries
