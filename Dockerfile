@@ -41,7 +41,9 @@ RUN bun install
 # ------------------------------------------------------------------------------
 
 # dcap-qvl: Intel DCAP Quote Verification Library (Rust)
-FROM rust:1.89-slim AS dcap-qvl-builder
+# Build on Debian bookworm so the binary links against a glibc compatible with
+# the oven/bun:1.3.0-slim runtime image.
+FROM rust:1.89.0-slim-bookworm AS dcap-qvl-builder
 RUN apt-get update && \
     apt-get install -y build-essential pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
@@ -127,6 +129,9 @@ RUN chmod +x \
     /usr/local/bin/dstack-mr-cli \
     /usr/local/bin/dstack-mr \
     /usr/local/bin/dstack-acpi-tables
+
+# Catch dcap-qvl dynamic linker/glibc mismatches while building the image.
+RUN /usr/local/bin/dcap-qvl --help >/dev/null
 
 # ------------------------------------------------------------------------------
 # Stage 5: Final Image - Application

@@ -61,13 +61,14 @@ export const InstanceTcbInfoSchema = z.object({
  */
 export const DstackInstanceSchema = z
   .object({
-    quote: z.string().optional(),
+    quote: z.string().nullable().optional(),
     // Old format: top-level eventlog
-    eventlog: EventLogSchema.optional(),
+    eventlog: EventLogSchema.nullable().optional(),
     // New format: tcb_info with nested event_log
-    tcb_info: InstanceTcbInfoSchema.optional(),
+    tcb_info: InstanceTcbInfoSchema.nullable().optional(),
     image_version: z
       .string()
+      .nullable()
       .optional()
       .transform((val) => {
         if (!val) return val
