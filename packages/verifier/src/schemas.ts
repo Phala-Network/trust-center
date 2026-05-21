@@ -61,7 +61,7 @@ export const InstanceTcbInfoSchema = z.object({
  */
 export const DstackInstanceSchema = z
   .object({
-    quote: z.string().optional(),
+    quote: z.string().nullish(),
     // Old format: top-level eventlog
     eventlog: EventLogSchema.optional(),
     // New format: tcb_info with nested event_log
