@@ -128,13 +128,19 @@ RUN chmod +x \
     /usr/local/bin/dstack-mr \
     /usr/local/bin/dstack-acpi-tables
 
-# ABI smoke test - exercises the dynamic linker so any glibc / shared-lib
-# mismatch between a builder stage and this runtime base fails the build
-# instead of leaking to production.
-RUN dcap-qvl --version \
- && dstack-mr-cli --version \
- && dstack-mr --version \
- && dstack-acpi-tables --version > /dev/null
+# ABI smoke test - invokes each binary so the dynamic linker runs. Greps
+# stderr for the known linker / glibc error patterns instead of relying on
+# any specific exit code, because the binaries differ in CLI conventions
+# (dcap-qvl uses clap subcommands and rejects bare --help/--version,
+# qemu accepts both, etc.). Catches the exact failure mode of the
+# rust:1.89-slim trixie -> bookworm regression at build time.
+RUN set -e; \
+    for bin in dcap-qvl dstack-mr-cli dstack-mr dstack-acpi-tables; do \
+      err=$("$bin" --help 2>&1 1>/dev/null || true); \
+      if echo "$err" | grep -qE 'GLIBC|undefined symbol|error while loading|cannot open shared'; then \
+        echo "ABI failure for $bin:"; echo "$err"; exit 1; \
+      fi; \
+    done
 
 # ------------------------------------------------------------------------------
 # Stage 5: Final Image - Application
