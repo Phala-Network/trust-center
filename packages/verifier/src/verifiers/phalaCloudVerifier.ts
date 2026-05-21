@@ -46,6 +46,24 @@ import {
 import { verifyComposeHash } from "../verification/sourceCodeVerification";
 import { Verifier } from "../verifier";
 
+type ParsedDstackInstance = z.infer<typeof SystemInfoSchema>["instances"][number];
+
+type ValidParsedDstackInstance = ParsedDstackInstance & {
+	quote: string;
+	eventlog: NonNullable<ParsedDstackInstance["eventlog"]>;
+	image_version: string;
+};
+
+function isValidDstackInstance(
+	instance: ParsedDstackInstance,
+): instance is ValidParsedDstackInstance {
+	return (
+		typeof instance.quote === "string" &&
+		Array.isArray(instance.eventlog) &&
+		typeof instance.image_version === "string"
+	);
+}
+
 export class PhalaCloudVerifier extends Verifier {
 	public registrySmartContract?: DstackApp;
 	public appId: AppId;
@@ -253,12 +271,10 @@ export class PhalaCloudVerifier extends Verifier {
 				);
 			}
 
-			// Filter out invalid instances (empty objects when instance is turned off)
+			// Filter out invalid instances before quote normalization. Turned-off
+			// instances can contain null fields even though running instances use strings.
 			const validInstances = parseResult.data.instances.filter(
-				(instance) =>
-					instance.quote !== undefined &&
-					instance.eventlog !== undefined &&
-					instance.image_version !== undefined,
+				isValidDstackInstance,
 			);
 
 			// Check if instances list is empty (instance is turned off)
@@ -276,11 +292,11 @@ export class PhalaCloudVerifier extends Verifier {
 					version: createKmsVersion(parseResult.data.kms_info.version),
 				},
 				instances: validInstances.map((instance) => ({
-					quote: instance.quote!.startsWith("0x")
-						? (instance.quote! as `0x${string}`)
-						: (`0x${instance.quote!}` as `0x${string}`),
-					eventlog: instance.eventlog!,
-					image_version: createImageVersion(instance.image_version!),
+					quote: instance.quote.startsWith("0x")
+						? (instance.quote as `0x${string}`)
+						: (`0x${instance.quote}` as `0x${string}`),
+					eventlog: instance.eventlog,
+					image_version: createImageVersion(instance.image_version),
 				})),
 				kms_guest_agent_info: parseResult.data.kms_guest_agent_info ?? undefined,
 				gateway_guest_agent_info: parseResult.data.gateway_guest_agent_info ?? undefined,
