@@ -189,7 +189,7 @@ export class VerificationService {
       ? maskSensitiveDataObjects(dataObjects)
       : dataObjects
 
-    const success = this.errors.length === 0
+    const success = this.errors.length === 0 && this.failures.length === 0
 
     return {
       dataObjects: finalDataObjects,
