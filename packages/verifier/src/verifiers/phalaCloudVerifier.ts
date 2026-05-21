@@ -225,7 +225,7 @@ export class PhalaCloudVerifier extends Verifier {
 	 * Static method to fetch system info from Phala Cloud API without instantiating the verifier
 	 */
 	public static async getSystemInfo(appId: AppId): Promise<SystemInfo> {
-		const apiUrl = `https://cloud-api.phala.network/api/v1/apps/${appId}/attestations`;
+		const apiUrl = `https://cloud-api.phala.com/api/v1/apps/${appId}/attestations`;
 
 		try {
 			const response = await fetch(apiUrl);
