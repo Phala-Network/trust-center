@@ -41,7 +41,7 @@ RUN bun install
 # ------------------------------------------------------------------------------
 
 # dcap-qvl: Intel DCAP Quote Verification Library (Rust)
-FROM rust:1.89-slim AS dcap-qvl-builder
+FROM rust:1.89-slim-bookworm AS dcap-qvl-builder
 RUN apt-get update && \
     apt-get install -y build-essential pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
@@ -127,6 +127,14 @@ RUN chmod +x \
     /usr/local/bin/dstack-mr-cli \
     /usr/local/bin/dstack-mr \
     /usr/local/bin/dstack-acpi-tables
+
+# ABI smoke test - exercises the dynamic linker so any glibc / shared-lib
+# mismatch between a builder stage and this runtime base fails the build
+# instead of leaking to production.
+RUN dcap-qvl --version \
+ && dstack-mr-cli --version \
+ && dstack-mr --version \
+ && dstack-acpi-tables --version > /dev/null
 
 # ------------------------------------------------------------------------------
 # Stage 5: Final Image - Application
