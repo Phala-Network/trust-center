@@ -256,7 +256,7 @@ export class PhalaCloudVerifier extends Verifier {
 			// Filter out invalid instances (empty objects when instance is turned off)
 			const validInstances = parseResult.data.instances.filter(
 				(instance) =>
-					instance.quote !== undefined &&
+					instance.quote !== undefined && instance.quote !== null &&
 					instance.eventlog !== undefined &&
 					instance.image_version !== undefined,
 			);
