@@ -128,14 +128,14 @@ export class VerificationService {
    * Configure relationships between verifiers
    */
   private configureVerifierRelationships(systemInfo: SystemInfo): void {
-    const hasOnchainKms = supportsOnchainKms(systemInfo.kms_info.version)
+    const kmsInTee = !supportsOnchainKms(systemInfo.kms_info.version)
 
     const relationships: ObjectRelationship[] = [
       // KMS -> Gateway relationships
       {
         sourceObjectId: 'kms-main',
         targetObjectId: 'gateway-main',
-        ...(hasOnchainKms
+        ...(kmsInTee
           ? {
               sourceField: 'gateway_app_id',
               targetField: 'app_id',
@@ -145,7 +145,7 @@ export class VerificationService {
       {
         sourceObjectId: 'kms-main',
         targetObjectId: 'gateway-main',
-        ...(hasOnchainKms
+        ...(kmsInTee
           ? {
               sourceField: 'cert_pubkey',
               targetField: 'app_cert',
@@ -156,7 +156,7 @@ export class VerificationService {
       {
         sourceObjectId: 'kms-main',
         targetObjectId: 'app-main',
-        ...(hasOnchainKms
+        ...(kmsInTee
           ? {
               sourceField: 'cert_pubkey',
               targetField: 'app_cert',
