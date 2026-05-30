@@ -97,9 +97,12 @@ export function getAppBadges(
   if (versionInfo.majorMinor === '0.3') {
     result.kmsBadge = {show: true, text: 'Centralized KMS'}
   } else if (versionInfo.majorMinor === '0.5') {
+    // Upstream sends chainId === 0 for HostedBy Phala apps (not null), so
+    // treat 0 and null identically — both mean "no real chain".
+    const isOnchain = chainId != null && chainId !== 0
     result.kmsBadge = {
       show: true,
-      text: chainId == null ? 'KMS in TEE' : 'Onchain KMS',
+      text: isOnchain ? 'Onchain KMS' : 'KMS in TEE',
     }
   }
 

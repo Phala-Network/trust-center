@@ -23,7 +23,8 @@ const CHAINS: Record<number, ChainInfo> = {
 }
 
 export function getChainInfo(chainId: number | null | undefined): ChainInfo | null {
-  if (chainId == null) return null
+  // Upstream sends chainId === 0 for HostedBy Phala apps; treat as no-chain.
+  if (chainId == null || chainId === 0) return null
   return CHAINS[chainId] ?? null
 }
 
