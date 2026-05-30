@@ -1,4 +1,4 @@
-import {Check, Copy, ExternalLink} from 'lucide-react'
+import {Check, Copy, ExternalLink, HelpCircle} from 'lucide-react'
 import Image from 'next/image'
 import type React from 'react'
 import {useState} from 'react'
@@ -7,7 +7,16 @@ import {AppLogo} from '@/components/app-logo'
 import {Avatar, AvatarFallback, AvatarImage} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
 import {Button} from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {getAppBadges} from '@/lib/app-badges'
+import {
+  buildExplorerAddressUrl,
+  getChainInfo,
+} from '@/lib/chain-explorer'
 import type {AppWithTask} from '@/lib/db'
 
 const CopyHashButton: React.FC<{value: string}> = ({value}) => {
@@ -83,7 +92,23 @@ export const ReportHeader: React.FC<{
   appId,
   taskId,
 }) => {
-  const badges = getAppBadges(app?.dstackVersion, app?.task.dataObjects)
+  const badges = getAppBadges(
+    app?.dstackVersion,
+    app?.chainId,
+    app?.kmsContractAddress,
+    app?.task.dataObjects,
+  )
+
+  // Build chain-explorer URLs for any address backed by a real chainId.
+  const appContractUrl = buildExplorerAddressUrl(
+    app?.chainId,
+    app?.contractAddress,
+  )
+  const kmsContractUrl = buildExplorerAddressUrl(
+    app?.chainId,
+    app?.kmsContractAddress,
+  )
+  const chainInfo = getChainInfo(app?.chainId)
 
   // Check if app has GPU attestation
   const hasGpu = app?.task.dataObjects?.includes('app-gpu') ?? false
@@ -234,18 +259,114 @@ export const ReportHeader: React.FC<{
                 {displayDomain}
               </dd>
             </div>
-            <div className="flex items-center gap-3 px-5 py-2 text-sm">
-              <dt className="w-[72px] shrink-0 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
-                Contract
-              </dt>
-              <dd
-                className="min-w-0 flex-1 truncate font-mono text-xs text-foreground"
-                title={app.contractAddress}
-              >
-                {truncateMiddle(app.contractAddress, 8, 6)}
-              </dd>
-              <CopyHashButton value={app.contractAddress} />
-            </div>
+            {(() => {
+              // Three modes drive both the label and the help tooltip:
+              //   - "onchain"     → 0.5+ with a real chain + deployable address
+              //   - "centralized" → dstack 0.3 (LegacyKmsStubVerifier)
+              //   - "hostedBy"    → 0.5+ HostedBy Phala (chainId null or 0)
+              // For onchain, the value IS a deployed DstackApp contract on the
+              // chain, so we label it "Contract" and link to the explorer.
+              // For the other two, the value is just `0x{dstack_app_id}` —
+              // a logical identifier the dstack KMS uses to look the app up,
+              // not a deployed contract anywhere.
+              const isOnchain = appContractUrl != null
+              const isCentralized = badges.versionBadge.majorMinor === '0.3'
+              const idLabel = isOnchain ? 'Contract' : 'App ID'
+              const idTooltip = isOnchain
+                ? `Per-app DstackApp contract on ${chainInfo?.name ?? 'chain'}`
+                : isCentralized
+                  ? 'Internal dstack identifier — pre-contract era (dstack 0.3)'
+                  : 'Internal dstack identifier — no on-chain deployment for HostedBy KMS'
+
+              return (
+                <div className="flex items-center gap-3 px-5 py-2 text-sm">
+                  <dt className="inline-flex w-[72px] shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
+                    {idLabel}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`${idLabel} info`}
+                          className="text-muted-foreground/60 transition-colors hover:text-foreground"
+                        >
+                          <HelpCircle className="size-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-xs">
+                        {idTooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  </dt>
+                  <dd
+                    className="min-w-0 flex-1 truncate font-mono text-xs text-foreground"
+                    title={app.contractAddress}
+                  >
+                    {isOnchain ? (
+                      <a
+                        href={appContractUrl ?? '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-phala-blue-500 hover:text-foreground dark:text-phala-blue-300"
+                      >
+                        {truncateMiddle(app.contractAddress, 8, 6)}
+                        <ExternalLink className="size-3 shrink-0" />
+                      </a>
+                    ) : (
+                      truncateMiddle(app.contractAddress, 8, 6)
+                    )}
+                  </dd>
+                  <CopyHashButton value={app.contractAddress} />
+                </div>
+              )
+            })()}
+            {/* KMS contract row — only meaningful when there's a real chain
+                contract to link to. For HostedBy / Centralized modes the
+                `kmsContractAddress` is either null or the sentinel "phala",
+                neither of which is informative; the badge already says
+                "KMS in TEE" / "Centralized KMS". */}
+            {kmsContractUrl && app.kmsContractAddress && (
+              <div className="flex items-center gap-3 px-5 py-2 text-sm">
+                <dt className="inline-flex w-[72px] shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
+                  KMS
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="KMS contract info"
+                        className="text-muted-foreground/60 transition-colors hover:text-foreground"
+                      >
+                        <HelpCircle className="size-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-xs">
+                      DstackKms governance contract on{' '}
+                      {chainInfo?.name ?? 'chain'} — authorizes which apps can
+                      boot and request keys.
+                    </TooltipContent>
+                  </Tooltip>
+                </dt>
+                <dd
+                  className="min-w-0 flex-1 truncate font-mono text-xs text-foreground"
+                  title={app.kmsContractAddress}
+                >
+                  <a
+                    href={kmsContractUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-phala-blue-500 hover:text-foreground dark:text-phala-blue-300"
+                  >
+                    {truncateMiddle(app.kmsContractAddress, 8, 6)}
+                    <ExternalLink className="size-3 shrink-0" />
+                  </a>
+                </dd>
+                <CopyHashButton value={app.kmsContractAddress} />
+                {chainInfo && (
+                  <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {chainInfo.name}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-3 px-5 py-2 text-sm">
               <dt className="w-[72px] shrink-0 font-mono text-[10px] uppercase tracking-[.14em] text-muted-foreground">
                 Time

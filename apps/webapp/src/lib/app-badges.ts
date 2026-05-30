@@ -1,38 +1,55 @@
 /**
- * Utility functions for determining app badges based on dstack version and data objects.
+ * App badge classification — keyed off dstack version + `chainId`.
  *
- * Classification:
- * - dstack 0.3: App & code info (compose file), Centralized Gateway, KMS
- * - dstack 0.5 offchain: Gateway, KMS in TEE (dataObjects does not include 'kms-quote')
- * - dstack 0.5 onchain: Governance contracts (dataObjects includes 'kms-quote')
+ * Why chainId? The verifier's `chainIdToGovernanceInfo`
+ * (packages/verifier/src/utils/metadataUtils.ts:320-347) treats:
+ *
+ *   chainId === null  → HostedBy Phala (offchain KMS, KMS in TEE)
+ *   chainId !== null  → OnChain governance via DstackKms on that chain
+ *
+ * `kmsContractAddress` alone is unreliable because Phala Cloud sometimes
+ * returns the literal string "phala" as a sentinel for hosted KMS, and
+ * `dataObjects.includes('kms-quote')` is unreliable because the verifier
+ * also emits a kms-quote object in offchain mode via the hardcoded
+ * fallback for `dstack-pha-*.phala.network`
+ * (packages/verifier/src/verifiers/phalaCloudKmsVerifier.ts:30-60).
+ *
+ * Resulting badges:
+ *
+ *   dstack 0.3.x                → "Centralized KMS"
+ *     LegacyKmsStubVerifier — no independent KMS attestation; KMS authority
+ *     is provided centrally by Phala pre-0.5.3.
+ *   dstack 0.5+ chainId === null → "KMS in TEE"   (HostedBy Phala)
+ *   dstack 0.5+ chainId !== null → "Onchain KMS"  (OnChain via DstackKms)
+ *   other / unparseable         → no KMS badge
  */
 
 export interface AppBadgeInfo {
   versionBadge: {
     show: boolean
-    fullVersion: string // e.g., "0.5.3", "dev-0.5.3"
-    majorMinor: string // e.g., "0.3", "0.5"
+    fullVersion: string // e.g. "0.5.3", "dev-0.5.3", "nvidia-dev-0.5.6"
+    majorMinor: string // e.g. "0.3", "0.5"
   }
   kmsBadge: {
     show: boolean
-    text: string // "KMS in TEE" or "Onchain KMS"
+    text: 'Centralized KMS' | 'KMS in TEE' | 'Onchain KMS' | ''
   }
 }
 
 /**
- * Parse version from dstack version string
- * @param dstackVersion - e.g., "dstack-0.5.3", "dstack-dev-0.5.3"
- * @returns {fullVersion, majorMinor} or null
+ * Parse version from a dstack version string. Tolerates the various tag
+ * prefixes between `dstack-` and the numeric version (e.g. `dev`, `nvidia`,
+ * `nvidia-dev`, `pha`).
  */
 function parseVersion(
   dstackVersion?: string | null,
 ): {fullVersion: string; majorMinor: string} | null {
   if (!dstackVersion) return null
 
-  // Remove "dstack-" prefix
+  // Strip leading "dstack-"
   const versionPart = dstackVersion.replace(/^dstack-/, '')
 
-  // Extract major.minor version
+  // Extract major.minor anywhere in the remainder
   const match = versionPart.match(/(\d+)\.(\d+)/)
   if (!match) return null
 
@@ -43,52 +60,49 @@ function parseVersion(
 }
 
 /**
- * Check if app is onchain (has kms-quote in data objects)
- * @param dataObjects - Array of data object IDs
- */
-function isOnchain(dataObjects?: string[] | null): boolean {
-  if (!dataObjects || !Array.isArray(dataObjects)) return false
-  return dataObjects.includes('kms-quote')
-}
-
-/**
- * Determine badge information for an app
+ * Determine badge information for an app.
+ *
+ * @param dstackVersion        - e.g. `dstack-0.5.3`, `dstack-dev-0.3.6`,
+ *                               `dstack-nvidia-dev-0.5.6`
+ * @param chainId              - the canonical onchain signal; null = HostedBy
+ *                               Phala (offchain), non-null = OnChain
+ * @param _kmsContractAddress  - kept for backward compatibility; not used in
+ *                               the badge decision (chainId is the source of
+ *                               truth). May be a sentinel string like "phala"
+ * @param _dataObjects         - kept for backward compatibility; the
+ *                               `kms-quote` data object is NOT a reliable
+ *                               onchain marker
  */
 export function getAppBadges(
   dstackVersion?: string | null,
-  dataObjects?: string[] | null,
+  chainId?: number | null,
+  _kmsContractAddress?: string | null,
+  _dataObjects?: string[] | null,
 ): AppBadgeInfo {
   const versionInfo = parseVersion(dstackVersion)
 
-  // Default: no badges
   const result: AppBadgeInfo = {
-    versionBadge: {
-      show: false,
-      fullVersion: '',
-      majorMinor: '',
-    },
-    kmsBadge: {
-      show: false,
-      text: '',
-    },
+    versionBadge: {show: false, fullVersion: '', majorMinor: ''},
+    kmsBadge: {show: false, text: ''},
   }
 
-  // If no version, return default
   if (!versionInfo) return result
 
-  // Version badge: always show if we have a version
   result.versionBadge = {
     show: true,
     fullVersion: versionInfo.fullVersion,
     majorMinor: versionInfo.majorMinor,
   }
 
-  // KMS badge: only for 0.5+
-  if (versionInfo.majorMinor === '0.5') {
-    const onchain = isOnchain(dataObjects)
+  if (versionInfo.majorMinor === '0.3') {
+    result.kmsBadge = {show: true, text: 'Centralized KMS'}
+  } else if (versionInfo.majorMinor === '0.5') {
+    // Upstream sends chainId === 0 for HostedBy Phala apps (not null), so
+    // treat 0 and null identically — both mean "no real chain".
+    const isOnchain = chainId != null && chainId !== 0
     result.kmsBadge = {
       show: true,
-      text: onchain ? 'Onchain KMS' : 'KMS in TEE',
+      text: isOnchain ? 'Onchain KMS' : 'KMS in TEE',
     }
   }
 
