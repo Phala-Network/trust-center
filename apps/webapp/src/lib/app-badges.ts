@@ -1,49 +1,55 @@
 /**
- * Utility functions for determining app badges based on dstack version,
- * the per-app KMS contract address, and the verifier's data objects.
+ * App badge classification — keyed off dstack version + `chainId`.
  *
- * Classification (verified against the dstack KMS verifier):
+ * Why chainId? The verifier's `chainIdToGovernanceInfo`
+ * (packages/verifier/src/utils/metadataUtils.ts:320-347) treats:
  *
- * - dstack 0.3: Centralized KMS pre-smart-contract — no independent KMS
- *   attestation (verifier uses LegacyKmsStubVerifier). No KMS badge.
+ *   chainId === null  → HostedBy Phala (offchain KMS, KMS in TEE)
+ *   chainId !== null  → OnChain governance via DstackKms on that chain
  *
- * - dstack 0.5 with `kmsContractAddress` set: governance via the on-chain
- *   `DstackKms` smart contract (auth-eth backend). The verifier reads the
- *   KMS quote from the contract. Badge: "Onchain KMS".
+ * `kmsContractAddress` alone is unreliable because Phala Cloud sometimes
+ * returns the literal string "phala" as a sentinel for hosted KMS, and
+ * `dataObjects.includes('kms-quote')` is unreliable because the verifier
+ * also emits a kms-quote object in offchain mode via the hardcoded
+ * fallback for `dstack-pha-*.phala.network`
+ * (packages/verifier/src/verifiers/phalaCloudKmsVerifier.ts:30-60).
  *
- * - dstack 0.5 without `kmsContractAddress`: governance via local config
- *   (auth-simple backend). For Phala-hosted KMS at `dstack-pha-*.phala.network`
- *   the verifier still produces a `kms-quote` data object from a hardcoded
- *   fallback, so that data-object alone is NOT a reliable onchain marker —
- *   `kmsContractAddress` is the canonical signal. Badge: "KMS in TEE".
+ * Resulting badges:
+ *
+ *   dstack 0.3.x                → "Centralized KMS"
+ *     LegacyKmsStubVerifier — no independent KMS attestation; KMS authority
+ *     is provided centrally by Phala pre-0.5.3.
+ *   dstack 0.5+ chainId === null → "KMS in TEE"   (HostedBy Phala)
+ *   dstack 0.5+ chainId !== null → "Onchain KMS"  (OnChain via DstackKms)
+ *   other / unparseable         → no KMS badge
  */
 
 export interface AppBadgeInfo {
   versionBadge: {
     show: boolean
-    fullVersion: string // e.g., "0.5.3", "dev-0.5.3"
-    majorMinor: string // e.g., "0.3", "0.5"
+    fullVersion: string // e.g. "0.5.3", "dev-0.5.3", "nvidia-dev-0.5.6"
+    majorMinor: string // e.g. "0.3", "0.5"
   }
   kmsBadge: {
     show: boolean
-    text: string // "KMS in TEE" or "Onchain KMS"
+    text: 'Centralized KMS' | 'KMS in TEE' | 'Onchain KMS' | ''
   }
 }
 
 /**
- * Parse version from dstack version string
- * @param dstackVersion - e.g., "dstack-0.5.3", "dstack-dev-0.5.3"
- * @returns {fullVersion, majorMinor} or null
+ * Parse version from a dstack version string. Tolerates the various tag
+ * prefixes between `dstack-` and the numeric version (e.g. `dev`, `nvidia`,
+ * `nvidia-dev`, `pha`).
  */
 function parseVersion(
   dstackVersion?: string | null,
 ): {fullVersion: string; majorMinor: string} | null {
   if (!dstackVersion) return null
 
-  // Remove "dstack-" prefix
+  // Strip leading "dstack-"
   const versionPart = dstackVersion.replace(/^dstack-/, '')
 
-  // Extract major.minor version
+  // Extract major.minor anywhere in the remainder
   const match = versionPart.match(/(\d+)\.(\d+)/)
   if (!match) return null
 
@@ -54,72 +60,46 @@ function parseVersion(
 }
 
 /**
- * Onchain KMS = the app is bound to a real DstackKms smart contract.
- * `kmsContractAddress` is populated upstream only when auth-eth (on-chain
- * governance) is configured. An empty string, null, or `0x0` zero-address
- * all count as "no contract".
- */
-function hasOnchainKmsContract(
-  kmsContractAddress?: string | null,
-): boolean {
-  if (!kmsContractAddress) return false
-  const normalized = kmsContractAddress.trim().toLowerCase()
-  if (normalized === '') return false
-  if (normalized === '0x0') return false
-  if (/^0x0+$/.test(normalized)) return false
-  return /^0x[a-f0-9]{40}$/.test(normalized)
-}
-
-/**
  * Determine badge information for an app.
  *
- * @param dstackVersion       - e.g. `dstack-0.5.3`, `dstack-dev-0.3.6`
- * @param kmsContractAddress  - the DstackKms contract address (only set for
- *                              auth-eth / on-chain governance apps); the
- *                              canonical marker for "Onchain KMS"
- * @param _dataObjects        - kept for backward compatibility / future use;
- *                              `kms-quote` is NOT a reliable onchain marker
- *                              because the verifier also emits it for offchain
- *                              Phala-hosted KMS via hardcoded fallback
+ * @param dstackVersion        - e.g. `dstack-0.5.3`, `dstack-dev-0.3.6`,
+ *                               `dstack-nvidia-dev-0.5.6`
+ * @param chainId              - the canonical onchain signal; null = HostedBy
+ *                               Phala (offchain), non-null = OnChain
+ * @param _kmsContractAddress  - kept for backward compatibility; not used in
+ *                               the badge decision (chainId is the source of
+ *                               truth). May be a sentinel string like "phala"
+ * @param _dataObjects         - kept for backward compatibility; the
+ *                               `kms-quote` data object is NOT a reliable
+ *                               onchain marker
  */
 export function getAppBadges(
   dstackVersion?: string | null,
-  kmsContractAddress?: string | null,
+  chainId?: number | null,
+  _kmsContractAddress?: string | null,
   _dataObjects?: string[] | null,
 ): AppBadgeInfo {
   const versionInfo = parseVersion(dstackVersion)
 
-  // Default: no badges
   const result: AppBadgeInfo = {
-    versionBadge: {
-      show: false,
-      fullVersion: '',
-      majorMinor: '',
-    },
-    kmsBadge: {
-      show: false,
-      text: '',
-    },
+    versionBadge: {show: false, fullVersion: '', majorMinor: ''},
+    kmsBadge: {show: false, text: ''},
   }
 
-  // If no version, return default
   if (!versionInfo) return result
 
-  // Version badge: always show if we have a version
   result.versionBadge = {
     show: true,
     fullVersion: versionInfo.fullVersion,
     majorMinor: versionInfo.majorMinor,
   }
 
-  // KMS badge: only for 0.5+
-  // 0.3 uses a stub legacy KMS and has no independent KMS attestation
-  // surfaced in the verifier, so no badge.
-  if (versionInfo.majorMinor === '0.5') {
-    const onchain = hasOnchainKmsContract(kmsContractAddress)
+  if (versionInfo.majorMinor === '0.3') {
+    result.kmsBadge = {show: true, text: 'Centralized KMS'}
+  } else if (versionInfo.majorMinor === '0.5') {
     result.kmsBadge = {
       show: true,
-      text: onchain ? 'Onchain KMS' : 'KMS in TEE',
+      text: chainId == null ? 'KMS in TEE' : 'Onchain KMS',
     }
   }
 

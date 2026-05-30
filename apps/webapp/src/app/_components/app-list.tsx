@@ -14,6 +14,7 @@ import {type AppWithTask} from '@/lib/db'
 const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
   const badges = getAppBadges(
     app.dstackVersion,
+    app.chainId,
     app.kmsContractAddress,
     app.task.dataObjects,
   )

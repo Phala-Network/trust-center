@@ -55,8 +55,13 @@ export interface App {
   contractAddress: string
   domain: string
   dstackVersion: string | null
-  /** DstackKms smart contract address — present only for on-chain governance
-   *  apps (auth-eth backend). null/empty for offchain (auth-simple). */
+  /** Chain ID for on-chain governance. null = HostedBy Phala (offchain);
+   *  1 = Ethereum, 8453 = Base, 11155111 = Sepolia, 84532 = Base Sepolia.
+   *  The canonical signal for "Onchain KMS". See chain-explorer.ts. */
+  chainId: number | null
+  /** DstackKms contract address. For onchain apps it's an Ethereum address;
+   *  Phala Cloud may return the literal string "phala" as a sentinel for
+   *  hosted KMS — combine with chainId before treating as a real contract. */
   kmsContractAddress: string | null
   workspaceId: number
   creatorId: number
@@ -187,6 +192,7 @@ function resultToAppWithTask(result: {
     contractAddress: appData.contractAddress,
     domain: appData.domain,
     dstackVersion: appData.dstackVersion,
+    chainId: appData.chainId ?? null,
     kmsContractAddress: appData.kmsContractAddress ?? null,
     workspaceId: appData.workspaceId,
     creatorId: appData.creatorId,
