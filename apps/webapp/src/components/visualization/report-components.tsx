@@ -83,7 +83,11 @@ export const ReportHeader: React.FC<{
   appId,
   taskId,
 }) => {
-  const badges = getAppBadges(app?.dstackVersion, app?.task.dataObjects)
+  const badges = getAppBadges(
+    app?.dstackVersion,
+    app?.kmsContractAddress,
+    app?.task.dataObjects,
+  )
 
   // Check if app has GPU attestation
   const hasGpu = app?.task.dataObjects?.includes('app-gpu') ?? false

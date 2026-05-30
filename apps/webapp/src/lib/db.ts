@@ -55,6 +55,9 @@ export interface App {
   contractAddress: string
   domain: string
   dstackVersion: string | null
+  /** DstackKms smart contract address — present only for on-chain governance
+   *  apps (auth-eth backend). null/empty for offchain (auth-simple). */
+  kmsContractAddress: string | null
   workspaceId: number
   creatorId: number
   isPublic: boolean
@@ -184,6 +187,7 @@ function resultToAppWithTask(result: {
     contractAddress: appData.contractAddress,
     domain: appData.domain,
     dstackVersion: appData.dstackVersion,
+    kmsContractAddress: appData.kmsContractAddress ?? null,
     workspaceId: appData.workspaceId,
     creatorId: appData.creatorId,
     isPublic: appData.isPublic,

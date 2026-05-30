@@ -12,7 +12,11 @@ import {getAppBadges} from '@/lib/app-badges'
 import {type AppWithTask} from '@/lib/db'
 
 const AppCard = memo(function AppCard({app}: {app: AppWithTask}) {
-  const badges = getAppBadges(app.dstackVersion, app.task.dataObjects)
+  const badges = getAppBadges(
+    app.dstackVersion,
+    app.kmsContractAddress,
+    app.task.dataObjects,
+  )
 
   // Determine display name: use profile displayName if available, fallback to appName
   const displayName = app.profile?.displayName || app.appName
