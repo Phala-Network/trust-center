@@ -211,11 +211,18 @@ export const createQueueService = (
         ])
 
         if (!verificationResult.success) {
-          throw new Error(
-            verificationResult.errors
-              .map((error: {message: string}) => error.message)
-              .join(', '),
-          )
+          const allMessages = [
+            ...verificationResult.errors.map((error: {message: string}) => error.message),
+            ...verificationResult.failures.map((f: {error: string}) => f.error),
+          ].filter(Boolean)
+          
+          console.error('[QUEUE] Verification result details:', {
+            errors: verificationResult.errors,
+            failures: verificationResult.failures,
+            success: verificationResult.success,
+          })
+          
+          throw new Error(allMessages.join(', ') || 'Verification failed')
         }
 
         const processingTimeMs = Date.now() - startTime
