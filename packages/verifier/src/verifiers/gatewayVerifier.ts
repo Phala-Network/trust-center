@@ -23,6 +23,7 @@ import {
 import type {DataObjectCollector} from '../utils/dataObjectCollector'
 import {fetchDstack} from '../utils/fetchDstack'
 import {DstackApp} from '../utils/dstackContract'
+import {extractVersionNumber} from '../utils/imageDownloader'
 import {
   verifyCertificateKey,
   verifyCTLog,
@@ -179,6 +180,25 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   }
 
   /**
+   * Extracts the dstack version from the Gateway's vm_config image field.
+   * Falls back to kms_info.version if the image field is not available.
+   *
+   * @param appInfo - Gateway application info containing vm_config
+   * @returns Version string like "0.5.8"
+   */
+  private extractGatewayVersion(appInfo: AppInfo): string {
+    // Try to extract from vm_config.image (format: "dstack-0.5.8-6427f4f5")
+    if ('image' in appInfo.vm_config && appInfo.vm_config.image) {
+      const match = appInfo.vm_config.image.match(/dstack-(\d+\.\d+\.\d+)/)
+      if (match?.[1]) {
+        return match[1]
+      }
+    }
+    // Fall back to KMS version
+    return extractVersionNumber(this.systemInfo.kms_info.version)
+  }
+
+  /**
    * Verifies the operating system integrity by comparing measurement registers.
    */
   public async verifyOperatingSystem(): Promise<{
@@ -188,11 +208,9 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     const appInfo = await this.getAppInfo()
     const failures: VerificationFailure[] = []
 
-    // Extract version from KMS info and construct image folder name
-    const {extractVersionNumber, ensureDstackImage} = await import(
-      '../utils/imageDownloader'
-    )
-    const version = extractVersionNumber(this.systemInfo.kms_info.version)
+    // Extract version from Gateway's vm_config.image, fall back to KMS version
+    const {ensureDstackImage} = await import('../utils/imageDownloader')
+    const version = this.extractGatewayVersion(appInfo)
     const imageFolderName = `dstack-${version}`
 
     // Ensure image is downloaded
