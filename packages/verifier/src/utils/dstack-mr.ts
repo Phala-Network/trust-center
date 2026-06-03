@@ -1,9 +1,9 @@
-import { exec } from 'node:child_process'
+import {exec} from 'node:child_process'
 import * as path from 'node:path'
-import { promisify } from 'node:util'
+import {promisify} from 'node:util'
 
-import { safeParseOsMeasurement } from '../schemas'
-import type { VmConfig } from '../types'
+import {safeParseOsMeasurement} from '../schemas'
+import type {VmConfig} from '../types'
 
 /** Promisified version of child_process.exec for async/await usage */
 const execAsync = promisify(exec)
@@ -27,8 +27,8 @@ export interface DstackMrOptions {
  * Builds CLI arguments array from VM configuration for the DStack measurement tool.
  *
  * Different dstack versions have different vm_config formats:
- * - prod7+: has qemu_single_pass_add_pages, pic (used for measurement)
- * - use1/use2: has qemu_version, image (qemu_single_pass_add_pages defaults to false)
+ * - qemu_version selects dstack-mr's versioned defaults for PIC and page addition.
+ * - qemu_single_pass_add_pages and pic override those defaults when present.
  *
  * @param vmConfiguration - Virtual machine configuration object
  * @returns Array of CLI arguments
@@ -39,15 +39,20 @@ function buildCliArgs(vmConfiguration: VmConfig): string[] {
   cliArguments.push('--cpu', vmConfiguration.cpu_count.toString())
   cliArguments.push('--memory', vmConfiguration.memory_size.toString())
 
-  // For use1/use2 format (with qemu_version), default to false
-  // For prod7+ format, use the actual value
-  const twoPassAddPages = vmConfiguration.qemu_single_pass_add_pages ?? false
-  cliArguments.push('--two-pass-add-pages', twoPassAddPages.toString())
+  if (vmConfiguration.qemu_version) {
+    cliArguments.push('--qemu-version', vmConfiguration.qemu_version)
+  }
 
-  // For use1/use2 format (with qemu_version), default to false
-  // For prod7+ format, use the actual value
-  const pic = vmConfiguration.pic ?? false
-  cliArguments.push('--pic', pic.toString())
+  if (vmConfiguration.qemu_single_pass_add_pages !== undefined) {
+    cliArguments.push(
+      '--two-pass-add-pages',
+      vmConfiguration.qemu_single_pass_add_pages.toString(),
+    )
+  }
+
+  if (vmConfiguration.pic !== undefined) {
+    cliArguments.push('--pic', vmConfiguration.pic.toString())
+  }
 
   if (vmConfiguration.pci_hole64_size > 0) {
     cliArguments.push(
@@ -97,10 +102,10 @@ export async function measureDstackImages(
   const command = `${DSTACK_MR_CLI_PATH} measure "${metadataPath}" ${cliArguments.join(' ')}`
 
   try {
-    const { stdout } = await execAsync(command)
+    const {stdout} = await execAsync(command)
     return safeParseOsMeasurement(stdout)
   } catch (execError: unknown) {
-    const error = execError as { stderr?: string; message: string }
+    const error = execError as {stderr?: string; message: string}
     const errorMessage = error.stderr || error.message
     throw new Error(`Failed to run DStack measurement tool: ${errorMessage}`)
   }
@@ -130,7 +135,7 @@ export async function measureDstackImagesLegacy(options: {
   const dstackMrCommand = `${DSTACK_MR_PATH} -metadata "${metadataPath}" -json`
 
   try {
-    const { stdout } = await execAsync(dstackMrCommand)
+    const {stdout} = await execAsync(dstackMrCommand)
     return safeParseOsMeasurement(stdout)
   } catch (legacyError: unknown) {
     const execError = legacyError as {
