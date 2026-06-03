@@ -5,14 +5,16 @@
  * and granular control over verification steps that may take long time.
  */
 
-import { z } from 'zod'
+import {z} from 'zod'
+import {AsyncLocalStorage} from 'node:async_hooks'
+import {format} from 'node:util'
 
 import {
   AppMetadataSchema,
   GatewayMetadataSchema,
   KmsMetadataSchema,
 } from './types/metadata'
-import { AppIdSchema, ContractAddressSchema } from './types/utils'
+import {AppIdSchema, ContractAddressSchema} from './types/utils'
 
 /**
  * Configuration for KMS verifier
@@ -86,6 +88,81 @@ export type GatewayConfig = z.infer<typeof GatewayConfigSchema>
 export type PhalaCloudConfig = z.infer<typeof PhalaCloudConfigSchema>
 export type VerificationFlags = z.infer<typeof VerificationFlagsSchema>
 export type ServerConfig = z.infer<typeof ServerConfigSchema>
+
+export interface VerificationLogContext {
+  taskId: string
+  app: string
+  domain?: string
+}
+
+const verificationLogContext = new AsyncLocalStorage<VerificationLogContext>()
+const originalConsole = {
+  log: console.log.bind(console),
+  warn: console.warn.bind(console),
+  error: console.error.bind(console),
+}
+let verificationConsoleContextInstalled = false
+
+function formatVerificationLogContext(context: VerificationLogContext): string {
+  const parts = [`task_id=${context.taskId}`, `app=${context.app}`]
+  if (context.domain) {
+    parts.push(`domain=${context.domain}`)
+  }
+  return `[${parts.join(' ')}]`
+}
+
+function formatContextLog(args: unknown[]): string | null {
+  const context = verificationLogContext.getStore()
+  if (!context) {
+    return null
+  }
+
+  const prefix = formatVerificationLogContext(context)
+  return format(...args)
+    .split('\n')
+    .map((line) => `${prefix} ${line}`)
+    .join('\n')
+}
+
+function installVerificationConsoleContext(): void {
+  if (verificationConsoleContextInstalled) {
+    return
+  }
+
+  verificationConsoleContextInstalled = true
+  console.log = (...args: unknown[]) => {
+    const message = formatContextLog(args)
+    if (message) {
+      originalConsole.log(message)
+      return
+    }
+    originalConsole.log(...args)
+  }
+  console.warn = (...args: unknown[]) => {
+    const message = formatContextLog(args)
+    if (message) {
+      originalConsole.warn(message)
+      return
+    }
+    originalConsole.warn(...args)
+  }
+  console.error = (...args: unknown[]) => {
+    const message = formatContextLog(args)
+    if (message) {
+      originalConsole.error(message)
+      return
+    }
+    originalConsole.error(...args)
+  }
+}
+
+export function runWithVerificationLogContext<T>(
+  context: VerificationLogContext,
+  fn: () => T,
+): T {
+  installVerificationConsoleContext()
+  return verificationLogContext.run(context, fn)
+}
 
 /**
  * Default verification flags - all enabled
