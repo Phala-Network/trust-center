@@ -79,7 +79,7 @@ RUN git clone https://github.com/kvinwang/qemu-tdx.git \
 # dstack-mr-cli: DStack Measurement Register CLI (Rust)
 FROM rust:1.86.0@sha256:300ec56abce8cc9448ddea2172747d048ed902a3090e6b57babb2bf19f754081 AS dstack-mr-cli-builder
 WORKDIR /build
-ARG DSTACK_REV=c985b427b1909242953a15dcfaa7f812cb39c634
+ARG DSTACK_REV=282eeb27d22d8f091ad0fa5a90e638f85cf68751
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
