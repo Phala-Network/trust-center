@@ -1,8 +1,10 @@
 import type {
   PhalaCloudConfig,
+  VerificationLogContext,
   VerificationResponse,
 } from '@phala/dstack-verifier'
 import {
+  runWithVerificationLogContext,
   toAppId,
   VerificationService,
 } from '@phala/dstack-verifier'
@@ -48,6 +50,7 @@ export interface TaskResult {
   success: boolean
   error?: string
   processingTimeMs: number
+  appLabel?: string
   verificationResult?: VerificationResponse
 }
 
@@ -104,155 +107,163 @@ export const createQueueService = (
     async (job: Job<TaskData>): Promise<TaskResult> => {
       const startTime = Date.now()
       const {postgresTaskId, appId, appMetadata, verificationFlags} = job.data
+      const logContext: VerificationLogContext = {
+        taskId: postgresTaskId,
+        app: appId,
+      }
 
-      try {
-        // Get app data from apps table
-        const app = await appService.getAppById(appId)
-        if (!app) {
-          throw new Error(`App not found with ID: ${appId}`)
-        }
+      return await runWithVerificationLogContext(logContext, async () => {
+        try {
+          // Get app data from apps table
+          const app = await appService.getAppById(appId)
+          if (!app) {
+            throw new Error(`App not found with ID: ${appId}`)
+          }
 
-        console.log(
-          `[QUEUE] Processing verification task ${postgresTaskId} for app ${app.id}/${app.appName}`,
-        )
+          const appLabel = `${app.id}/${app.appName}`
+          logContext.app = appLabel
+          logContext.domain = app.domain || undefined
 
-        // Note: App should already be validated by getValidApps() or getAppsNeedingVerification()
-        // This is a final safety check
-        if (!isAddress(app.contractAddress)) {
-          throw new Error(
-            `Invalid contract address: ${app.contractAddress}. This should have been filtered earlier.`,
-          )
-        }
+          console.log(`[QUEUE] Processing verification task ${postgresTaskId}`)
 
-        if (!app.domain) {
-          throw new Error(
-            `Missing domain for app ${app.id}. This should have been filtered earlier.`,
-          )
-        }
+          // Note: App should already be validated by getValidApps() or getAppsNeedingVerification()
+          // This is a final safety check
+          if (!isAddress(app.contractAddress)) {
+            throw new Error(
+              `Invalid contract address: ${app.contractAddress}. This should have been filtered earlier.`,
+            )
+          }
 
-        // Note: 24h duplicate check is now handled at the database query level
-        // in appService.getAppsNeedingVerification() - no need to check here
+          if (!app.domain) {
+            throw new Error(
+              `Missing domain for app ${app.id}. This should have been filtered earlier.`,
+            )
+          }
 
-        // Create task in database when actually starting processing
-        await verificationTaskService.createTask({
-          id: postgresTaskId,
-          appId,
-          status: 'active' as const,
-          bullJobId: job.id,
-          appMetadata,
-          verificationFlags,
-          createdAt: new Date(),
-          startedAt: new Date(),
-        })
+          // Note: 24h duplicate check is now handled at the database query level
+          // in appService.getAppsNeedingVerification() - no need to check here
 
-        console.log(
-          `[QUEUE] Created DB record and started processing task ${postgresTaskId}`,
-        )
+          // Create task in database when actually starting processing
+          await verificationTaskService.createTask({
+            id: postgresTaskId,
+            appId,
+            status: 'active' as const,
+            bullJobId: job.id,
+            appMetadata,
+            verificationFlags,
+            createdAt: new Date(),
+            startedAt: new Date(),
+          })
 
-        console.log(
-          `[QUEUE] Processing verification for ${app.appConfigType} config:`,
-          JSON.stringify(
-            {
+          console.log('[QUEUE] Created DB record and started processing')
+
+          console.log(
+            `[QUEUE] Processing verification for ${app.appConfigType} config:`,
+            JSON.stringify({
               contractAddress: app.contractAddress,
               domain: app.domain,
               metadata: appMetadata,
-            },
-            null,
-            2,
-          ),
-        )
-        console.log(`[QUEUE] Verification flags:`, verificationFlags)
+            }),
+          )
+          console.log(`[QUEUE] Verification flags:`, verificationFlags)
 
-        // Create app config for VerificationService
-        // Note: VerificationService will generate complete metadata from systemInfo
-        // if the provided metadata is incomplete
-        // We only support PhalaCloudConfig now as Redpill support has been removed
-        const appConfig: PhalaCloudConfig = {
-          appId: toAppId(app.id),
-          domain: app.domain,
-          metadata: appMetadata,
-        }
+          // Create app config for VerificationService
+          // Note: VerificationService will generate complete metadata from systemInfo
+          // if the provided metadata is incomplete
+          // We only support PhalaCloudConfig now as Redpill support has been removed
+          const appConfig: PhalaCloudConfig = {
+            appId: toAppId(app.id),
+            domain: app.domain,
+            metadata: appMetadata,
+          }
 
-        // Create a new VerificationService instance for each task to avoid state pollution
-        // This ensures complete isolation between concurrent verification tasks
-        const verificationService = new VerificationService()
+          // Create a new VerificationService instance for each task to avoid state pollution
+          // This ensures complete isolation between concurrent verification tasks
+          const verificationService = new VerificationService()
 
-        // Implement timeout for verification (5 minutes)
-        const TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+          // Implement timeout for verification (5 minutes)
+          const TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 
-        // Create timeout promise that rejects after timeout
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            reject(
-              new UnrecoverableError(
-                `Verification timeout after ${TIMEOUT_MS / 1000} seconds`,
-              ),
-            )
-          }, TIMEOUT_MS)
-        })
-
-        // Determine if sensitive data should be masked
-        // Only Rena Labs apps should have masked sensitive data
-        const shouldMaskSensitiveData = app.customUser === 'rena-labs'
-
-        // Merge verification flags with maskSensitiveData setting
-        const finalVerificationFlags = {
-          ...verificationFlags,
-          maskSensitiveData: shouldMaskSensitiveData,
-        }
-
-        // Execute verification using VerificationService with timeout
-        // verificationFlags can be partial - VerificationService will merge with defaults
-        // Note: This timeout will prevent the worker from hanging, but won't abort
-        // internal operations in VerificationService (requires AbortSignal support)
-        const verificationResult = await Promise.race([
-          verificationService.verify(appConfig, finalVerificationFlags),
-          timeoutPromise,
-        ])
-
-        if (!verificationResult.success) {
-          const allMessages = [
-            ...verificationResult.errors.map((error: {message: string}) => error.message),
-            ...verificationResult.failures.map((f: {error: string}) => f.error),
-          ].filter(Boolean)
-          
-          console.error('[QUEUE] Verification result details:', {
-            errors: verificationResult.errors,
-            failures: verificationResult.failures,
-            success: verificationResult.success,
+          // Create timeout promise that rejects after timeout
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+              reject(
+                new UnrecoverableError(
+                  `Verification timeout after ${TIMEOUT_MS / 1000} seconds`,
+                ),
+              )
+            }, TIMEOUT_MS)
           })
-          
-          throw new Error(allMessages.join(', ') || 'Verification failed')
+
+          // Determine if sensitive data should be masked
+          // Only Rena Labs apps should have masked sensitive data
+          const shouldMaskSensitiveData = app.customUser === 'rena-labs'
+
+          // Merge verification flags with maskSensitiveData setting
+          const finalVerificationFlags = {
+            ...verificationFlags,
+            maskSensitiveData: shouldMaskSensitiveData,
+          }
+
+          // Execute verification using VerificationService with timeout
+          // verificationFlags can be partial - VerificationService will merge with defaults
+          // Note: This timeout will prevent the worker from hanging, but won't abort
+          // internal operations in VerificationService (requires AbortSignal support)
+          const verificationResult = await Promise.race([
+            verificationService.verify(appConfig, finalVerificationFlags),
+            timeoutPromise,
+          ])
+
+          if (!verificationResult.success) {
+            const allMessages = [
+              ...verificationResult.errors.map(
+                (error: {message: string}) => error.message,
+              ),
+              ...verificationResult.failures.map(
+                (f: {error: string}) => f.error,
+              ),
+            ].filter(Boolean)
+
+            console.error('[QUEUE] Verification result details:', {
+              errors: verificationResult.errors,
+              failures: verificationResult.failures,
+              success: verificationResult.success,
+            })
+
+            throw new Error(allMessages.join(', ') || 'Verification failed')
+          }
+
+          const processingTimeMs = Date.now() - startTime
+
+          console.log(`[QUEUE] Verification completed in ${processingTimeMs}ms`)
+
+          return {
+            postgresTaskId,
+            success: true,
+            processingTimeMs,
+            appLabel,
+            verificationResult,
+          }
+        } catch (error) {
+          const processingTimeMs = Date.now() - startTime
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error'
+
+          const contextualErrorMessage = `App ${logContext.app}: ${errorMessage}`
+
+          console.error(
+            `[QUEUE] Verification failed: ${contextualErrorMessage}`,
+          )
+
+          return {
+            postgresTaskId,
+            success: false,
+            error: contextualErrorMessage,
+            processingTimeMs,
+            appLabel: logContext.app,
+          }
         }
-
-        const processingTimeMs = Date.now() - startTime
-
-        console.log(
-          `[QUEUE] Verification completed for task ${postgresTaskId} in ${processingTimeMs}ms`,
-        )
-
-        return {
-          postgresTaskId,
-          success: true,
-          processingTimeMs,
-          verificationResult,
-        }
-      } catch (error) {
-        const processingTimeMs = Date.now() - startTime
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown error'
-
-        console.error(
-          `[QUEUE] Verification failed for task ${postgresTaskId}: ${errorMessage}`,
-        )
-
-        return {
-          postgresTaskId,
-          success: false,
-          error: errorMessage,
-          processingTimeMs,
-        }
-      }
+      })
     },
     {
       connection: redis,
@@ -264,96 +275,102 @@ export const createQueueService = (
   const handleJobCompleted = async (job: Job<TaskData>, result: TaskResult) => {
     const {postgresTaskId} = result
 
-    try {
-      console.log(`[QUEUE] Job ${job.id} completed for task ${postgresTaskId}`)
+    return await runWithVerificationLogContext(
+      {taskId: postgresTaskId, app: result.appLabel ?? job.data.appId},
+      async () => {
+        try {
+          console.log(`[QUEUE] Job ${job.id} completed`)
 
-      let uploadResult: {
-        s3Filename?: string
-        s3Key?: string
-        s3Bucket?: string
-        dataObjects?: string[]
-      } = {}
+          let uploadResult: {
+            s3Filename?: string
+            s3Key?: string
+            s3Bucket?: string
+            dataObjects?: string[]
+          } = {}
 
-      // Store result in R2 if successful
-      if (result.success && result.verificationResult) {
-        const upload = await s3Service.uploadJson(result.verificationResult)
+          // Store result in R2 if successful
+          if (result.success && result.verificationResult) {
+            const upload = await s3Service.uploadJson(result.verificationResult)
 
-        // Extract data object IDs from verification result
-        const dataObjectIds =
-          result.verificationResult.dataObjects?.map((obj) => obj.id) || []
+            // Extract data object IDs from verification result
+            const dataObjectIds =
+              result.verificationResult.dataObjects?.map((obj) => obj.id) || []
 
-        uploadResult = {
-          s3Filename: upload.s3Filename,
-          s3Key: upload.s3Key,
-          s3Bucket: upload.s3Bucket,
-          dataObjects: dataObjectIds,
+            uploadResult = {
+              s3Filename: upload.s3Filename,
+              s3Key: upload.s3Key,
+              s3Bucket: upload.s3Bucket,
+              dataObjects: dataObjectIds,
+            }
+
+            console.log(
+              `[QUEUE] Uploaded verification result to S3: ${upload.s3Filename}`,
+            )
+            console.log(
+              `[QUEUE] Extracted ${dataObjectIds.length} data object IDs`,
+            )
+          }
+
+          // Update PostgreSQL task status based on verification result
+          const taskStatus = result.success ? 'completed' : 'failed'
+          const updateData: {
+            status: 'completed' | 'failed'
+            finishedAt: Date
+            s3Filename?: string
+            s3Key?: string
+            s3Bucket?: string
+            dataObjects?: string[]
+            errorMessage?: string
+          } = {
+            status: taskStatus,
+            finishedAt: new Date(),
+            ...uploadResult,
+          }
+
+          // Add error message if verification failed
+          if (!result.success && result.error) {
+            updateData.errorMessage = result.error
+          }
+
+          const updated = await verificationTaskService.updateVerificationTask(
+            postgresTaskId,
+            updateData,
+          )
+
+          if (!updated) {
+            console.error(
+              '[QUEUE] Failed to update task - task not found in database',
+            )
+            return
+          }
+
+          if (result.success) {
+            console.log('[QUEUE] Task completed successfully')
+          } else {
+            console.log(`[QUEUE] Task failed: ${result.error}`)
+          }
+        } catch (error) {
+          console.error('[QUEUE] Failed to handle completion:', error)
+
+          // Try to mark task as failed if update failed
+          try {
+            await verificationTaskService.updateVerificationTask(
+              postgresTaskId,
+              {
+                status: 'failed',
+                errorMessage:
+                  error instanceof Error
+                    ? error.message
+                    : 'Post-processing failed',
+                finishedAt: new Date(),
+              },
+            )
+          } catch (updateError) {
+            console.error('[QUEUE] Failed to update task status:', updateError)
+          }
         }
-
-        console.log(
-          `[QUEUE] Uploaded verification result to S3: ${upload.s3Filename}`,
-        )
-        console.log(`[QUEUE] Extracted ${dataObjectIds.length} data object IDs`)
-      }
-
-      // Update PostgreSQL task status based on verification result
-      const taskStatus = result.success ? 'completed' : 'failed'
-      const updateData: {
-        status: 'completed' | 'failed'
-        finishedAt: Date
-        s3Filename?: string
-        s3Key?: string
-        s3Bucket?: string
-        dataObjects?: string[]
-        errorMessage?: string
-      } = {
-        status: taskStatus,
-        finishedAt: new Date(),
-        ...uploadResult,
-      }
-
-      // Add error message if verification failed
-      if (!result.success && result.error) {
-        updateData.errorMessage = result.error
-      }
-
-      const updated = await verificationTaskService.updateVerificationTask(
-        postgresTaskId,
-        updateData,
-      )
-
-      if (!updated) {
-        console.error(
-          `[QUEUE] Failed to update task ${postgresTaskId} - task not found in database`,
-        )
-        return
-      }
-
-      if (result.success) {
-        console.log(`[QUEUE] Task ${postgresTaskId} completed successfully`)
-      } else {
-        console.log(`[QUEUE] Task ${postgresTaskId} failed: ${result.error}`)
-      }
-    } catch (error) {
-      console.error(
-        `[QUEUE] Failed to handle completion for task ${postgresTaskId}:`,
-        error,
-      )
-
-      // Try to mark task as failed if update failed
-      try {
-        await verificationTaskService.updateVerificationTask(postgresTaskId, {
-          status: 'failed',
-          errorMessage:
-            error instanceof Error ? error.message : 'Post-processing failed',
-          finishedAt: new Date(),
-        })
-      } catch (updateError) {
-        console.error(
-          `[QUEUE] Failed to update task ${postgresTaskId} status:`,
-          updateError,
-        )
-      }
-    }
+      },
+    )
   }
 
   // Handle job failure
@@ -366,36 +383,36 @@ export const createQueueService = (
       return
     }
 
-    const {postgresTaskId} = job.data
+    const {postgresTaskId, appId} = job.data
 
-    try {
-      console.error(
-        `[QUEUE] Job ${job.id} failed for task ${postgresTaskId}: ${error.message}`,
-      )
+    return await runWithVerificationLogContext(
+      {taskId: postgresTaskId, app: appId},
+      async () => {
+        try {
+          console.error(`[QUEUE] Job ${job.id} failed: ${error.message}`)
 
-      // Update PostgreSQL task status
-      await verificationTaskService.updateVerificationTask(postgresTaskId, {
-        status: 'failed',
-        errorMessage: error.message,
-        finishedAt: new Date(),
-      })
+          // Update PostgreSQL task status
+          await verificationTaskService.updateVerificationTask(postgresTaskId, {
+            status: 'failed',
+            errorMessage: error.message,
+            finishedAt: new Date(),
+          })
 
-      console.log(`[QUEUE] Marked task ${postgresTaskId} as failed`)
-    } catch (updateError) {
-      console.error(
-        `[QUEUE] Failed to update task ${postgresTaskId} status:`,
-        updateError,
-      )
-    }
+          console.log('[QUEUE] Marked task as failed')
+        } catch (updateError) {
+          console.error('[QUEUE] Failed to update task status:', updateError)
+        }
+      },
+    )
   }
 
   // Handle job progress
   const handleJobProgress = async (job: Job<TaskData>, progress: unknown) => {
-    const {postgresTaskId} = job.data
+    const {postgresTaskId, appId} = job.data
     const progressValue = typeof progress === 'number' ? progress : 0
-    console.log(
-      `[QUEUE] Job ${job.id} progress for task ${postgresTaskId}: ${progressValue}%`,
-    )
+    runWithVerificationLogContext({taskId: postgresTaskId, app: appId}, () => {
+      console.log(`[QUEUE] Job ${job.id} progress: ${progressValue}%`)
+    })
   }
 
   // Event listeners
