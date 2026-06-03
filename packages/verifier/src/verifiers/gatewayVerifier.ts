@@ -11,8 +11,8 @@ import {
   type AcmeInfo,
   type AppInfo,
   type AttestationBundle,
-  convertGuestAgentInfoToAppInfo,
   type CTResult,
+  convertGuestAgentInfoToAppInfo,
   type GatewayMetadata,
   parseJsonFields,
   type QuoteData,
@@ -21,8 +21,8 @@ import {
   type VerificationFailure,
 } from '../types'
 import type {DataObjectCollector} from '../utils/dataObjectCollector'
-import {fetchDstack} from '../utils/fetchDstack'
 import {DstackApp} from '../utils/dstackContract'
+import {fetchDstack} from '../utils/fetchDstack'
 import {extractVersionNumber} from '../utils/imageDownloader'
 import {
   verifyCertificateKey,
@@ -30,10 +30,7 @@ import {
   verifyDnsCAA,
   verifyTeeControlledKey,
 } from '../verification/domainVerification'
-import {
-  isUpToDate,
-  verifyTeeQuote,
-} from '../verification/hardwareVerification'
+import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
 import {verifyOSIntegrity} from '../verification/osVerification'
 import {verifyComposeHash} from '../verification/sourceCodeVerification'
 import {type OwnDomain, Verifier} from '../verifier'
@@ -164,7 +161,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       verificationResult,
       null,
     )
-    dataObjects.forEach(obj => {
+    dataObjects.forEach((obj) => {
       this.createDataObject(obj)
     })
 
@@ -187,9 +184,11 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
    * @returns Version string like "0.5.8"
    */
   private extractGatewayVersion(appInfo: AppInfo): string {
-    // Try to extract from vm_config.image (format: "dstack-0.5.8-6427f4f5")
+    // Try to extract from vm_config.image (format: "dstack-0.5.8-6427f4f5" or "dstack-0.5.4.1")
     if ('image' in appInfo.vm_config && appInfo.vm_config.image) {
-      const match = appInfo.vm_config.image.match(/dstack-(\d+\.\d+\.\d+)/)
+      const match = appInfo.vm_config.image.match(
+        /dstack-(\d+(?:\.\d+)+)(?:-|$)/,
+      )
       if (match?.[1]) {
         return match[1]
       }
@@ -220,7 +219,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
 
     // Generate DataObjects for Gateway OS verification
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(appInfo)
-    dataObjects.forEach(obj => {
+    dataObjects.forEach((obj) => {
       this.createDataObject(obj)
     })
 
@@ -263,7 +262,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       this.rpcEndpoint,
       appInfo.app_cert,
     )
-    dataObjects.forEach(obj => {
+    dataObjects.forEach((obj) => {
       this.createDataObject(obj)
     })
 
@@ -305,9 +304,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
       const data = await response.json()
       const parsed = AcmeInfoSchema.safeParse(data)
       if (!parsed.success) {
-        throw new Error(
-          `Invalid ACME info response: ${parsed.error.message}`,
-        )
+        throw new Error(`Invalid ACME info response: ${parsed.error.message}`)
       }
       this.cachedAcmeInfo = parsed.data as AcmeInfo
       return this.cachedAcmeInfo
@@ -389,7 +386,11 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
           resolve(pems.join('\n'))
         },
       )
-      socket.on('error', (err) => reject(new Error(`TLS connection to ${host}:${port} failed: ${err.message}`)))
+      socket.on('error', (err) =>
+        reject(
+          new Error(`TLS connection to ${host}:${port} failed: ${err.message}`),
+        ),
+      )
       socket.setTimeout(10_000, () => {
         socket.destroy()
         reject(new Error(`TLS connection to ${host}:${port} timed out`))
@@ -421,7 +422,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
         result,
         acmeInfo,
       )
-    dataObjects.forEach(obj => {
+    dataObjects.forEach((obj) => {
       this.createDataObject(obj)
     })
 
