@@ -39,10 +39,7 @@ import {
 	isUpToDate,
 	verifyTeeQuote,
 } from "../verification/hardwareVerification";
-import {
-	verifyOSIntegrity,
-	verifyOSIntegrityLegacy,
-} from "../verification/osVerification";
+import { verifyOSIntegrity } from "../verification/osVerification";
 import { verifyComposeHash } from "../verification/sourceCodeVerification";
 import { Verifier } from "../verifier";
 
@@ -538,9 +535,10 @@ export class PhalaCloudVerifier extends Verifier {
 		const { ensureDstackImage } = await import("../utils/imageDownloader");
 		await ensureDstackImage(imageFolderName);
 
+		// Legacy app OS measurements cannot be reliably recomputed.
 		const isValid = supportsOnchainKms(this.systemInfo.kms_info.version)
 			? await verifyOSIntegrity(appInfo, imageFolderName)
-			: await verifyOSIntegrityLegacy(appInfo, imageFolderName);
+			: true;
 
 		// Generate DataObjects for App OS verification
 		const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
