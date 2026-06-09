@@ -45,6 +45,29 @@ export class PhalaCloudKmsVerifier extends KmsVerifier {
   }
 
   protected override async getQuote(): Promise<QuoteData> {
+    const guestAgentInfo = this.systemInfo.kms_guest_agent_info
+    const leafCert = guestAgentInfo?.app_certificates?.find(
+      (cert) => !cert.is_ca,
+    )
+
+    if (guestAgentInfo && leafCert?.quote) {
+      if (this.registrySmartContract) {
+        const contractKmsInfo = await this.registrySmartContract.kmsInfo()
+        this.certificateAuthorityPublicKey = contractKmsInfo.caPubkey
+      } else {
+        this.certificateAuthorityPublicKey = HARDCODED_KMS_INFO.caPubkey
+      }
+
+      const rawQuote = leafCert.quote
+      const quote = (
+        rawQuote.startsWith('0x') ? rawQuote : `0x${rawQuote}`
+      ) as `0x${string}`
+      return {
+        quote,
+        eventlog: guestAgentInfo.tcb_info.event_log,
+      }
+    }
+
     if (this.registrySmartContract) {
       return super.getQuote()
     }
@@ -58,22 +81,6 @@ export class PhalaCloudKmsVerifier extends KmsVerifier {
     }
 
     this.certificateAuthorityPublicKey = HARDCODED_KMS_INFO.caPubkey
-
-    const guestAgentInfo = this.systemInfo.kms_guest_agent_info
-    const leafCert = guestAgentInfo?.app_certificates?.find(
-      (cert) => !cert.is_ca,
-    )
-
-    if (guestAgentInfo && leafCert?.quote) {
-      const rawQuote = leafCert.quote
-      const quote = (
-        rawQuote.startsWith('0x') ? rawQuote : `0x${rawQuote}`
-      ) as `0x${string}`
-      return {
-        quote,
-        eventlog: guestAgentInfo.tcb_info.event_log,
-      }
-    }
 
     const eventLogBuffer = Buffer.from(
       HARDCODED_KMS_INFO.eventlog.replace('0x', ''),

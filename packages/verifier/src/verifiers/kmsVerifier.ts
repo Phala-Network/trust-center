@@ -160,12 +160,32 @@ export abstract class KmsVerifier extends Verifier {
 		const appInfo = await this.getAppInfo();
 		const failures: VerificationFailure[] = [];
 
-		// Extract version from KMS info and construct image folder name
+		// Determine the OS image folder name
+		// Priority: vm_config.image (actual running OS) > kms_info.version (KMS software version)
 		const { extractVersionNumber, ensureDstackImage } = await import(
 			"../utils/imageDownloader"
 		);
-		const version = extractVersionNumber(this.kmsInfo.version);
-		const imageFolderName = `dstack-${version}`;
+		let imageFolderName: string;
+
+		// Check if vm_config has image field (use1/use2 format with spec_version)
+		const vmConfig = appInfo.vm_config;
+		if ('spec_version' in vmConfig && 'image' in vmConfig && vmConfig.image) {
+			// Use image name from vm_config (e.g., "dstack-0.5.8-6427f4f5")
+			// Extract base image name by removing the git hash suffix
+			const imageName = vmConfig.image;
+			// Match pattern: dstack-<version>-<hash> or dstack-dev-<version>-<hash>
+			const imageMatch = imageName.match(/^(dstack(?:-dev)?-\d+(?:\.\d+)+)(?:-|$)/);
+			if (imageMatch?.[1]) {
+				imageFolderName = imageMatch[1];
+			} else {
+				// Fallback: use the full image name
+				imageFolderName = imageName;
+			}
+		} else {
+			// Fallback: extract version from KMS info
+			const version = extractVersionNumber(this.kmsInfo.version);
+			imageFolderName = `dstack-${version}`;
+		}
 
 		// Ensure image is downloaded
 		await ensureDstackImage(imageFolderName);
