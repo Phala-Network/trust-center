@@ -40,8 +40,8 @@ import {
 	verifyTeeQuote,
 } from "../verification/hardwareVerification";
 import {
-	verifyOSIntegrity,
-	verifyOSIntegrityLegacy,
+	formatOSVerificationFailure,
+	verifyOSIntegrityDetailed,
 } from "../verification/osVerification";
 import { verifyComposeHash } from "../verification/sourceCodeVerification";
 import { Verifier } from "../verifier";
@@ -538,9 +538,11 @@ export class PhalaCloudVerifier extends Verifier {
 		const { ensureDstackImage } = await import("../utils/imageDownloader");
 		await ensureDstackImage(imageFolderName);
 
-		const isValid = supportsOnchainKms(this.systemInfo.kms_info.version)
-			? await verifyOSIntegrity(appInfo, imageFolderName)
-			: await verifyOSIntegrityLegacy(appInfo, imageFolderName);
+		// Legacy app OS measurements cannot be reliably recomputed.
+		const osVerification = supportsOnchainKms(this.systemInfo.kms_info.version)
+			? await verifyOSIntegrityDetailed(appInfo, imageFolderName)
+			: null;
+		const isValid = osVerification?.isValid ?? true;
 
 		// Generate DataObjects for App OS verification
 		const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
@@ -551,11 +553,10 @@ export class PhalaCloudVerifier extends Verifier {
 			this.createDataObject(obj);
 		});
 
-		if (!isValid) {
+		if (!isValid && osVerification) {
 			failures.push({
 				componentId: "app-main",
-				error:
-					"Operating system verification failed: Measurement registers (MRTD, RTMR0-2) do not match expected values",
+				error: formatOSVerificationFailure(imageFolderName, osVerification),
 			});
 		}
 

@@ -31,7 +31,10 @@ import {
   verifyTeeControlledKey,
 } from '../verification/domainVerification'
 import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
-import {verifyOSIntegrity} from '../verification/osVerification'
+import {
+  formatOSVerificationFailure,
+  verifyOSIntegrityDetailed,
+} from '../verification/osVerification'
 import {verifyComposeHash} from '../verification/sourceCodeVerification'
 import {type OwnDomain, Verifier} from '../verifier'
 
@@ -215,7 +218,8 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     // Ensure image is downloaded
     await ensureDstackImage(imageFolderName)
 
-    const isValid = await verifyOSIntegrity(appInfo, imageFolderName)
+    const osVerification = await verifyOSIntegrityDetailed(appInfo, imageFolderName)
+    const isValid = osVerification.isValid
 
     // Generate DataObjects for Gateway OS verification
     const dataObjects = this.dataObjectGenerator.generateOSDataObjects(appInfo)
@@ -226,8 +230,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     if (!isValid) {
       failures.push({
         componentId: 'gateway-main',
-        error:
-          'Operating system verification failed: Measurement registers (MRTD, RTMR0-2) do not match expected values',
+        error: formatOSVerificationFailure(imageFolderName, osVerification),
       })
     }
 

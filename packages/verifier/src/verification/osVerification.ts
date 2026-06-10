@@ -27,6 +27,64 @@ function getDStackImagesBasePath(): string {
   return path.join(import.meta.dirname, '../../external/dstack-images')
 }
 
+type MeasurementRegisters = {
+  mrtd: string
+  rtmr0: string
+  rtmr1: string
+  rtmr2: string
+}
+
+type MeasurementRegisterName = keyof MeasurementRegisters
+
+export interface MeasurementRegisterMismatch {
+  register: MeasurementRegisterName
+  expected: string
+  calculated: string
+}
+
+export interface OSVerificationResult {
+  isValid: boolean
+  tool: 'dstack-mr-cli' | 'dstack-mr'
+  measurementResult: MeasurementRegisters
+  mismatches: MeasurementRegisterMismatch[]
+}
+
+/**
+ * Measures DStack OS images and compares with expected TCB values.
+ * Automatically selects the appropriate measurement tool based on vm_config format:
+ * - Full VmConfig (with spec_version): uses modern Rust-based dstack-mr-cli
+ * - BasicVmConfig: uses legacy Go-based dstack-mr (reads metadata.json)
+ *
+ * @param appInfo - Application information containing VM config
+ * @param imageFolderName - Name of the image folder to use (required)
+ * @returns Promise resolving to detailed verification result
+ */
+export async function verifyOSIntegrityDetailed(
+  appInfo: AppInfo,
+  imageFolderName: string,
+): Promise<OSVerificationResult> {
+  if (isFullVmConfig(appInfo.vm_config)) {
+    const measurementResult = await measureDstackImages({
+      image_folder: path.join(getDStackImagesBasePath(), imageFolderName),
+      vm_config: appInfo.vm_config,
+    })
+    return buildOSVerificationResult(
+      measurementResult,
+      appInfo.tcb_info,
+      'dstack-mr-cli',
+    )
+  }
+
+  const measurementResult = await measureDstackImagesLegacy({
+    image_folder: path.join(getDStackImagesBasePath(), imageFolderName),
+  })
+  return buildOSVerificationResult(
+    measurementResult,
+    appInfo.tcb_info,
+    'dstack-mr',
+  )
+}
+
 /**
  * Measures DStack OS images and compares with expected TCB values.
  * Automatically selects the appropriate measurement tool based on vm_config format:
@@ -41,23 +99,30 @@ export async function verifyOSIntegrity(
   appInfo: AppInfo,
   imageFolderName: string,
 ): Promise<boolean> {
-  // Check if vm_config has full VmConfig fields using type guard
-  if (isFullVmConfig(appInfo.vm_config)) {
-    // Full VmConfig (>= 0.5.3) - use modern Rust-based measurement
-    const measurementResult = await measureDstackImages({
-      image_folder: path.join(getDStackImagesBasePath(), imageFolderName),
-      vm_config: appInfo.vm_config,
-    })
-    const expectedTcb = appInfo.tcb_info
-    return compareMeasurementRegisters(measurementResult, expectedTcb)
-  } else {
-    // BasicVmConfig (0.5.0-0.5.2) - use legacy Go-based measurement
-    const measurementResult = await measureDstackImagesLegacy({
-      image_folder: path.join(getDStackImagesBasePath(), imageFolderName),
-    })
-    const expectedTcb = appInfo.tcb_info
-    return compareMeasurementRegisters(measurementResult, expectedTcb)
-  }
+  return (await verifyOSIntegrityDetailed(appInfo, imageFolderName)).isValid
+}
+
+/**
+ * Measures DStack OS images for legacy versions using the Go-based dstack-mr tool.
+ * This tool reads metadata.json and doesn't require vm_config parameters.
+ *
+ * @param appInfo - Application information (vm_config not used)
+ * @param imageFolderName - Name of the image folder to use for legacy versions (required)
+ * @returns Promise resolving to detailed verification result
+ */
+export async function verifyOSIntegrityLegacyDetailed(
+  appInfo: AppInfo,
+  imageFolderName: string,
+): Promise<OSVerificationResult> {
+  const measurementResult = await measureDstackImagesLegacy({
+    image_folder: path.join(getDStackImagesBasePath(), imageFolderName),
+  })
+
+  return buildOSVerificationResult(
+    measurementResult,
+    appInfo.tcb_info,
+    'dstack-mr',
+  )
 }
 
 /**
@@ -72,12 +137,40 @@ export async function verifyOSIntegrityLegacy(
   appInfo: AppInfo,
   imageFolderName: string,
 ): Promise<boolean> {
-  const measurementResult = await measureDstackImagesLegacy({
-    image_folder: path.join(getDStackImagesBasePath(), imageFolderName),
-  })
+  return (await verifyOSIntegrityLegacyDetailed(appInfo, imageFolderName))
+    .isValid
+}
 
-  const expectedTcb = appInfo.tcb_info
-  return compareMeasurementRegisters(measurementResult, expectedTcb)
+export function formatOSVerificationFailure(
+  imageFolderName: string,
+  result: OSVerificationResult,
+): string {
+  const mismatches = result.mismatches
+    .map(
+      (mismatch) =>
+        `${mismatch.register}: expected=${mismatch.expected} calculated=${mismatch.calculated}`,
+    )
+    .join('; ')
+
+  return `Operating system verification failed: Measurement registers (MRTD, RTMR0-2) do not match expected values (image=${imageFolderName}, tool=${result.tool}, mismatches=${mismatches})`
+}
+
+function buildOSVerificationResult(
+  measurementResult: MeasurementRegisters,
+  expectedTcb: TcbInfo,
+  tool: OSVerificationResult['tool'],
+): OSVerificationResult {
+  const mismatches = compareMeasurementRegisters(
+    measurementResult,
+    expectedTcb,
+  )
+
+  return {
+    isValid: mismatches.length === 0,
+    tool,
+    measurementResult,
+    mismatches,
+  }
 }
 
 /**
@@ -85,21 +178,28 @@ export async function verifyOSIntegrityLegacy(
  *
  * @param measurementResult - Result from DStack measurement tool
  * @param expectedTcb - Expected TCB information
- * @returns True if all registers match
+ * @returns Mismatched registers
  */
 function compareMeasurementRegisters(
-  measurementResult: {
-    mrtd: string
-    rtmr0: string
-    rtmr1: string
-    rtmr2: string
-  },
+  measurementResult: MeasurementRegisters,
   expectedTcb: TcbInfo,
-): boolean {
-  return (
-    measurementResult.mrtd === expectedTcb.mrtd &&
-    measurementResult.rtmr0 === expectedTcb.rtmr0 &&
-    measurementResult.rtmr1 === expectedTcb.rtmr1 &&
-    measurementResult.rtmr2 === expectedTcb.rtmr2
+): MeasurementRegisterMismatch[] {
+  const registerNames: MeasurementRegisterName[] = [
+    'mrtd',
+    'rtmr0',
+    'rtmr1',
+    'rtmr2',
+  ]
+
+  return registerNames.flatMap((register) =>
+    measurementResult[register] === expectedTcb[register]
+      ? []
+      : [
+          {
+            register,
+            expected: expectedTcb[register],
+            calculated: measurementResult[register],
+          },
+        ],
   )
 }
