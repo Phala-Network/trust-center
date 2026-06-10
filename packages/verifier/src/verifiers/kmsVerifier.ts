@@ -15,7 +15,10 @@ import {
 	isUpToDate,
 	verifyTeeQuote,
 } from "../verification/hardwareVerification";
-import { verifyOSIntegrity } from "../verification/osVerification";
+import {
+	formatOSVerificationFailure,
+	verifyOSIntegrityDetailed,
+} from "../verification/osVerification";
 import { verifyComposeHash } from "../verification/sourceCodeVerification";
 import { Verifier } from "../verifier";
 
@@ -190,7 +193,8 @@ export abstract class KmsVerifier extends Verifier {
 		// Ensure image is downloaded
 		await ensureDstackImage(imageFolderName);
 
-		const isValid = await verifyOSIntegrity(appInfo, imageFolderName);
+		const osVerification = await verifyOSIntegrityDetailed(appInfo, imageFolderName);
+		const isValid = osVerification.isValid;
 
 		// Generate DataObjects for KMS OS verification
 		const dataObjects = this.dataObjectGenerator.generateOSDataObjects(appInfo);
@@ -201,8 +205,7 @@ export abstract class KmsVerifier extends Verifier {
 		if (!isValid) {
 			failures.push({
 				componentId: "kms-main",
-				error:
-					"Operating system verification failed: Measurement registers (MRTD, RTMR0-2) do not match expected values",
+				error: formatOSVerificationFailure(imageFolderName, osVerification),
 			});
 		}
 
