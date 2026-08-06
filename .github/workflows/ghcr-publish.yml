@@ -10,6 +10,8 @@ on:
     branches:
       - main
       - master
+  issue_comment:
+    types: [created]
 
 env:
   REGISTRY: ghcr.io
@@ -17,6 +19,7 @@ env:
 
 jobs:
   build-and-push:
+    if: github.event_name != 'issue_comment'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -62,3 +65,137 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release-pr-image:
+    if: >-
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '!release ') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      packages: write
+      pull-requests: read
+
+    steps:
+      - name: Resolve pull request head
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {data: pullRequest} = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            })
+            core.setOutput('repository', pullRequest.head.repo.full_name)
+            core.setOutput('sha', pullRequest.head.sha)
+
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.pr.outputs.repository }}
+          ref: ${{ steps.pr.outputs.sha }}
+          submodules: true
+
+      - name: Parse release command
+        id: release
+        shell: bash
+        env:
+          RELEASE_COMMAND: ${{ github.event.comment.body }}
+        run: |
+          if [[ ! "$RELEASE_COMMAND" =~ ^!release[[:space:]]+(major|minor|patch)([[:space:]]+beta)?[[:space:]]*$ ]]; then
+            echo "::error::Usage: !release [major|minor|patch] (beta)"
+            exit 1
+          fi
+
+          bump="${BASH_REMATCH[1]}"
+          prerelease="${BASH_REMATCH[2]:-}"
+          base_version="$(node -p "require('./package.json').version")"
+
+          if [[ ! "$base_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::package.json version must use major.minor.patch format"
+            exit 1
+          fi
+
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+
+          case "$bump" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+
+          version="${major}.${minor}.${patch}"
+          if [[ -n "$prerelease" ]]; then
+            version="${version}-beta.${GITHUB_RUN_NUMBER}"
+          fi
+
+          image="${REGISTRY}/${GITHUB_REPOSITORY,,}"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.release.outputs.image }}
+          tags: |
+            type=raw,value=${{ steps.release.outputs.version }}
+            type=raw,value=pr-${{ github.event.issue.number }}
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=pr-${{ github.event.issue.number }}
+          cache-to: type=gha,mode=max,scope=pr-${{ github.event.issue.number }}
+
+      - name: Comment with published image
+        uses: actions/github-script@v7
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}
+          VERSION: ${{ steps.release.outputs.version }}
+        with:
+          script: |
+            const body = [
+              'GHCR image published:',
+              '',
+              `\`${process.env.IMAGE}:${process.env.VERSION}\``,
+              '',
+              `Moving PR tag: \`${process.env.IMAGE}:pr-${context.issue.number}\``,
+            ].join('\n')
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            })
