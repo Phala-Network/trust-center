@@ -50,13 +50,12 @@ export const cronRoutes = new Elysia()
             `[CRON:PROFILES] Sync completed: ${profilesResult.profilesSynced} profiles synced`,
           )
         } catch (error) {
-          console.error('[CRON:PROFILES] Sync failed:', error)
-          console.error(
-            '[CRON:PROFILES] Error details:',
-            error instanceof Error ? error.message : String(error),
-          )
-          if (error instanceof Error && error.stack) {
-            console.error('[CRON:PROFILES] Error stack:', error.stack)
+          if (error instanceof Error && error.cause !== undefined) {
+            console.error(
+              '[CRON:PROFILES] Sync failed; root cause logged by sync service',
+            )
+          } else {
+            console.error('[CRON:PROFILES] Sync failed:', error)
           }
         }
       },

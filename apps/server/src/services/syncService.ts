@@ -14,6 +14,54 @@ import type {AppService} from './appService'
 import type {ProfileService} from './profileService'
 import type {QueueService} from './queue'
 
+function logErrorChain(prefix: string, error: unknown): void {
+  if (!(error instanceof Error)) {
+    console.error(prefix, error)
+    return
+  }
+
+  const errorWithQuery = error as Error & {
+    query?: unknown
+    params?: unknown
+  }
+  const query = errorWithQuery.query
+  const isQueryError = typeof query === 'string'
+
+  console.error(prefix, {
+    name: error.name,
+    message: isQueryError ? 'Database query failed' : error.message,
+    ...(isQueryError ? {queryLength: query.length} : {}),
+    ...(Array.isArray(errorWithQuery.params)
+      ? {parameterCount: errorWithQuery.params.length}
+      : {}),
+  })
+
+  let cause = error.cause
+  let depth = 1
+
+  while (cause !== undefined && depth <= 5) {
+    if (!(cause instanceof Error)) {
+      console.error(`${prefix} cause ${depth}:`, cause)
+      break
+    }
+
+    const causeDetails = Object.fromEntries(
+      Object.entries(cause).filter(
+        ([key]) => key !== 'cause' && key !== 'query' && key !== 'params',
+      ),
+    )
+
+    console.error(`${prefix} cause ${depth}:`, {
+      name: cause.name,
+      message: cause.message,
+      ...causeDetails,
+    })
+
+    cause = cause.cause
+    depth++
+  }
+}
+
 // Helper function to parse version from base_image
 function parseVersion(baseImage: string): {
   major: number
@@ -489,14 +537,7 @@ export function createSyncService(
       )
       return {profilesSynced: profiles.length, profiles}
     } catch (error) {
-      console.error('[SYNC] Sync profiles error:', error)
-      console.error(
-        '[SYNC] Error details:',
-        error instanceof Error ? error.message : String(error),
-      )
-      if (error instanceof Error && error.stack) {
-        console.error('[SYNC] Error stack:', error.stack)
-      }
+      logErrorChain('[SYNC] Sync profiles error:', error)
       throw error
     }
   }
