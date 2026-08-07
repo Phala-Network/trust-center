@@ -104,20 +104,26 @@ export function createProfileService(
       updatedAt: p.updated_at ? new Date(p.updated_at) : null,
     }))
 
-    // Upsert all profiles in one operation
-    await db
-      .insert(profilesTable)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [profilesTable.entityType, profilesTable.entityId],
-        set: {
-          displayName: sql`EXCLUDED.display_name`,
-          avatarUrl: sql`EXCLUDED.avatar_url`,
-          description: sql`EXCLUDED.description`,
-          customDomain: sql`EXCLUDED.custom_domain`,
-          updatedAt: sql`EXCLUDED.updated_at`,
-        },
-      })
+    const BATCH_SIZE = 1000
+
+    // Process in batches to stay below the PostgreSQL parameter limit
+    for (let i = 0; i < values.length; i += BATCH_SIZE) {
+      const batch = values.slice(i, i + BATCH_SIZE)
+
+      await db
+        .insert(profilesTable)
+        .values(batch)
+        .onConflictDoUpdate({
+          target: [profilesTable.entityType, profilesTable.entityId],
+          set: {
+            displayName: sql`EXCLUDED.display_name`,
+            avatarUrl: sql`EXCLUDED.avatar_url`,
+            description: sql`EXCLUDED.description`,
+            customDomain: sql`EXCLUDED.custom_domain`,
+            updatedAt: sql`EXCLUDED.updated_at`,
+          },
+        })
+    }
 
     console.log(
       `[PROFILE] Profile sync completed: ${values.length} profiles synced (${toDelete.length} deleted)`,
