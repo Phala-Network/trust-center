@@ -50,7 +50,7 @@ const COLUMNS: Array<{
       {label: 'Contact', href: 'https://phala.network/contact', external: true},
       {
         label: 'GitHub',
-        href: 'https://github.com/Phala-Network',
+        href: 'https://phala.com/github',
         external: true,
       },
     ],
@@ -59,7 +59,7 @@ const COLUMNS: Array<{
 
 const SOCIAL: Array<{label: string; href: string; Icon: typeof Github}> = [
   {label: 'GitHub', href: 'https://github.com/Phala-Network/trust-center', Icon: Github},
-  {label: 'Twitter', href: 'https://x.com/PhalaNetwork', Icon: Twitter},
+  {label: 'Twitter', href: 'https://phala.com/x', Icon: Twitter},
   {label: 'Docs', href: 'https://docs.phala.com', Icon: BookOpen},
 ]
 
