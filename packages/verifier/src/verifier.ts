@@ -1,3 +1,6 @@
+import {z} from 'zod'
+
+import {BasicVmConfigSchema, VmConfigSchema} from './schemas'
 import type {
   AcmeInfo,
   AppInfo,
@@ -10,8 +13,15 @@ import type {
   ObjectRelationship,
   QuoteData,
   VerificationFailure,
+  VerifyQuoteResult,
 } from './types'
 import type {DataObjectCollector} from './utils/dataObjectCollector'
+import {decodeQuote} from './utils/dcap-qvl'
+import {verifyTeeQuote} from './verification/hardwareVerification'
+import {
+  type DstackVerificationResponse,
+  verifyDstackEvidence,
+} from './verification/osVerification'
 
 /**
  * Abstract base class for TEE (Trusted Execution Environment) application verification.
@@ -25,6 +35,104 @@ export abstract class Verifier {
   protected relationships: ObjectRelationship[] = []
   protected objectIdPrefix: string
   protected collector: DataObjectCollector
+  private evidencePromise?: Promise<{quoteData: QuoteData; appInfo: AppInfo}>
+  private cvmVerificationPromise?: Promise<DstackVerificationResponse | null>
+
+  protected getVerificationEvidence(): Promise<{
+    quoteData: QuoteData
+    appInfo: AppInfo
+  }> {
+    this.evidencePromise ??= Promise.all([
+      this.getQuote(),
+      this.getAppInfo(),
+    ]).then(([quoteData, appInfo]) => ({
+      quoteData,
+      appInfo: quoteData.vm_config
+        ? {
+            ...appInfo,
+            vm_config: z
+              .union([VmConfigSchema, BasicVmConfigSchema])
+              .parse(JSON.parse(quoteData.vm_config)),
+          }
+        : appInfo,
+    }))
+    return this.evidencePromise
+  }
+
+  protected getCvmVerification(): Promise<DstackVerificationResponse | null> {
+    this.cvmVerificationPromise ??= this.verifyCvmEvidence()
+    return this.cvmVerificationPromise
+  }
+
+  protected async getHardwareEvidence(): Promise<{
+    quoteData: QuoteData
+    verificationResult: VerifyQuoteResult
+  }> {
+    const {quoteData} = await this.getVerificationEvidence()
+    const result = await this.getCvmVerification()
+    if (!result) {
+      return {quoteData, verificationResult: await verifyTeeQuote(quoteData)}
+    }
+    // Rust verifies quote, event log and OS binding as one operation.
+    // Disabling the OS report must not downgrade a failed modern attestation.
+    if (
+      !result.is_valid ||
+      !result.details.quote_verified ||
+      !result.details.tcb_status
+    ) {
+      throw new Error(
+        result.reason || 'dstack-verifier quote verification failed',
+      )
+    }
+    // Decode the same verified quote for display-only TD report fields.
+    const decoded = await decodeQuote(quoteData.quote, {hex: true})
+    return {
+      quoteData,
+      verificationResult: {
+        status: result.details.tcb_status,
+        advisory_ids: result.details.advisory_ids,
+        report: decoded.report,
+      },
+    }
+  }
+
+  private async verifyCvmEvidence(): Promise<DstackVerificationResponse | null> {
+    const {quoteData, appInfo} = await this.getVerificationEvidence()
+    const vmConfig = quoteData.vm_config
+      ? JSON.parse(quoteData.vm_config)
+      : appInfo.vm_config
+    if (!vmConfig || typeof vmConfig !== 'object' || Array.isArray(vmConfig)) {
+      throw new Error('Invalid VM configuration in attestation evidence')
+    }
+    if (
+      !('spec_version' in vmConfig) &&
+      !('tdx_attestation_variant' in vmConfig)
+    ) {
+      return null
+    }
+    const result = await verifyDstackEvidence({
+      quote: quoteData.quote,
+      event_log: JSON.stringify(quoteData.eventlog),
+      vm_config: quoteData.vm_config || JSON.stringify(appInfo.vm_config),
+    })
+    if (result.is_valid && result.details.app_info) {
+      const verified = result.details.app_info
+      const normalize = (value: string) =>
+        value.replace(/^0x/, '').toLowerCase()
+      if (
+        normalize(verified.app_id) !== normalize(appInfo.app_id) ||
+        (appInfo.instance_id &&
+          normalize(verified.instance_id) !== normalize(appInfo.instance_id)) ||
+        (quoteData.instance_id &&
+          normalize(verified.instance_id) !== normalize(quoteData.instance_id))
+      ) {
+        throw new Error(
+          'dstack-verifier evidence does not match the requested app instance',
+        )
+      }
+    }
+    return result
+  }
 
   /**
    * Constructor for the base Verifier class.

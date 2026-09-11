@@ -97,6 +97,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     return {
       quote: `0x${extendedQuoteData.quote}` as const,
       eventlog: safeParseEventLog(extendedQuoteData.event_log),
+      vm_config: extendedQuoteData.vm_config,
     }
   }
 
@@ -151,8 +152,7 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     isValid: boolean
     failures: VerificationFailure[]
   }> {
-    const quoteData = await this.getQuote()
-    const verificationResult = await verifyTeeQuote(quoteData)
+    const {quoteData, verificationResult} = await this.getHardwareEvidence()
     const failures: VerificationFailure[] = []
 
     // Save quote hex for deferred ITA verification
@@ -207,8 +207,26 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     isValid: boolean
     failures: VerificationFailure[]
   }> {
-    const appInfo = await this.getAppInfo()
+    const {appInfo} = await this.getVerificationEvidence()
     const failures: VerificationFailure[] = []
+    const result = await this.getCvmVerification()
+    if (result) {
+      if (!result.is_valid) {
+        return {
+          isValid: false,
+          failures: [
+            {
+              componentId: 'gateway-main',
+              error: result.reason || 'dstack-verifier verification failed',
+            },
+          ],
+        }
+      }
+      this.dataObjectGenerator
+        .generateVerifiedOSDataObjects(appInfo, result)
+        .forEach((obj) => this.createDataObject(obj))
+      return {isValid: true, failures}
+    }
 
     // Extract version from Gateway's vm_config.image, fall back to KMS version
     const {ensureDstackImage} = await import('../utils/imageDownloader')
@@ -218,7 +236,10 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     // Ensure image is downloaded
     await ensureDstackImage(imageFolderName)
 
-    const osVerification = await verifyOSIntegrityDetailed(appInfo, imageFolderName)
+    const osVerification = await verifyOSIntegrityDetailed(
+      appInfo,
+      imageFolderName,
+    )
     const isValid = osVerification.isValid
 
     // Generate DataObjects for Gateway OS verification
@@ -244,8 +265,8 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     isValid: boolean
     failures: VerificationFailure[]
   }> {
-    const appInfo = await this.getAppInfo()
-    const quoteData = await this.getQuote()
+    const {appInfo} = await this.getVerificationEvidence()
+    const {quoteData} = await this.getVerificationEvidence()
     const failures: VerificationFailure[] = []
 
     const {isValid, calculatedHash, isRegistered} = await verifyComposeHash(

@@ -4,13 +4,15 @@ import {AppIdSchema, ContractAddressSchema} from './types/utils'
 
 // Zod schemas for JSON parsing validation
 
-export const LogEntrySchema = z.object({
-  imr: z.number(),
-  event_type: z.number(),
-  digest: z.string(),
-  event: z.string(),
-  event_payload: z.string(),
-})
+export const LogEntrySchema = z
+  .object({
+    imr: z.number(),
+    event_type: z.number(),
+    digest: z.string(),
+    event: z.string(),
+    event_payload: z.string(),
+  })
+  .passthrough()
 
 export const EventLogSchema = z.array(LogEntrySchema)
 
@@ -62,6 +64,8 @@ export const InstanceTcbInfoSchema = z.object({
 export const DstackInstanceSchema = z
   .object({
     quote: z.string().nullable().optional(),
+    instance_id: z.string().nullable().optional(),
+    vm_config: z.string().nullable().optional(),
     // Old format: top-level eventlog
     eventlog: EventLogSchema.nullable().optional(),
     // New format: tcb_info with nested event_log
@@ -179,9 +183,7 @@ export const AcmeInfoSchema = z
   .transform((data) => ({
     ...data,
     // Derive hist_keys from quoted_hist_keys if not provided by legacy API
-    hist_keys:
-      data.hist_keys ??
-      data.quoted_hist_keys.map((k) => k.public_key),
+    hist_keys: data.hist_keys ?? data.quoted_hist_keys.map((k) => k.public_key),
   }))
 
 export const SystemInfoSchema = z.object({
@@ -216,30 +218,34 @@ export const AppComposeSchema = z.object({
   launch_token_hash: z.string(),
 })
 
-export const BasicVmConfigSchema = z.object({
-  os_image_hash: z.string(),
-  cpu_count: z.number(),
-  memory_size: z.number(),
-})
+export const BasicVmConfigSchema = z
+  .object({
+    os_image_hash: z.string(),
+    cpu_count: z.number(),
+    memory_size: z.number(),
+  })
+  .passthrough()
 
-export const VmConfigSchema = z.object({
-  spec_version: z.number(),
-  os_image_hash: z.string(),
-  cpu_count: z.number(),
-  memory_size: z.number(),
-  // Optional fields - different dstack versions have different vm_config formats
-  // prod7+: has qemu_single_pass_add_pages, pic
-  // use1/use2: has qemu_version, image
-  qemu_single_pass_add_pages: z.boolean().optional(),
-  pic: z.boolean().optional(),
-  qemu_version: z.string().optional(),
-  image: z.string().optional(),
-  pci_hole64_size: z.number(),
-  hugepages: z.boolean(),
-  num_gpus: z.number(),
-  num_nvswitches: z.number(),
-  hotplug_off: z.boolean(),
-})
+export const VmConfigSchema = z
+  .object({
+    spec_version: z.number(),
+    os_image_hash: z.string(),
+    cpu_count: z.number(),
+    memory_size: z.number(),
+    // Optional fields - different dstack versions have different vm_config formats
+    // prod7+: has qemu_single_pass_add_pages, pic
+    // use1/use2: has qemu_version, image
+    qemu_single_pass_add_pages: z.boolean().optional(),
+    pic: z.boolean().optional(),
+    qemu_version: z.string().optional(),
+    image: z.string().optional(),
+    pci_hole64_size: z.number(),
+    hugepages: z.boolean(),
+    num_gpus: z.number(),
+    num_nvswitches: z.number(),
+    hotplug_off: z.boolean(),
+  })
+  .passthrough()
 
 export const TcbInfoSchema = z.object({
   mrtd: z.string(),
@@ -282,7 +288,7 @@ export const AppInfoSchema = z.object({
   os_image_hash: z.string(),
   key_provider_info: KeyProviderSchema,
   compose_hash: z.string(),
-  vm_config: z.union([BasicVmConfigSchema, VmConfigSchema]),
+  vm_config: z.union([VmConfigSchema, BasicVmConfigSchema]),
 })
 
 export const LegacyAppInfoSchema = z.object({
@@ -370,6 +376,7 @@ export const OsMeasurementSchema = z.object({
 export const ExtendedQuoteDataSchema = z.object({
   quote: z.string(),
   event_log: z.string(),
+  vm_config: z.string().optional(),
 })
 
 export const NvidiaEvidenceSchema = z.object({

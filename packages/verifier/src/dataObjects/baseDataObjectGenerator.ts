@@ -26,6 +26,7 @@ import type {
   VerifyQuoteResult,
 } from '../types'
 import {parseImageVersion} from '../utils/metadataUtils'
+import type {DstackVerificationResponse} from '../verification/osVerification'
 
 /**
  * Interface for DStack image metadata from external/dstack-images directory
@@ -257,6 +258,45 @@ export abstract class BaseDataObjectGenerator {
         },
       ],
     }
+  }
+
+  generateVerifiedOSDataObjects(
+    appInfo: AppInfo,
+    result: DstackVerificationResponse,
+  ): DataObject[] {
+    if (
+      !result.is_valid ||
+      !result.details.os_image_hash_verified ||
+      !result.details.app_info
+    ) {
+      throw new Error('Cannot generate an OS report from unverified evidence')
+    }
+    const {details} = result
+    const verified = result.details.app_info
+    return [
+      {
+        id: this.generateObjectId('os'),
+        name: `${this.verifierType.toUpperCase()} OS`,
+        description:
+          'OS image identity verified against hardware-signed measurements by dstack-verifier.',
+        fields: {
+          verifier: 'dstack-verifier',
+          os_image_hash: verified.os_image_hash,
+          os_image_hash_verified: details.os_image_hash_verified,
+          event_log_verified: details.event_log_verified,
+          acpi_tables_verified: details.acpi_tables_verified,
+          ...(details.os_image_version !== null
+            ? {os: details.os_image_version}
+            : {}),
+          ...(details.os_image_is_dev !== null
+            ? {is_dev: details.os_image_is_dev}
+            : {}),
+          vm_config: JSON.stringify(appInfo.vm_config),
+        },
+        kind: this.verifierType,
+        measuredBy: [{objectId: this.generateObjectId('quote')}],
+      },
+    ]
   }
 
   /**

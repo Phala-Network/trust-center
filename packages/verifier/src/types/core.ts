@@ -16,6 +16,8 @@ export interface LogEntry {
   event: string
   /** Additional payload data for the event */
   event_payload: string
+  version?: number
+  preimage?: string
 }
 
 /**
@@ -36,4 +38,6 @@ export interface QuoteData {
   quote: Quote
   /** The complete event log with all measurements */
   eventlog: EventLog
+  vm_config?: string
+  instance_id?: string
 }

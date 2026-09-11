@@ -1,6 +1,7 @@
+import {z} from 'zod'
 import path from 'node:path'
 
-import type { AppInfo, TcbInfo, VmConfig } from '../types'
+import type {AppInfo, TcbInfo, VmConfig} from '../types'
 import {
   measureDstackImages,
   measureDstackImagesLegacy,
@@ -9,9 +10,7 @@ import {
 /**
  * Type guard to check if vm_config is a full VmConfig (vs BasicVmConfig)
  */
-function isFullVmConfig(
-  vmConfig: AppInfo['vm_config'],
-): vmConfig is VmConfig {
+function isFullVmConfig(vmConfig: AppInfo['vm_config']): vmConfig is VmConfig {
   return 'spec_version' in vmConfig
 }
 
@@ -160,10 +159,7 @@ function buildOSVerificationResult(
   expectedTcb: TcbInfo,
   tool: OSVerificationResult['tool'],
 ): OSVerificationResult {
-  const mismatches = compareMeasurementRegisters(
-    measurementResult,
-    expectedTcb,
-  )
+  const mismatches = compareMeasurementRegisters(measurementResult, expectedTcb)
 
   return {
     isValid: mismatches.length === 0,
@@ -202,4 +198,83 @@ function compareMeasurementRegisters(
           },
         ],
   )
+}
+
+export type DstackEvidence =
+  | {attestation: string}
+  | {quote: string; event_log: string; vm_config: string}
+
+const DstackVerificationResponseSchema = z.object({
+  is_valid: z.boolean(),
+  details: z
+    .object({
+      quote_verified: z.boolean(),
+      event_log_verified: z.boolean(),
+      os_image_hash_verified: z.boolean(),
+      acpi_tables_verified: z.boolean(),
+      os_image_version: z.string().nullable(),
+      os_image_is_dev: z.boolean().nullable(),
+      tee_variant: z.string().nullable(),
+      tcb_status: z.string().nullable(),
+      advisory_ids: z.array(z.string()),
+      report_data: z.string().nullable(),
+      app_info: z
+        .object({
+          app_id: z.string().min(1),
+          instance_id: z.string(),
+          compose_hash: z.string().min(1),
+          os_image_hash: z.string().min(1),
+        })
+        .passthrough()
+        .nullable(),
+    })
+    .passthrough(),
+  reason: z.string().nullable(),
+})
+
+export type DstackVerificationResponse = z.infer<
+  typeof DstackVerificationResponseSchema
+>
+
+export async function verifyDstackEvidence(
+  evidence: DstackEvidence,
+): Promise<DstackVerificationResponse> {
+  const endpoint =
+    process.env.DSTACK_VERIFIER_URL || 'http://dstack-verifier:8080'
+  const response = await fetch(new URL('/verify', endpoint), {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify(
+      'attestation' in evidence
+        ? {
+            attestation: evidence.attestation.replace(/^0x/, ''),
+          }
+        : {
+            quote: evidence.quote.replace(/^0x/, ''),
+            event_log: evidence.event_log,
+            vm_config: evidence.vm_config,
+          },
+    ),
+    signal: AbortSignal.timeout(240_000),
+    redirect: 'error',
+  })
+  if (!response.ok) {
+    throw new Error(
+      `dstack-verifier HTTP ${response.status} ${response.statusText}`,
+    )
+  }
+  const result = DstackVerificationResponseSchema.parse(await response.json())
+  const details = result.details
+  if (
+    result.is_valid &&
+    (!details.quote_verified ||
+      !details.event_log_verified ||
+      !details.os_image_hash_verified ||
+      !details.app_info ||
+      !details.tcb_status ||
+      (details.tee_variant === 'dstack-tdx' && !details.acpi_tables_verified))
+  ) {
+    throw new Error('dstack-verifier returned an incomplete successful result')
+  }
+  return result
 }

@@ -1,611 +1,665 @@
-import { z } from "zod";
+import {z} from 'zod'
 
-import { AppDataObjectGenerator } from "../dataObjects/appDataObjectGenerator";
-import { fetchDstack } from "../utils/fetchDstack";
+import {AppDataObjectGenerator} from '../dataObjects/appDataObjectGenerator'
 import {
-	AppInfoSchema,
-	BasicVmConfigSchema,
-	EventLogSchema,
-	KeyProviderSchema,
-	LegacyTcbInfoSchema,
-	NvidiaPayloadSchema,
-	SystemInfoSchema,
-	TcbInfoSchema,
-	VmConfigSchema,
-} from "../schemas";
+  AppInfoSchema,
+  BasicVmConfigSchema,
+  EventLogSchema,
+  KeyProviderSchema,
+  LegacyTcbInfoSchema,
+  NvidiaPayloadSchema,
+  SystemInfoSchema,
+  TcbInfoSchema,
+  VmConfigSchema,
+} from '../schemas'
 import {
-	type AppId,
-	type AppInfo,
-	type AttestationBundle,
-	type CompleteAppMetadata,
-	convertLegacyAppInfo,
-	type LegacyAppInfo,
-	parseAttestationBundle,
-	parseJsonFields,
-	type QuoteData,
-	type SystemInfo,
-	type VerificationFailure,
-} from "../types";
-import type { DataObjectCollector } from "../utils/dataObjectCollector";
-import { DstackApp } from "../utils/dstackContract";
+  type AppId,
+  type AppInfo,
+  type AttestationBundle,
+  type CompleteAppMetadata,
+  convertLegacyAppInfo,
+  type LegacyAppInfo,
+  parseAttestationBundle,
+  parseJsonFields,
+  type QuoteData,
+  type SystemInfo,
+  type VerificationFailure,
+} from '../types'
+import type {DataObjectCollector} from '../utils/dataObjectCollector'
+import {DstackApp} from '../utils/dstackContract'
+import {fetchDstack} from '../utils/fetchDstack'
 import {
-	createImageVersion,
-	createKmsVersion,
-	supportsInfoRpcEndpoint,
-	supportsOnchainKms,
-} from "../utils/metadataUtils";
-import { verifyEventLog } from "../verification/eventLogVerification";
+  createImageVersion,
+  createKmsVersion,
+  getGitCommitFromImageVersion,
+  supportsInfoRpcEndpoint,
+  supportsOnchainKms,
+} from '../utils/metadataUtils'
+import {verifyEventLog} from '../verification/eventLogVerification'
+import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
 import {
-	isUpToDate,
-	verifyTeeQuote,
-} from "../verification/hardwareVerification";
-import {
-	formatOSVerificationFailure,
-	verifyOSIntegrityDetailed,
-} from "../verification/osVerification";
-import { verifyComposeHash } from "../verification/sourceCodeVerification";
-import { Verifier } from "../verifier";
+  formatOSVerificationFailure,
+  verifyOSIntegrityDetailed,
+} from '../verification/osVerification'
+import {verifyComposeHash} from '../verification/sourceCodeVerification'
+import {Verifier} from '../verifier'
 
-type ParsedDstackInstance = z.infer<typeof SystemInfoSchema>["instances"][number];
+type ParsedDstackInstance = z.infer<
+  typeof SystemInfoSchema
+>['instances'][number]
 
 type ValidParsedDstackInstance = ParsedDstackInstance & {
-	quote: string;
-	eventlog: NonNullable<ParsedDstackInstance["eventlog"]>;
-	image_version: string;
-};
+  quote: string
+  eventlog: NonNullable<ParsedDstackInstance['eventlog']>
+  image_version: string
+}
 
 function isValidDstackInstance(
-	instance: ParsedDstackInstance,
+  instance: ParsedDstackInstance,
 ): instance is ValidParsedDstackInstance {
-	return (
-		typeof instance.quote === "string" &&
-		Array.isArray(instance.eventlog) &&
-		typeof instance.image_version === "string"
-	);
+  return (
+    typeof instance.quote === 'string' &&
+    Array.isArray(instance.eventlog) &&
+    typeof instance.image_version === 'string'
+  )
 }
 
 export class PhalaCloudVerifier extends Verifier {
-	public registrySmartContract?: DstackApp;
-	public appId: AppId;
-	private rpcEndpoint: string;
-	private dataObjectGenerator: AppDataObjectGenerator;
-	private appMetadata: CompleteAppMetadata;
-	private systemInfo: SystemInfo;
-	private attestationBundle?: AttestationBundle;
-	/** Cached quote data from hardware verification, used for deferred ITA */
-	public lastQuoteHex: string | null = null;
+  public registrySmartContract?: DstackApp
+  public appId: AppId
+  private rpcEndpoint: string
+  private dataObjectGenerator: AppDataObjectGenerator
+  private appMetadata: CompleteAppMetadata
+  private systemInfo: SystemInfo
+  private attestationBundle?: AttestationBundle
+  /** Cached quote data from hardware verification, used for deferred ITA */
+  public lastQuoteHex: string | null = null
 
-	// Cache for Redpill models
-	private static modelCache: { models: any[]; timestamp: number } | null = null;
-	private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  // Cache for Redpill models
+  private static modelCache: {models: any[]; timestamp: number} | null = null
+  private static readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
-	constructor(
-		systemInfo: SystemInfo,
-		domain: string,
-		metadata: CompleteAppMetadata,
-		collector: DataObjectCollector,
-	) {
-		super(metadata, "app", collector);
-		this.appId = systemInfo.app_id;
-		this.appMetadata = metadata;
-		this.systemInfo = systemInfo;
+  constructor(
+    systemInfo: SystemInfo,
+    domain: string,
+    metadata: CompleteAppMetadata,
+    collector: DataObjectCollector,
+  ) {
+    super(metadata, 'app', collector)
+    this.appId = systemInfo.app_id
+    this.appMetadata = metadata
+    this.systemInfo = systemInfo
 
-		// Only create smart contract if governance is OnChain
-		// Get contract_address from systemInfo instead of deriving it from appId
-		if (metadata.governance?.type === "OnChain") {
-			const contractAddress = systemInfo.contract_address;
-			if (!contractAddress) {
-				throw new Error("Contract address is required for OnChain governance");
-			}
-			this.registrySmartContract = new DstackApp(
-				contractAddress,
-				metadata.governance.chainId,
-			);
-		}
+    // Only create smart contract if governance is OnChain
+    // Get contract_address from systemInfo instead of deriving it from appId
+    if (metadata.governance?.type === 'OnChain') {
+      const contractAddress = systemInfo.contract_address
+      if (!contractAddress) {
+        throw new Error('Contract address is required for OnChain governance')
+      }
+      this.registrySmartContract = new DstackApp(
+        contractAddress,
+        metadata.governance.chainId,
+      )
+    }
 
-		this.rpcEndpoint = `https://${this.appId}-8090.${domain}`;
-		this.dataObjectGenerator = new AppDataObjectGenerator(metadata);
-	}
+    this.rpcEndpoint = `https://${this.appId}-8090.${domain}`
+    this.dataObjectGenerator = new AppDataObjectGenerator(metadata)
+  }
 
-	/**
-	 * Determines if an application has NVIDIA GPU support based on VM configuration
-	 */
-	private hasNvidiaSupport(appInfo: AppInfo): boolean {
-		return appInfo.vm_config && "num_gpus" in appInfo.vm_config
-			? appInfo.vm_config.num_gpus > 0
-			: false;
-	}
+  /**
+   * Determines if an application has NVIDIA GPU support based on VM configuration
+   */
+  private hasNvidiaSupport(appInfo: AppInfo): boolean {
+    return appInfo.vm_config && 'num_gpus' in appInfo.vm_config
+      ? appInfo.vm_config.num_gpus > 0
+      : false
+  }
 
-	protected async getQuote(): Promise<QuoteData> {
-		try {
-			const systemInfo = await PhalaCloudVerifier.getSystemInfo(this.appId);
+  protected async getQuote(): Promise<QuoteData> {
+    try {
+      const systemInfo = this.systemInfo
 
-			// Get the first instance's quote data
-			if (systemInfo.instances.length === 0) {
-				throw new Error("No instances found in Phala Cloud system info");
-			}
+      // Get the first instance's quote data
+      if (systemInfo.instances.length === 0) {
+        throw new Error('No instances found in Phala Cloud system info')
+      }
 
-			const instance = systemInfo.instances[0];
-			if (!instance) {
-				throw new Error(
-					"First instance is undefined in Phala Cloud system info",
-				);
-			}
+      const instance = systemInfo.instances[0]
+      if (!instance) {
+        throw new Error(
+          'First instance is undefined in Phala Cloud system info',
+        )
+      }
 
-			return {
-				quote: instance.quote,
-				eventlog: instance.eventlog,
-			};
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error
-					? error.message
-					: "Unknown error fetching quote from Phala Cloud API";
-			throw new Error(`Failed to fetch Phala Cloud quote: ${errorMessage}`);
-		}
-	}
+      return {
+        quote: instance.quote,
+        eventlog: instance.eventlog,
+        vm_config: instance.vm_config,
+        instance_id: instance.instance_id,
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Unknown error fetching quote from Phala Cloud API'
+      throw new Error(`Failed to fetch Phala Cloud quote: ${errorMessage}`)
+    }
+  }
 
-	protected async getAttestation(): Promise<AttestationBundle | null> {
-		return null;
-	}
+  protected async getAttestation(): Promise<AttestationBundle | null> {
+    return null
+  }
 
-	protected async getAppInfo(): Promise<AppInfo> {
-		if (supportsInfoRpcEndpoint(this.systemInfo.kms_info.version)) {
-			const infoUrl = `${this.rpcEndpoint}/prpc/Info`;
-			try {
-				const response = await fetchDstack(infoUrl);
-				if (!response.ok) {
-					throw new Error(
-						`Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
-					);
-				}
-				const responseData = await response.json();
-				const appInfo = parseJsonFields(
-					responseData as Record<string, unknown>,
-					{
-						tcb_info: TcbInfoSchema,
-						key_provider_info: KeyProviderSchema,
-						vm_config: z.union([VmConfigSchema, BasicVmConfigSchema]),
-					},
-				) as AppInfo;
+  protected async getAppInfo(): Promise<AppInfo> {
+    if (supportsInfoRpcEndpoint(this.systemInfo.kms_info.version)) {
+      const infoUrl = `${this.rpcEndpoint}/prpc/Info`
+      try {
+        const response = await fetchDstack(infoUrl)
+        if (!response.ok) {
+          throw new Error(
+            `Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
+          )
+        }
+        const responseData = await response.json()
+        const appInfo = parseJsonFields(
+          responseData as Record<string, unknown>,
+          {
+            tcb_info: TcbInfoSchema,
+            key_provider_info: KeyProviderSchema,
+            vm_config: z.union([VmConfigSchema, BasicVmConfigSchema]),
+          },
+        ) as AppInfo
 
-				// Update metadata with NVIDIA support detection
-				const nvidiaSupported = this.hasNvidiaSupport(appInfo);
-				this.appMetadata = {
-					...this.appMetadata,
-					hardware: {
-						...this.appMetadata.hardware,
-						hasNvidiaSupport: nvidiaSupported,
-					},
-				};
-				this.metadata = this.appMetadata;
+        if (
+          appInfo.app_id.replace(/^0x/, '').toLowerCase() !==
+          this.appId.replace(/^0x/, '').toLowerCase()
+        ) {
+          throw new Error('App info does not match the requested app')
+        }
 
-				// Update data object generator with fresh metadata
-				this.dataObjectGenerator = new AppDataObjectGenerator(this.appMetadata);
+        // Update metadata with NVIDIA support detection
+        const nvidiaSupported = this.hasNvidiaSupport(appInfo)
+        this.appMetadata = {
+          ...this.appMetadata,
+          hardware: {
+            ...this.appMetadata.hardware,
+            hasNvidiaSupport: nvidiaSupported,
+          },
+        }
+        this.metadata = this.appMetadata
 
-				return appInfo;
-			} catch (error) {
-				const errorMessage =
-					error instanceof Error
-						? error.message
-						: `Unknown error fetching app info from ${infoUrl}`;
-				throw new Error(
-					`Failed to fetch Phala Cloud app info: ${errorMessage}`,
-				);
-			}
-		} else {
-			const infoUrl = `${this.rpcEndpoint}/prpc/Worker.Info`;
-			try {
-				const response = await fetchDstack(infoUrl);
-				if (!response.ok) {
-					throw new Error(
-						`Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
-					);
-				}
-				const responseData = await response.json();
+        // Update data object generator with fresh metadata
+        this.dataObjectGenerator = new AppDataObjectGenerator(this.appMetadata)
 
-				const legacyAppInfo = parseJsonFields(
-					responseData as Record<string, unknown>,
-					{
-						tcb_info: LegacyTcbInfoSchema,
-					},
-				) as LegacyAppInfo;
+        return appInfo
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : `Unknown error fetching app info from ${infoUrl}`
+        throw new Error(`Failed to fetch Phala Cloud app info: ${errorMessage}`)
+      }
+    } else {
+      const infoUrl = `${this.rpcEndpoint}/prpc/Worker.Info`
+      try {
+        const response = await fetchDstack(infoUrl)
+        if (!response.ok) {
+          throw new Error(
+            `Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
+          )
+        }
+        const responseData = await response.json()
 
-				// Convert legacy format to standard AppInfo format
-				const appInfo = convertLegacyAppInfo(legacyAppInfo);
+        const legacyAppInfo = parseJsonFields(
+          responseData as Record<string, unknown>,
+          {
+            tcb_info: LegacyTcbInfoSchema,
+          },
+        ) as LegacyAppInfo
 
-				this.appMetadata = {
-					...this.appMetadata,
-					hardware: {
-						...this.appMetadata.hardware,
-						hasNvidiaSupport: false,
-					},
-				};
-				this.metadata = this.appMetadata;
+        // Convert legacy format to standard AppInfo format
+        const appInfo = convertLegacyAppInfo(legacyAppInfo)
 
-				// Update data object generator with fresh metadata
-				this.dataObjectGenerator = new AppDataObjectGenerator(this.appMetadata);
+        this.appMetadata = {
+          ...this.appMetadata,
+          hardware: {
+            ...this.appMetadata.hardware,
+            hasNvidiaSupport: false,
+          },
+        }
+        this.metadata = this.appMetadata
 
-				return appInfo;
-			} catch (error) {
-				const errorMessage =
-					error instanceof Error
-						? error.message
-						: `Unknown error fetching app info from ${infoUrl}`;
-				throw new Error(
-					`Failed to fetch Phala Cloud app info: ${errorMessage}`,
-				);
-			}
-		}
-	}
+        // Update data object generator with fresh metadata
+        this.dataObjectGenerator = new AppDataObjectGenerator(this.appMetadata)
 
-	/**
-	 * Static method to fetch system info from Phala Cloud API without instantiating the verifier
-	 */
-	public static async getSystemInfo(appId: AppId): Promise<SystemInfo> {
-		const apiUrl = `https://cloud-api.phala.com/api/v1/apps/${appId}/attestations`;
+        return appInfo
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : `Unknown error fetching app info from ${infoUrl}`
+        throw new Error(`Failed to fetch Phala Cloud app info: ${errorMessage}`)
+      }
+    }
+  }
 
-		try {
-			const response = await fetch(apiUrl);
-			if (!response.ok) {
-				if (response.status === 500) {
-					throw new Error(
-						`App '${appId}' not found or is currently down on Phala Cloud (URL: ${apiUrl})`,
-					);
-				}
-				throw new Error(
-					`Phala Cloud API request failed: ${response.status} ${response.statusText} (URL: ${apiUrl})`,
-				);
-			}
+  /**
+   * Static method to fetch system info from Phala Cloud API without instantiating the verifier
+   */
+  public static async getSystemInfo(appId: AppId): Promise<SystemInfo> {
+    const apiUrl = `https://cloud-api.phala.com/api/v1/apps/${appId}/attestations`
 
-			const rawData = await response.json();
-			if (typeof rawData !== "object" || rawData === null) {
-				throw new Error("Invalid response format from Phala Cloud API");
-			}
+    try {
+      const response = await fetch(apiUrl)
+      if (!response.ok) {
+        if (response.status === 500) {
+          throw new Error(
+            `App '${appId}' not found or is currently down on Phala Cloud (URL: ${apiUrl})`,
+          )
+        }
+        throw new Error(
+          `Phala Cloud API request failed: ${response.status} ${response.statusText} (URL: ${apiUrl})`,
+        )
+      }
 
-			// Parse and validate the response using Zod schema
-			const parseResult = SystemInfoSchema.safeParse(rawData);
-			if (!parseResult.success) {
-				throw new Error(
-					`Failed to parse Phala Cloud response: ${parseResult.error.message}`,
-				);
-			}
+      const rawData = await response.json()
+      if (typeof rawData !== 'object' || rawData === null) {
+        throw new Error('Invalid response format from Phala Cloud API')
+      }
 
-			// Filter out invalid instances before quote normalization. Turned-off
-			// instances can contain null fields even though running instances use strings.
-			const validInstances = parseResult.data.instances.filter(
-				isValidDstackInstance,
-			);
+      // Parse and validate the response using Zod schema
+      const parseResult = SystemInfoSchema.safeParse(rawData)
+      if (!parseResult.success) {
+        throw new Error(
+          `Failed to parse Phala Cloud response: ${parseResult.error.message}`,
+        )
+      }
 
-			// Check if instances list is empty (instance is turned off)
-			if (validInstances.length === 0) {
-				throw new Error(
-					`App '${appId}' has no running instances on Phala Cloud`,
-				);
-			}
+      // Filter out invalid instances before quote normalization. Turned-off
+      // instances can contain null fields even though running instances use strings.
+      const validInstances = parseResult.data.instances.filter(
+        isValidDstackInstance,
+      )
 
-			// Transform quotes to ensure they have 0x prefix
-			const transformedData: SystemInfo = {
-				...parseResult.data,
-				kms_info: {
-					...parseResult.data.kms_info,
-					version: createKmsVersion(parseResult.data.kms_info.version),
-				},
-				instances: validInstances.map((instance) => ({
-					quote: instance.quote.startsWith("0x")
-						? (instance.quote as `0x${string}`)
-						: (`0x${instance.quote}` as `0x${string}`),
-					eventlog: instance.eventlog,
-					image_version: createImageVersion(instance.image_version),
-				})),
-				kms_guest_agent_info: parseResult.data.kms_guest_agent_info ?? undefined,
-				gateway_guest_agent_info: parseResult.data.gateway_guest_agent_info ?? undefined,
-			};
+      // Check if instances list is empty (instance is turned off)
+      if (validInstances.length === 0) {
+        throw new Error(
+          `App '${appId}' has no running instances on Phala Cloud`,
+        )
+      }
 
-			return transformedData;
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error
-					? error.message
-					: `Unknown error fetching from Phala Cloud API (${apiUrl})`;
-			throw new Error(
-				`Failed to fetch system info from Phala Cloud: ${errorMessage}`,
-			);
-		}
-	}
+      // Transform quotes to ensure they have 0x prefix
+      const transformedData: SystemInfo = {
+        ...parseResult.data,
+        kms_info: {
+          ...parseResult.data.kms_info,
+          version: createKmsVersion(parseResult.data.kms_info.version),
+        },
+        instances: validInstances.map((instance) => ({
+          quote: instance.quote.startsWith('0x')
+            ? (instance.quote as `0x${string}`)
+            : (`0x${instance.quote}` as `0x${string}`),
+          eventlog: instance.eventlog,
+          vm_config: instance.vm_config ?? undefined,
+          instance_id: instance.instance_id ?? undefined,
+          image_version: createImageVersion(instance.image_version),
+        })),
+        kms_guest_agent_info:
+          parseResult.data.kms_guest_agent_info ?? undefined,
+        gateway_guest_agent_info:
+          parseResult.data.gateway_guest_agent_info ?? undefined,
+      }
 
-	/**
-	 * Fetches the list of running models from Redpill API with caching
-	 */
-	private static async getRunningModels(): Promise<any[]> {
-		const now = Date.now();
-		if (
-			PhalaCloudVerifier.modelCache &&
-			now - PhalaCloudVerifier.modelCache.timestamp <
-				PhalaCloudVerifier.CACHE_TTL
-		) {
-			return PhalaCloudVerifier.modelCache.models;
-		}
+      return transformedData
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Unknown error fetching from Phala Cloud API (${apiUrl})`
+      throw new Error(
+        `Failed to fetch system info from Phala Cloud: ${errorMessage}`,
+      )
+    }
+  }
 
-		try {
-			const response = await fetch("https://api.redpill.ai/v1/models");
-			if (!response.ok) {
-				throw new Error(`Failed to fetch models: ${response.statusText}`);
-			}
-			const data = await response.json();
-			// The API returns { data: [...] }
-			const models = (data as any).data || [];
-			PhalaCloudVerifier.modelCache = { models, timestamp: now };
-			return models;
-		} catch (error) {
-			console.warn("Failed to fetch Redpill models:", error);
-			return [];
-		}
-	}
+  /**
+   * Fetches the list of running models from Redpill API with caching
+   */
+  private static async getRunningModels(): Promise<any[]> {
+    const now = Date.now()
+    if (
+      PhalaCloudVerifier.modelCache &&
+      now - PhalaCloudVerifier.modelCache.timestamp <
+        PhalaCloudVerifier.CACHE_TTL
+    ) {
+      return PhalaCloudVerifier.modelCache.models
+    }
 
-	public async verifyHardware(): Promise<{
-		isValid: boolean;
-		failures: VerificationFailure[];
-	}> {
-		const quoteData = await this.getQuote();
-		const verificationResult = await verifyTeeQuote(quoteData);
-		const failures: VerificationFailure[] = [];
+    try {
+      const response = await fetch('https://api.redpill.ai/v1/models')
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.statusText}`)
+      }
+      const data = await response.json()
+      // The API returns { data: [...] }
+      const models = (data as any).data || []
+      PhalaCloudVerifier.modelCache = {models, timestamp: now}
+      return models
+    } catch (error) {
+      console.warn('Failed to fetch Redpill models:', error)
+      return []
+    }
+  }
 
-		this.attestationBundle = undefined;
+  public async verifyHardware(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
+    const {quoteData, verificationResult} = supportsOnchainKms(
+      this.systemInfo.kms_info.version,
+    )
+      ? await this.getHardwareEvidence()
+      : await this.getLegacyHardwareEvidence()
+    const failures: VerificationFailure[] = []
 
-		// Save quote hex for deferred ITA verification
-		this.lastQuoteHex = quoteData.quote;
+    this.attestationBundle = undefined
 
-		// Check for GPU support via Redpill API
-		await this.verifyNvidiaGpu(failures);
+    // Save quote hex for deferred ITA verification
+    this.lastQuoteHex = quoteData.quote
 
-		// Generate DataObjects for App hardware verification (ITA result added later)
-		const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
-			quoteData,
-			verificationResult,
-			this.attestationBundle,
-			null,
-		);
-		dataObjects.forEach((obj) => {
-			this.createDataObject(obj);
-		});
+    // Check for GPU support via Redpill API
+    await this.verifyNvidiaGpu(failures)
 
-		// Check hardware verification result
-		const isValid = isUpToDate(verificationResult) && failures.length === 0;
-		if (!isUpToDate(verificationResult)) {
-			failures.push({
-				componentId: "app-main",
-				error: `Hardware verification failed: TEE attestation status is '${verificationResult.status}' (expected 'UpToDate')`,
-			});
-		}
+    // Generate DataObjects for App hardware verification (ITA result added later)
+    const dataObjects = this.dataObjectGenerator.generateHardwareDataObjects(
+      quoteData,
+      verificationResult,
+      this.attestationBundle,
+      null,
+    )
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
-		// Verify Event Logs against RTMRs in the quote
-		const { rt_mr0, rt_mr1, rt_mr2, rt_mr3 } = verificationResult.report.TD10;
-		const eventLogVerification = verifyEventLog(quoteData.eventlog, {
-			rtmr0: rt_mr0,
-			rtmr1: rt_mr1,
-			rtmr2: rt_mr2,
-			rtmr3: rt_mr3,
-		});
+    // Check hardware verification result
+    const isValid = isUpToDate(verificationResult) && failures.length === 0
+    if (!isUpToDate(verificationResult)) {
+      failures.push({
+        componentId: 'app-main',
+        error: `Hardware verification failed: TEE attestation status is '${verificationResult.status}' (expected 'UpToDate')`,
+      })
+    }
 
-		if (!eventLogVerification.isValid) {
-			eventLogVerification.failures.forEach((failure) => {
-				failures.push({
-					componentId: "app-main",
-					error: failure,
-				});
-			});
-		}
+    // Verify Event Logs against RTMRs in the quote
+    const {rt_mr0, rt_mr1, rt_mr2, rt_mr3} = verificationResult.report.TD10
+    const cvmResult = supportsOnchainKms(this.systemInfo.kms_info.version)
+      ? await this.getCvmVerification()
+      : null
+    const eventLogVerification = cvmResult
+      ? {
+          isValid: cvmResult.details.event_log_verified,
+          failures: cvmResult.details.event_log_verified
+            ? []
+            : [cvmResult.reason || 'Event log verification failed'],
+        }
+      : verifyEventLog(quoteData.eventlog, {
+          rtmr0: rt_mr0,
+          rtmr1: rt_mr1,
+          rtmr2: rt_mr2,
+          rtmr3: rt_mr3,
+        })
 
-		console.log("Event log replay results:", eventLogVerification);
+    if (!eventLogVerification.isValid) {
+      eventLogVerification.failures.forEach((failure) => {
+        failures.push({
+          componentId: 'app-main',
+          error: failure,
+        })
+      })
+    }
 
-		return { isValid, failures };
-	}
+    console.log('Event log replay results:', eventLogVerification)
 
-	private async verifyNvidiaGpu(failures: VerificationFailure[]) {
-		try {
-			const models = await PhalaCloudVerifier.getRunningModels();
-			const matchingModel = models.find(
-				(m: any) => m.metadata?.appid === this.appId,
-			);
+    return {isValid, failures}
+  }
 
-			if (matchingModel) {
-				// Generate random nonce for replay protection
-				const nonce = crypto.getRandomValues(new Uint8Array(32));
-				const nonceHex = Array.from(nonce)
-					.map((b) => b.toString(16).padStart(2, "0"))
-					.join("");
+  private async getLegacyHardwareEvidence() {
+    const quoteData = await this.getQuote()
+    return {quoteData, verificationResult: await verifyTeeQuote(quoteData)}
+  }
 
-				const attestationUrl = `https://api.redpill.ai/v1/attestation/report?model=${matchingModel.id}&nonce=${nonceHex}`;
-				console.log(`Fetching attestation from ${attestationUrl}`);
+  private async verifyNvidiaGpu(failures: VerificationFailure[]) {
+    try {
+      const models = await PhalaCloudVerifier.getRunningModels()
+      const matchingModel = models.find(
+        (m: any) => m.metadata?.appid === this.appId,
+      )
 
-				const response = await fetch(attestationUrl, {
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer test`,
-					},
-				});
+      if (matchingModel) {
+        // Generate random nonce for replay protection
+        const nonce = crypto.getRandomValues(new Uint8Array(32))
+        const nonceHex = Array.from(nonce)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('')
 
-				if (response.ok) {
-					const rawAppInfo = await response.json();
-					this.attestationBundle = parseAttestationBundle(
-						rawAppInfo as Record<string, unknown>,
-						{
-							nvidiaPayloadSchema: NvidiaPayloadSchema,
-							eventLogSchema: EventLogSchema,
-							appInfoSchema: AppInfoSchema,
-						},
-					);
+        const attestationUrl = `https://api.redpill.ai/v1/attestation/report?model=${matchingModel.id}&nonce=${nonceHex}`
+        console.log(`Fetching attestation from ${attestationUrl}`)
 
-					// Verify nonce in response
-					const responseNonce = (rawAppInfo as any).request_nonce;
-					if (responseNonce !== nonceHex) {
-						failures.push({
-							componentId: "app-main",
-							error: `Redpill attestation nonce mismatch: expected ${nonceHex}, got ${responseNonce}`,
-						});
-					}
+        const response = await fetch(attestationUrl, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer test`,
+          },
+        })
 
-					// Verify GPU Attestation via NRAS
-					if (this.attestationBundle.nvidia_payload) {
-						try {
-							const nrasUrl =
-								"https://nras.attestation.nvidia.com/v3/attest/gpu";
-							const nrasResponse = await fetch(nrasUrl, {
-								method: "POST",
-								headers: {
-									"Content-Type": "application/json",
-									Accept: "application/json",
-								},
-								body: JSON.stringify(this.attestationBundle.nvidia_payload),
-							});
+        if (response.ok) {
+          const rawAppInfo = await response.json()
+          this.attestationBundle = parseAttestationBundle(
+            rawAppInfo as Record<string, unknown>,
+            {
+              nvidiaPayloadSchema: NvidiaPayloadSchema,
+              eventLogSchema: EventLogSchema,
+              appInfoSchema: AppInfoSchema,
+            },
+          )
 
-							if (!nrasResponse.ok) {
-								console.error("NRAS Error:", await nrasResponse.text());
-								throw new Error(
-									`NRAS API responded with status ${nrasResponse.status}`,
-								);
-							}
+          // Verify nonce in response
+          const responseNonce = (rawAppInfo as any).request_nonce
+          if (responseNonce !== nonceHex) {
+            failures.push({
+              componentId: 'app-main',
+              error: `Redpill attestation nonce mismatch: expected ${nonceHex}, got ${responseNonce}`,
+            })
+          }
 
-							const tokens = await nrasResponse.json();
-							if (!Array.isArray(tokens) || tokens.length < 1) {
-								throw new Error("Invalid NRAS response format: expected array");
-							}
+          // Verify GPU Attestation via NRAS
+          if (this.attestationBundle.nvidia_payload) {
+            try {
+              const nrasUrl =
+                'https://nras.attestation.nvidia.com/v3/attest/gpu'
+              const nrasResponse = await fetch(nrasUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Accept: 'application/json',
+                },
+                body: JSON.stringify(this.attestationBundle.nvidia_payload),
+              })
 
-							// Verify Platform Token (index 0)
-							const platformEntry = tokens[0];
-							if (!Array.isArray(platformEntry) || platformEntry[0] !== "JWT") {
-								throw new Error("Invalid platform token format");
-							}
+              if (!nrasResponse.ok) {
+                console.error('NRAS Error:', await nrasResponse.text())
+                throw new Error(
+                  `NRAS API responded with status ${nrasResponse.status}`,
+                )
+              }
 
-							const platformJwt = platformEntry[1];
-							const platformClaims = JSON.parse(
-								atob(platformJwt.split(".")[1]),
-							);
+              const tokens = await nrasResponse.json()
+              if (!Array.isArray(tokens) || tokens.length < 1) {
+                throw new Error('Invalid NRAS response format: expected array')
+              }
 
-							if (platformClaims["x-nvidia-overall-att-result"] !== true) {
-								console.error(
-									"NRAS Claims:",
-									JSON.stringify(platformClaims, null, 2),
-								);
-								failures.push({
-									componentId: "app-main",
-									error:
-										"Nvidia GPU attestation failed: x-nvidia-overall-att-result is not true",
-								});
-							} else {
-								console.log("Nvidia GPU attestation passed successfully");
-							}
-						} catch (error) {
-							failures.push({
-								componentId: "app-main",
-								error: `GPU verification failed: ${
-									error instanceof Error ? error.message : String(error)
-								}`,
-							});
-						}
-					}
-				} else {
-					console.warn(
-						`Redpill API failed: ${response.status} ${response.statusText}`,
-					);
-				}
-			} else {
-				console.warn(`Model not found for app ${this.appId}`);
-			}
-		} catch (error) {
-			console.warn(
-				`Failed to fetch GPU attestation for app ${this.appId}:`,
-				error,
-			);
-		}
-	}
+              // Verify Platform Token (index 0)
+              const platformEntry = tokens[0]
+              if (!Array.isArray(platformEntry) || platformEntry[0] !== 'JWT') {
+                throw new Error('Invalid platform token format')
+              }
 
-	public async verifyOperatingSystem(): Promise<{
-		isValid: boolean;
-		failures: VerificationFailure[];
-	}> {
-		const appInfo = await this.getAppInfo();
-		const failures: VerificationFailure[] = [];
+              const platformJwt = platformEntry[1]
+              const platformClaims = JSON.parse(atob(platformJwt.split('.')[1]))
 
-		// Get image version from first instance
-		const imageFolderName = this.systemInfo.instances[0]?.image_version;
-		if (!imageFolderName) {
-			throw new Error("No image_version found in SystemInfo.instances[0]");
-		}
+              if (platformClaims['x-nvidia-overall-att-result'] !== true) {
+                console.error(
+                  'NRAS Claims:',
+                  JSON.stringify(platformClaims, null, 2),
+                )
+                failures.push({
+                  componentId: 'app-main',
+                  error:
+                    'Nvidia GPU attestation failed: x-nvidia-overall-att-result is not true',
+                })
+              } else {
+                console.log('Nvidia GPU attestation passed successfully')
+              }
+            } catch (error) {
+              failures.push({
+                componentId: 'app-main',
+                error: `GPU verification failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              })
+            }
+          }
+        } else {
+          console.warn(
+            `Redpill API failed: ${response.status} ${response.statusText}`,
+          )
+        }
+      } else {
+        console.warn(`Model not found for app ${this.appId}`)
+      }
+    } catch (error) {
+      console.warn(
+        `Failed to fetch GPU attestation for app ${this.appId}:`,
+        error,
+      )
+    }
+  }
 
-		// Ensure image is downloaded
-		const { ensureDstackImage } = await import("../utils/imageDownloader");
-		await ensureDstackImage(imageFolderName);
+  public async verifyOperatingSystem(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
+    const {appInfo} = await this.getVerificationEvidence()
+    const failures: VerificationFailure[] = []
+    const result = await this.getCvmVerification()
+    if (result) {
+      if (!result.is_valid) {
+        return {
+          isValid: false,
+          failures: [
+            {
+              componentId: 'app-main',
+              error: result.reason || 'dstack-verifier verification failed',
+            },
+          ],
+        }
+      }
+      this.dataObjectGenerator
+        .generateVerifiedOSDataObjects(appInfo, result)
+        .forEach((obj) => this.createDataObject(obj))
+      return {isValid: true, failures}
+    }
 
-		// Legacy app OS measurements cannot be reliably recomputed.
-		const osVerification = supportsOnchainKms(this.systemInfo.kms_info.version)
-			? await verifyOSIntegrityDetailed(appInfo, imageFolderName)
-			: null;
-		const isValid = osVerification?.isValid ?? true;
+    // Get image version from first instance
+    const imageFolderName = this.systemInfo.instances[0]?.image_version
+    if (!imageFolderName) {
+      throw new Error('No image_version found in SystemInfo.instances[0]')
+    }
 
-		// Generate DataObjects for App OS verification
-		const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
-			appInfo,
-			false,
-		);
-		dataObjects.forEach((obj) => {
-			this.createDataObject(obj);
-		});
+    this.appMetadata = {
+      ...this.appMetadata,
+      osSource: {
+        version: imageFolderName,
+        github_repo: 'https://github.com/Dstack-TEE/meta-dstack',
+        git_commit: await getGitCommitFromImageVersion(imageFolderName),
+      },
+    }
+    this.metadata = this.appMetadata
+    this.dataObjectGenerator = new AppDataObjectGenerator(this.appMetadata)
 
-		if (!isValid && osVerification) {
-			failures.push({
-				componentId: "app-main",
-				error: formatOSVerificationFailure(imageFolderName, osVerification),
-			});
-		}
+    // Ensure image is downloaded
+    const {ensureDstackImage} = await import('../utils/imageDownloader')
+    await ensureDstackImage(imageFolderName)
 
-		return { isValid, failures };
-	}
+    // Legacy app OS measurements cannot be reliably recomputed.
+    const osVerification = supportsOnchainKms(this.systemInfo.kms_info.version)
+      ? await verifyOSIntegrityDetailed(appInfo, imageFolderName)
+      : null
+    const isValid = osVerification?.isValid ?? true
 
-	public async verifySourceCode(): Promise<{
-		isValid: boolean;
-		failures: VerificationFailure[];
-	}> {
-		const appInfo = await this.getAppInfo();
-		const quoteData = await this.getQuote();
-		const failures: VerificationFailure[] = [];
+    // Generate DataObjects for App OS verification
+    const dataObjects = this.dataObjectGenerator.generateOSDataObjects(
+      appInfo,
+      false,
+    )
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
 
-		const { isValid, calculatedHash, isRegistered } = await verifyComposeHash(
-			appInfo,
-			quoteData,
-			this.registrySmartContract,
-		);
+    if (!isValid && osVerification) {
+      failures.push({
+        componentId: 'app-main',
+        error: formatOSVerificationFailure(imageFolderName, osVerification),
+      })
+    }
 
-		// Generate DataObjects for App source code verification
-		const dataObjects = this.dataObjectGenerator.generateSourceCodeDataObjects(
-			appInfo,
-			quoteData,
-			calculatedHash,
-			isRegistered ?? false,
-			this.attestationBundle,
-			this.rpcEndpoint,
-		);
-		dataObjects.forEach((obj) => {
-			this.createDataObject(obj);
-		});
+    return {isValid, failures}
+  }
 
-		if (!isValid) {
-			if (this.registrySmartContract && !isRegistered) {
-				failures.push({
-					componentId: "app-main",
-					error:
-						"Source code verification failed: Compose hash is not registered in the on-chain registry",
-				});
-			} else {
-				failures.push({
-					componentId: "app-main",
-					error:
-						"Source code verification failed: Calculated compose hash does not match the hash in RTMR3 event log",
-				});
-			}
-		}
+  public async verifySourceCode(): Promise<{
+    isValid: boolean
+    failures: VerificationFailure[]
+  }> {
+    const {appInfo} = await this.getVerificationEvidence()
+    const {quoteData} = await this.getVerificationEvidence()
+    const failures: VerificationFailure[] = []
 
-		return { isValid, failures };
-	}
+    const {isValid, calculatedHash, isRegistered} = await verifyComposeHash(
+      appInfo,
+      quoteData,
+      this.registrySmartContract,
+    )
+
+    // Generate DataObjects for App source code verification
+    const dataObjects = this.dataObjectGenerator.generateSourceCodeDataObjects(
+      appInfo,
+      quoteData,
+      calculatedHash,
+      isRegistered ?? false,
+      this.attestationBundle,
+      this.rpcEndpoint,
+    )
+    dataObjects.forEach((obj) => {
+      this.createDataObject(obj)
+    })
+
+    if (!isValid) {
+      if (this.registrySmartContract && !isRegistered) {
+        failures.push({
+          componentId: 'app-main',
+          error:
+            'Source code verification failed: Compose hash is not registered in the on-chain registry',
+        })
+      } else {
+        failures.push({
+          componentId: 'app-main',
+          error:
+            'Source code verification failed: Calculated compose hash does not match the hash in RTMR3 event log',
+        })
+      }
+    }
+
+    return {isValid, failures}
+  }
 }

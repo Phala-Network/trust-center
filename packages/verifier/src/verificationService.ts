@@ -16,10 +16,7 @@ import type {
 } from './types'
 import {DataObjectCollector} from './utils/dataObjectCollector'
 import {maskSensitiveDataObjects} from './utils/maskSensitiveData'
-import {
-  getGitCommitFromImageVersion,
-  supportsOnchainKms,
-} from './utils/metadataUtils'
+import {supportsOnchainKms} from './utils/metadataUtils'
 import {createVerifiers, executeVerifiers} from './verifierChain'
 import {PhalaCloudVerifier} from './verifiers/phalaCloudVerifier'
 
@@ -65,16 +62,15 @@ export class VerificationService {
       // Get complete DStack info from the app
       const systemInfo = await this.getSystemInfo(appConfig)
 
-      // Extract git commit from instance image version if available (Phala Cloud only)
+      // Seed display metadata; modern OS identity comes from verified evidence.
       if (systemInfo.instances[0]?.image_version) {
         const imageVersion = systemInfo.instances[0].image_version
-        const gitCommit = await getGitCommitFromImageVersion(imageVersion)
         if (!appConfig.metadata) {
           appConfig.metadata = {}
         }
         appConfig.metadata.osSource = {
-          github_repo: 'https://github.com/Dstack-TEE/meta-dstack',
-          git_commit: gitCommit,
+          github_repo: 'https://github.com/Dstack-TEE/dstack',
+          git_commit: '',
           version: imageVersion,
         }
       }
@@ -82,7 +78,11 @@ export class VerificationService {
       // Create and execute verifier chain with this collector instance
       const verifiers = createVerifiers(appConfig, systemInfo, this.collector)
 
-      const result = await executeVerifiers(verifiers, mergedFlags, this.collector)
+      const result = await executeVerifiers(
+        verifiers,
+        mergedFlags,
+        this.collector,
+      )
       this.configureVerifierRelationships(systemInfo)
 
       // Convert errors to the expected format
