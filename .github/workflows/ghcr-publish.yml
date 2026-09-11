@@ -199,3 +199,28 @@ jobs:
               issue_number: context.issue.number,
               body,
             })
+
+  deploy-cvm:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update Phala Cloud CVM compose
+        id: deploy
+        uses: Leechael/phala-deploy-action@feat/oidc-cli-bearer-compat
+
+      - name: Show deploy outputs
+        if: always()
+        run: |
+          echo "Status: ${{ steps.deploy.outputs.status }}"
+          echo "App ID: ${{ steps.deploy.outputs.app-id }}"
+          echo "VM UUID: ${{ steps.deploy.outputs.vm-uuid }}"
+          echo "CVM Name: ${{ steps.deploy.outputs.cvm-name }}"
+          echo "Dashboard: ${{ steps.deploy.outputs.dashboard-url }}"
+          echo "Compose Hash: ${{ steps.deploy.outputs.compose-hash }}"

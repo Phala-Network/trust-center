@@ -1,0 +1,2 @@
+name = "trust-center-verifier"
+compose_file = "compose.yml"
