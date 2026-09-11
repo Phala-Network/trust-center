@@ -16,6 +16,8 @@ export const env = createEnv({
     S3_SECRET_ACCESS_KEY: z.string(),
     S3_BUCKET: z.string(),
 
+    DSTACK_VERIFIER_URL: z.url().default('http://dstack-verifier:8080'),
+
     // Verification flags (optional)
     VERIFICATION_FLAGS: z.string().optional(),
 

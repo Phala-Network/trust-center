@@ -2,7 +2,7 @@
  * Utilities for constructing typed metadata from SystemInfo data
  */
 
-import type { SystemInfo } from '../types/application'
+import type {SystemInfo} from '../types/application'
 import type {
   AppMetadata,
   CompleteAppMetadata,
@@ -21,7 +21,7 @@ import {
 } from '../types/metadata'
 
 // Re-export branded type helpers for convenience
-export { createImageVersion, createKmsVersion, createNormalizedVersion }
+export {createImageVersion, createKmsVersion, createNormalizedVersion}
 
 /**
  * Fetch git commit hash from GitHub release page by parsing the HTML
@@ -239,7 +239,7 @@ function compareVersions(a: string, b: string): number {
  */
 export function supportsOnchainKms(version: KmsVersionString): boolean {
   try {
-    const { version: versionWithPrefix } = parseKmsVersion(version)
+    const {version: versionWithPrefix} = parseKmsVersion(version)
     return compareVersions(versionWithPrefix, '0.5.3') >= 0
   } catch {
     // Fallback: try to extract version directly
@@ -263,7 +263,7 @@ export function supportsOnchainKms(version: KmsVersionString): boolean {
  */
 export function supportsInfoRpcEndpoint(version: KmsVersionString): boolean {
   try {
-    const { version: versionWithPrefix } = parseKmsVersion(version)
+    const {version: versionWithPrefix} = parseKmsVersion(version)
     return compareVersions(versionWithPrefix, '0.5.0') >= 0
   } catch {
     // Fallback: try to extract version directly
@@ -292,7 +292,7 @@ export function kmsVersionToSourceInfo(
   git_commit: string
   version: ImageVersionString
 } {
-  const { version: versionWithPrefix, gitCommit } = parseKmsVersion(version)
+  const {version: versionWithPrefix, gitCommit} = parseKmsVersion(version)
   const baseUrl = 'https://github.com/Dstack-TEE/meta-dstack'
 
   const github_repo = repoPath
@@ -361,12 +361,27 @@ export function createDefaultHardwareInfo(
   }
 }
 
+function guestOsSourceInfo(
+  systemInfo: SystemInfo,
+  guest: SystemInfo['kms_guest_agent_info'],
+) {
+  if (!guest) return kmsVersionToSourceInfo(systemInfo.kms_info.version)
+  const config = JSON.parse(guest.vm_config)
+  return {
+    github_repo: 'https://github.com/Dstack-TEE/dstack',
+    git_commit: '',
+    version: createImageVersion(
+      typeof config?.image === 'string' ? config.image : 'dstack-unknown',
+    ),
+  }
+}
+
 /**
  * Create KMS metadata from SystemInfo
  */
 export function createKmsMetadata(systemInfo: SystemInfo): KmsMetadata {
   return {
-    osSource: kmsVersionToSourceInfo(systemInfo.kms_info.version),
+    osSource: guestOsSourceInfo(systemInfo, systemInfo.kms_guest_agent_info),
     appSource: kmsVersionToSourceInfo(systemInfo.kms_info.version, 'kms'),
     hardware: createDefaultHardwareInfo(),
     governance: chainIdToGovernanceInfo(systemInfo.kms_info.chain_id),
@@ -378,7 +393,10 @@ export function createKmsMetadata(systemInfo: SystemInfo): KmsMetadata {
  */
 export function createGatewayMetadata(systemInfo: SystemInfo): GatewayMetadata {
   return {
-    osSource: kmsVersionToSourceInfo(systemInfo.kms_info.version),
+    osSource: guestOsSourceInfo(
+      systemInfo,
+      systemInfo.gateway_guest_agent_info,
+    ),
     appSource: kmsVersionToSourceInfo(systemInfo.kms_info.version, 'gateway'),
     hardware: createDefaultHardwareInfo(),
     governance: chainIdToGovernanceInfo(systemInfo.kms_info.chain_id),

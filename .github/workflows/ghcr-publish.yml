@@ -21,6 +21,8 @@ jobs:
   build-and-push:
     if: github.event_name != 'issue_comment'
     runs-on: ubuntu-latest
+    outputs:
+      sha-image: ${{ steps.sha-tag.outputs.image }}
     permissions:
       contents: read
       packages: write
@@ -53,6 +55,19 @@ jobs:
             type=semver,pattern={{version}}
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Select sha image tag
+        id: sha-tag
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          image="$(printf '%s\n' "$TAGS" | grep -E ':sha-[0-9a-f]+$' | head -n 1)"
+          if [[ -z "$image" ]]; then
+            echo "::error::docker/metadata-action did not produce a sha tag"
+            exit 1
+          fi
+          echo "image=$image" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -199,3 +214,41 @@ jobs:
               issue_number: context.issue.number,
               body,
             })
+
+  deploy-cvm:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pin server image to published sha tag
+        env:
+          SHA_IMAGE: ${{ needs.build-and-push.outputs.sha-image }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$SHA_IMAGE" ]]; then
+            echo "::error::Missing sha image tag from build-and-push"
+            exit 1
+          fi
+          sed -i "s|^    image: ghcr.io/phala-network/trust-center:latest$|    image: ${SHA_IMAGE}|" compose.yml
+          grep -n "image: ${SHA_IMAGE}" compose.yml
+
+      - name: Update Phala Cloud CVM compose
+        id: deploy
+        uses: Leechael/phala-deploy-action@feat/oidc-cli-bearer-compat
+
+      - name: Show deploy outputs
+        if: always()
+        run: |
+          echo "Status: ${{ steps.deploy.outputs.status }}"
+          echo "App ID: ${{ steps.deploy.outputs.app-id }}"
+          echo "VM UUID: ${{ steps.deploy.outputs.vm-uuid }}"
+          echo "CVM Name: ${{ steps.deploy.outputs.cvm-name }}"
+          echo "Dashboard: ${{ steps.deploy.outputs.dashboard-url }}"
+          echo "Compose Hash: ${{ steps.deploy.outputs.compose-hash }}"
+          echo "Image: ${{ needs.build-and-push.outputs.sha-image }}"

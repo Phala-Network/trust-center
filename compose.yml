@@ -6,6 +6,20 @@ services:
     container_name: dstack-verifier-redis
     restart: unless-stopped
 
+  # Internal attestation verifier; no host port is published.
+  dstack-verifier:
+    platform: linux/amd64
+    image: docker.io/dstacktee/dstack-verifier:0.6.0-rc3@sha256:0ed61d60f6e0d44cf466e15dc6894f37152d8567cfa76bd8785a921b2d906c38
+    restart: unless-stopped
+    volumes:
+      - verifier_cache:/tmp/dstack-verifier/cache
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
   # DStack Verifier Server
   server:
     platform: linux/amd64
@@ -14,7 +28,10 @@ services:
     restart: unless-stopped
     pull_policy: always
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      dstack-verifier:
+        condition: service_healthy
     volumes:
       # Persist downloaded dstack images across container restarts
       - dstack_images:/app/packages/verifier/external/dstack-images
@@ -24,6 +41,8 @@ services:
 
       # Redis configuration (using local Redis)
       REDIS_URL: redis://redis:6379
+
+      DSTACK_VERIFIER_URL: http://dstack-verifier:8080
 
       # Application configuration
       NODE_ENV: ${NODE_ENV:-production}
@@ -66,3 +85,4 @@ services:
 
 volumes:
   dstack_images:
+  verifier_cache:

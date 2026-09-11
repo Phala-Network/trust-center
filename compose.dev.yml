@@ -36,6 +36,21 @@ services:
       retries: 3
       start_period: 3s
 
+
+  # Internal attestation verifier; no host port is published.
+  dstack-verifier:
+    platform: linux/amd64
+    image: docker.io/dstacktee/dstack-verifier:0.6.0-rc3@sha256:0ed61d60f6e0d44cf466e15dc6894f37152d8567cfa76bd8785a921b2d906c38
+    restart: unless-stopped
+    volumes:
+      - verifier_cache_dev:/tmp/dstack-verifier/cache
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
   # DStack Verifier Server - Development
   server:
     build:
@@ -59,6 +74,8 @@ services:
 
       # Redis configuration
       REDIS_URL: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
+
+      DSTACK_VERIFIER_URL: http://dstack-verifier:8080
 
       # Application configuration
       NODE_ENV: ${NODE_ENV:-development}
@@ -98,6 +115,8 @@ services:
       # Intel Trust Authority (optional)
       INTEL_TRUST_AUTHORITY_API_KEY: ${INTEL_TRUST_AUTHORITY_API_KEY:-}
     depends_on:
+      dstack-verifier:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -121,3 +140,4 @@ volumes:
   redis_data_dev:
   drizzle_gateway_dev:
   dstack_images_dev:
+  verifier_cache_dev:

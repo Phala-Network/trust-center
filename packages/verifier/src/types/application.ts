@@ -1,6 +1,6 @@
-import type { EventLog, Quote } from './core'
-import type { ImageVersionString, KmsVersionString } from './metadata'
-import type { AppId, ContractAddress } from './utils'
+import type {EventLog, Quote} from './core'
+import type {ImageVersionString, KmsVersionString} from './metadata'
+import type {AppId, ContractAddress} from './utils'
 
 /**
  * Types related to application configuration and deployment.
@@ -125,6 +125,11 @@ export interface BasicVmConfig {
  * - use1/use2: has qemu_version, image
  */
 export interface VmConfig {
+  tdx_attestation_variant?: 'legacy' | 'lite'
+  tdx_measurement?: {measurement: string; checksum_file: string}
+  ovmf_variant?: string
+  [key: string]: unknown
+
   /** Specification version for the VM configuration */
   spec_version: number
   /** Hash of the operating system image */
@@ -227,6 +232,8 @@ export interface KmsInfo {
  * Instance information containing attestation data.
  */
 export interface DstackInstance {
+  instance_id?: string
+  vm_config?: string
   /** Cryptographic quote from the TEE */
   quote: Quote
   /** Event log containing measurement data */
