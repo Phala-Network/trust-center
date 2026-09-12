@@ -62,51 +62,37 @@ function logErrorChain(prefix: string, error: unknown): void {
   }
 }
 
-// Helper function to parse version from base_image
+// Match teehouse parse_version (cloud-api.phala.com): first x.y.z in the
+// string, ignore prerelease/build suffixes. Unparseable -> 0.0.0, never throw.
 function parseVersion(baseImage: string): {
   major: number
   minor: number
   patch: number
-  build?: number
 } {
-  // Handle dstack-dev-0.5.3, dstack-0.5.4.1, and prereleases like 0.6.0-rc2
-  const match = baseImage.match(
-    /(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?(?:-[0-9A-Za-z.]+)?$/,
-  )
+  const match = baseImage.match(/(\d+)\.(\d+)\.(\d+)/)
   if (!match) {
-    throw new Error(`Invalid version format: ${baseImage}`)
+    return {major: 0, minor: 0, patch: 0}
   }
-
   return {
     major: parseInt(match[1]!, 10),
     minor: parseInt(match[2]!, 10),
     patch: parseInt(match[3]!, 10),
-    build: match[4] ? parseInt(match[4], 10) : undefined,
   }
 }
 
-// Helper function to compare versions
 function isVersionGreaterOrEqual(
   baseImage: string,
   targetVersion: string,
 ): boolean {
   const current = parseVersion(baseImage)
   const target = parseVersion(targetVersion)
-
   if (current.major !== target.major) {
     return current.major > target.major
   }
   if (current.minor !== target.minor) {
     return current.minor > target.minor
   }
-  if (current.patch !== target.patch) {
-    return current.patch > target.patch
-  }
-
-  // If patch versions are equal, check build number
-  const currentBuild = current.build ?? 0
-  const targetBuild = target.build ?? 0
-  return currentBuild >= targetBuild
+  return current.patch >= target.patch
 }
 
 // Helper function to determine custom user label based on business rules
