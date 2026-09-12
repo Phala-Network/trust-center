@@ -24,6 +24,15 @@ interface PanelsProps {
   defaultLayout?: number[]
 }
 
+function isInIframe() {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.self !== window.top
+  } catch {
+    return true
+  }
+}
+
 export default function Panels({defaultLayout}: PanelsProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -72,7 +81,7 @@ export default function Panels({defaultLayout}: PanelsProps) {
     <ResizablePanelGroup
       direction="horizontal"
       className="h-full flex-1"
-      autoSaveId={PANEL_LAYOUT_STORAGE_KEY}
+      autoSaveId={isInIframe() ? undefined : PANEL_LAYOUT_STORAGE_KEY}
       onLayout={onLayout}
       ref={panelGroupRef}
     >
