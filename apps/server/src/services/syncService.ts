@@ -69,8 +69,10 @@ function parseVersion(baseImage: string): {
   patch: number
   build?: number
 } {
-  // Handle formats like "dstack-dev-0.5.3" or "dstack-0.5.4.1"
-  const match = baseImage.match(/(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$/)
+  // Handle dstack-dev-0.5.3, dstack-0.5.4.1, and prereleases like 0.6.0-rc2
+  const match = baseImage.match(
+    /(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?(?:-[0-9A-Za-z.]+)?$/,
+  )
   if (!match) {
     throw new Error(`Invalid version format: ${baseImage}`)
   }
@@ -233,7 +235,8 @@ function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
 }
 
 // Phala Cloud API endpoints
-const PHALA_CLOUD_APP_API = 'https://cloud-api.phala.com/api/v1/stats/dstack_app'
+const PHALA_CLOUD_APP_API =
+  'https://cloud-api.phala.com/api/v1/stats/dstack_app'
 const PHALA_CLOUD_PROFILE_API =
   'https://cloud-api.phala.com/api/v1/stats/entity_profile'
 
@@ -295,7 +298,9 @@ export function createSyncService(
       return apps
     } catch (error) {
       if (error instanceof Error && error.name === 'TimeoutError') {
-        throw new Error('Phala Cloud apps API request timed out after 30 seconds')
+        throw new Error(
+          'Phala Cloud apps API request timed out after 30 seconds',
+        )
       }
       throw error
     }
@@ -468,9 +473,24 @@ export function createSyncService(
         return {appsSynced: 0, apps: []}
       }
 
-      // Convert upstream apps to app records
-      const appRecords = apps.map(convertToAppRecord)
-      console.log(`[SYNC] Converted ${appRecords.length} app records`)
+      const appRecords = []
+      for (const app of apps) {
+        try {
+          appRecords.push(convertToAppRecord(app))
+        } catch (error) {
+          console.error(
+            `[SYNC] Skipping app ${app.dstack_app_id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          )
+        }
+      }
+      console.log(
+        `[SYNC] Converted ${appRecords.length} app records from ${apps.length} upstream apps`,
+      )
+      if (appRecords.length === 0) {
+        throw new Error('No upstream apps could be converted')
+      }
 
       // Upsert apps to database using appService
       await appService.upsertApps(appRecords)
@@ -520,7 +540,9 @@ export function createSyncService(
       console.log('[SYNC] Syncing profiles from Phala Cloud API...')
 
       const profiles = await fetchProfiles()
-      console.log(`[SYNC] Fetched ${profiles.length} profiles from Phala Cloud API`)
+      console.log(
+        `[SYNC] Fetched ${profiles.length} profiles from Phala Cloud API`,
+      )
 
       if (profiles.length === 0) {
         console.log('[SYNC] No profiles to sync')
