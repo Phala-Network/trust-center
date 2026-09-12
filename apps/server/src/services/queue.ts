@@ -181,8 +181,8 @@ export const createQueueService = (
           // This ensures complete isolation between concurrent verification tasks
           const verificationService = new VerificationService()
 
-          // Implement timeout for verification (5 minutes)
-          const TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+          // Must exceed dstack-verifier image download timeout (300s) plus HTTP overhead.
+          const TIMEOUT_MS = 10 * 60 * 1000
 
           // Create timeout promise that rejects after timeout
           const timeoutPromise = new Promise<never>((_, reject) => {
