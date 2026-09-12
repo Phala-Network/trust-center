@@ -62,49 +62,37 @@ function logErrorChain(prefix: string, error: unknown): void {
   }
 }
 
-// Helper function to parse version from base_image
+// Match teehouse parse_version (cloud-api.phala.com): first x.y.z in the
+// string, ignore prerelease/build suffixes. Unparseable -> 0.0.0, never throw.
 function parseVersion(baseImage: string): {
   major: number
   minor: number
   patch: number
-  build?: number
 } {
-  // Handle formats like "dstack-dev-0.5.3" or "dstack-0.5.4.1"
-  const match = baseImage.match(/(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$/)
+  const match = baseImage.match(/(\d+)\.(\d+)\.(\d+)/)
   if (!match) {
-    throw new Error(`Invalid version format: ${baseImage}`)
+    return {major: 0, minor: 0, patch: 0}
   }
-
   return {
     major: parseInt(match[1]!, 10),
     minor: parseInt(match[2]!, 10),
     patch: parseInt(match[3]!, 10),
-    build: match[4] ? parseInt(match[4], 10) : undefined,
   }
 }
 
-// Helper function to compare versions
 function isVersionGreaterOrEqual(
   baseImage: string,
   targetVersion: string,
 ): boolean {
   const current = parseVersion(baseImage)
   const target = parseVersion(targetVersion)
-
   if (current.major !== target.major) {
     return current.major > target.major
   }
   if (current.minor !== target.minor) {
     return current.minor > target.minor
   }
-  if (current.patch !== target.patch) {
-    return current.patch > target.patch
-  }
-
-  // If patch versions are equal, check build number
-  const currentBuild = current.build ?? 0
-  const targetBuild = target.build ?? 0
-  return currentBuild >= targetBuild
+  return current.patch >= target.patch
 }
 
 // Helper function to determine custom user label based on business rules
@@ -233,7 +221,8 @@ function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
 }
 
 // Phala Cloud API endpoints
-const PHALA_CLOUD_APP_API = 'https://cloud-api.phala.com/api/v1/stats/dstack_app'
+const PHALA_CLOUD_APP_API =
+  'https://cloud-api.phala.com/api/v1/stats/dstack_app'
 const PHALA_CLOUD_PROFILE_API =
   'https://cloud-api.phala.com/api/v1/stats/entity_profile'
 
@@ -295,7 +284,9 @@ export function createSyncService(
       return apps
     } catch (error) {
       if (error instanceof Error && error.name === 'TimeoutError') {
-        throw new Error('Phala Cloud apps API request timed out after 30 seconds')
+        throw new Error(
+          'Phala Cloud apps API request timed out after 30 seconds',
+        )
       }
       throw error
     }
@@ -468,9 +459,24 @@ export function createSyncService(
         return {appsSynced: 0, apps: []}
       }
 
-      // Convert upstream apps to app records
-      const appRecords = apps.map(convertToAppRecord)
-      console.log(`[SYNC] Converted ${appRecords.length} app records`)
+      const appRecords = []
+      for (const app of apps) {
+        try {
+          appRecords.push(convertToAppRecord(app))
+        } catch (error) {
+          console.error(
+            `[SYNC] Skipping app ${app.dstack_app_id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          )
+        }
+      }
+      console.log(
+        `[SYNC] Converted ${appRecords.length} app records from ${apps.length} upstream apps`,
+      )
+      if (appRecords.length === 0) {
+        throw new Error('No upstream apps could be converted')
+      }
 
       // Upsert apps to database using appService
       await appService.upsertApps(appRecords)
@@ -520,7 +526,9 @@ export function createSyncService(
       console.log('[SYNC] Syncing profiles from Phala Cloud API...')
 
       const profiles = await fetchProfiles()
-      console.log(`[SYNC] Fetched ${profiles.length} profiles from Phala Cloud API`)
+      console.log(
+        `[SYNC] Fetched ${profiles.length} profiles from Phala Cloud API`,
+      )
 
       if (profiles.length === 0) {
         console.log('[SYNC] No profiles to sync')
