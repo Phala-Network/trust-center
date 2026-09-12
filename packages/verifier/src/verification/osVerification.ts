@@ -255,7 +255,7 @@ export async function verifyDstackEvidence(
             vm_config: evidence.vm_config,
           },
     ),
-    signal: AbortSignal.timeout(240_000),
+    signal: AbortSignal.timeout(330_000),
     redirect: 'error',
   })
   if (!response.ok) {

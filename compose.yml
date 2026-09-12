@@ -9,8 +9,12 @@ services:
   # Internal attestation verifier; no host port is published.
   dstack-verifier:
     platform: linux/amd64
-    image: docker.io/dstacktee/dstack-verifier:0.6.0-rc3@sha256:0ed61d60f6e0d44cf466e15dc6894f37152d8567cfa76bd8785a921b2d906c38
+    image: docker.io/leechael/dstack-verifier:2026-09-12-83377274@sha256:cab615ae7b81570543ca5b3049f9c243185e667f21a61c81e3f4002300afd366
     restart: unless-stopped
+    environment:
+      DSTACK_VERIFIER_IMAGE_CACHE_DIR: /tmp/dstack-verifier/cache
+      DSTACK_VERIFIER_IMAGE_DOWNLOAD_URL: https://download.dstack.org/os-images/mr_{OS_IMAGE_HASH}.tar.gz
+      DSTACK_VERIFIER_IMAGE_DOWNLOAD_TIMEOUT_SECS: "300"
     volumes:
       - verifier_cache:/tmp/dstack-verifier/cache
     healthcheck:
@@ -50,7 +54,7 @@ services:
 
       # Queue configuration
       QUEUE_NAME: ${QUEUE_NAME:-verification-queue}
-      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-20}
+      QUEUE_CONCURRENCY: ${QUEUE_CONCURRENCY:-5}
       QUEUE_MAX_ATTEMPTS: ${QUEUE_MAX_ATTEMPTS:-1}
       QUEUE_BACKOFF_DELAY: ${QUEUE_BACKOFF_DELAY:-2000}
 
