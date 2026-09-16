@@ -40,7 +40,7 @@ services:
   # Internal attestation verifier; no host port is published.
   dstack-verifier:
     platform: linux/amd64
-    image: docker.io/leechael/dstack-verifier:2026-09-12-83377274@sha256:cab615ae7b81570543ca5b3049f9c243185e667f21a61c81e3f4002300afd366
+    image: ghcr.io/dstack-tee/dstack-verifier:0.6.0-rc5@sha256:3710ec5c408a0d04e408668905152cc8c972396c0fa3d942158c5e67e969628d
     restart: unless-stopped
     environment:
       DSTACK_VERIFIER_IMAGE_CACHE_DIR: /tmp/dstack-verifier/cache
