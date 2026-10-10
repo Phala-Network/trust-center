@@ -11,7 +11,8 @@ const buildBasicHealthResponse = () => ({
 
 const buildDetailedHealthResponse = async (services: Services) => {
   try {
-    const latestTaskTime = await services.verificationTask.getLatestCompletedTask()
+    const latestTaskTime =
+      await services.verificationTask.getLatestCompletedTask()
 
     const baseHealth = buildBasicHealthResponse()
 

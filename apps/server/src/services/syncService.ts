@@ -479,8 +479,11 @@ export function createSyncService(
       }
 
       // Upsert apps to database using appService
-      await appService.upsertApps(appRecords)
+      const {revivedCount} = await appService.upsertApps(appRecords)
       console.log(`[SYNC] Upserted ${appRecords.length} apps to database`)
+      if (revivedCount > 0) {
+        console.log(`[SYNC] Revived ${revivedCount} apps, cleared failed tasks`)
+      }
 
       // Mark apps that are not in upstream as deleted (batch update)
       const upstreamProfileIds = new Set(apps.map((app) => app.app_id))
