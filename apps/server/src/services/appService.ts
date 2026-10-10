@@ -1,12 +1,13 @@
 import {
-  and,
   type AppRecord,
+  and,
   appsTable,
   createDbConnection,
   type DbConnection,
   eq,
   getTableColumns,
   inArray,
+  like,
   lt,
   type NewAppRecord,
   or,
@@ -14,6 +15,8 @@ import {
   verificationTasksTable,
 } from '@phala/trust-center-db'
 import {subDays, subMinutes} from 'date-fns'
+
+import {PERMANENT_FAILURE_PATTERNS} from './failureClassification'
 
 // App service factory function
 export const createAppService = (
@@ -176,11 +179,13 @@ export const createAppService = (
       )
   }
 
-  // Get apps that need verification
+  // Get apps that need verification.
   // Returns apps that meet basic validation AND any of these conditions:
-  // 1. Latest task is 'completed' and finished more than 24 hours ago, OR
-  // 2. No tasks at all (never verified), OR
-  // 3. Latest task is 'failed' and finished more than 30 minutes ago
+  // 1. No tasks at all (never verified), OR
+  // 2. Latest task is 'completed' and finished more than 24 hours ago, OR
+  // 3. Latest task is 'failed' and the error is a permanent/config error
+  //    and finished more than 24 hours ago, OR
+  // 4. Latest task is 'failed' (transient error) and finished more than 30 minutes ago
   const getAppsNeedingVerification = async () => {
     const oneDayAgo = subDays(new Date(), 1).toISOString()
     const thirtyMinutesAgo = subMinutes(new Date(), 30).toISOString()
@@ -192,6 +197,7 @@ export const createAppService = (
           appId: verificationTasksTable.appId,
           status: verificationTasksTable.status,
           finishedAt: verificationTasksTable.finishedAt,
+          errorMessage: verificationTasksTable.errorMessage,
           rn: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${verificationTasksTable.appId} ORDER BY ${verificationTasksTable.createdAt} DESC)`.as(
             'rn',
           ),
@@ -230,7 +236,19 @@ export const createAppService = (
             ),
             and(
               eq(latestTaskPerApp.status, 'failed'),
-              lt(latestTaskPerApp.finishedAt, sql`${thirtyMinutesAgo}::timestamp`), // Failed >30min ago
+              or(
+                ...PERMANENT_FAILURE_PATTERNS.map((pattern) =>
+                  like(latestTaskPerApp.errorMessage, `%${pattern}%`),
+                ),
+              ),
+              lt(latestTaskPerApp.finishedAt, sql`${oneDayAgo}::timestamp`), // Permanent failure >24h ago
+            ),
+            and(
+              eq(latestTaskPerApp.status, 'failed'),
+              lt(
+                latestTaskPerApp.finishedAt,
+                sql`${thirtyMinutesAgo}::timestamp`,
+              ), // Failed >30min ago
             ),
           ),
         ),
