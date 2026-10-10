@@ -18,6 +18,20 @@ import {subDays, subMinutes} from 'date-fns'
 
 import {PERMANENT_FAILURE_PATTERNS} from './failureClassification'
 
+// Compute app IDs in this upsert batch that are currently marked deleted and
+// will therefore revive (deleted true -> false) when the batch is upserted.
+// Must be based strictly on the deleted flag transition: syncApps refreshes
+// lastSyncedAt every minute for all listed apps, so a lastSyncedAt-based
+// check would let transiently unreachable apps bypass the permanent-failure
+// cooldown and churn.
+export function computeRevivedAppIds(
+  batchIds: readonly string[],
+  deletedIds: readonly string[],
+): string[] {
+  const deletedSet = new Set(deletedIds)
+  return batchIds.filter((id) => deletedSet.has(id))
+}
+
 // App service factory function
 export const createAppService = (
   databaseUrl: string = process.env.DATABASE_URL || '',
@@ -73,10 +87,17 @@ export const createAppService = (
   // Batch upsert apps (optimized for bulk operations)
   // Processes in batches of 100 to avoid PostgreSQL parameter limit (65535)
   // Deduplicates by ID to avoid "ON CONFLICT DO UPDATE cannot affect row a second time" error
-  const upsertApps = async (appsData: NewAppRecord[]) => {
+  //
+  // Returns the upserted apps plus the number of revived apps (apps whose
+  // deleted flag flipped true -> false in this upsert). For revived apps,
+  // failed verification tasks are cleared so the next tasks tick re-enqueues
+  // them immediately instead of waiting out the permanent-failure cooldown.
+  const upsertApps = async (
+    appsData: NewAppRecord[],
+  ): Promise<{apps: AppRecord[]; revivedCount: number}> => {
     if (!appsData || appsData.length === 0) {
       console.warn('[APP] upsertApps called with empty array, skipping')
-      return []
+      return {apps: [], revivedCount: 0}
     }
 
     // Deduplicate by ID - keep the last occurrence (most recent data)
@@ -92,10 +113,26 @@ export const createAppService = (
     const BATCH_SIZE = 100
     const now = new Date()
     const allResults: AppRecord[] = []
+    let revivedCount = 0
 
     // Process in batches to avoid PostgreSQL parameter limit
     for (let i = 0; i < deduped.length; i += BATCH_SIZE) {
       const batch = deduped.slice(i, i + BATCH_SIZE)
+      const batchIds = batch.map((app) => app.id)
+
+      // Pre-query currently deleted apps in this batch; they are the ones
+      // about to revive (deleted true -> false)
+      const deletedRows = await db
+        .select({id: appsTable.id})
+        .from(appsTable)
+        .where(
+          and(inArray(appsTable.id, batchIds), eq(appsTable.deleted, true)),
+        )
+      const revivedIds = computeRevivedAppIds(
+        batchIds,
+        deletedRows.map((row) => row.id),
+      )
+
       const values = batch.map((app) => ({
         ...app,
         updatedAt: now,
@@ -132,10 +169,25 @@ export const createAppService = (
         })
         .returning()
 
+      // Clear failed tasks for revived apps so the next tasks tick sees "no
+      // tasks" and re-enqueues them instead of waiting out the permanent-
+      // failure cooldown (up to 24h).
+      if (revivedIds.length > 0) {
+        await db
+          .delete(verificationTasksTable)
+          .where(
+            and(
+              inArray(verificationTasksTable.appId, revivedIds),
+              eq(verificationTasksTable.status, 'failed'),
+            ),
+          )
+        revivedCount += revivedIds.length
+      }
+
       allResults.push(...results)
     }
 
-    return allResults
+    return {apps: allResults, revivedCount}
   }
 
   // Get all apps
