@@ -433,7 +433,8 @@ export const cronRoutes = new Elysia()
             {
               body: t.Object({
                 appIds: t.Array(t.String(), {
-                  description: 'Array of app IDs (dstack_app_id) to run verification for',
+                  description:
+                    'Array of app IDs (dstack_app_id) to run verification for',
                   minItems: 1,
                 }),
               }),
