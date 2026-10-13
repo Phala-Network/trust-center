@@ -2,8 +2,12 @@ import {openapi} from '@elysiajs/openapi'
 import {Elysia} from 'elysia'
 import z from 'zod'
 
+import {env} from './env'
 import {cronRoutes} from './routes/cron'
 import {healthRoutes} from './routes/health'
+import {createPhalaCloudWebhookRoutes} from './routes/phalaCloudWebhook'
+import {createSyncEventsRoutes} from './routes/syncEvents'
+import {getServices} from './services'
 
 // Pure error mapping function
 const mapErrorResponse = (code: string | number, error: unknown) => {
@@ -38,6 +42,18 @@ export const createApp = () => {
       }),
     )
     .use(cronRoutes)
+    .use(
+      createPhalaCloudWebhookRoutes({
+        secret: env.PHALA_CLOUD_WEBHOOK_SECRET,
+        ingest: (event) => getServices().ingest.ingest(event),
+      }),
+    )
+    .use(
+      createSyncEventsRoutes({
+        apiKey: env.CRON_API_KEY,
+        events: {list: (options) => getServices().syncEvents.list(options)},
+      }),
+    )
     .group('/health', (app) => app.use(healthRoutes))
     .onError(({code, error, set}) => {
       console.error('[ERROR]', code, error)

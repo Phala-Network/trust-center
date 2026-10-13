@@ -118,11 +118,12 @@ The `@phala/dstack-verifier` package is a comprehensive TypeScript library for v
 
 ### Server (`apps/server`)
 
-Background worker service that processes verification tasks from a Redis queue. No HTTP endpoints.
+Background worker service that processes verification tasks from a Redis queue, with authenticated cron management and [Phala Cloud push ingest](apps/server/PHALA_CLOUD_INGEST.md).
 
 **Key Features:**
 - BullMQ queue worker for background processing
-- Database polling via dbMonitor service
+- Cron-based full synchronization and HMAC-signed partial updates
+- Administrator-only sync audit with actual changed-row counts
 - S3-compatible object storage for results
 - PostgreSQL persistence for task state
 - Docker deployment ready

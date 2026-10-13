@@ -1,0 +1,42 @@
+name: Sync ingest tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: trust_center_ingest_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d trust_center_ingest_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:test-only@127.0.0.1:5432/trust_center_ingest_test
+      TEST_DATABASE_URL: postgres://postgres:test-only@127.0.0.1:5432/trust_center_ingest_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Install disposable Redis test server
+        run: sudo apt-get update && sudo apt-get install -y redis-server
+      - name: Apply test database migrations
+        run: bun run --cwd packages/db migrate
+      - name: Test HTTP ingest, transaction recovery and full-sync audit
+        run: bun test apps/server/src --max-concurrency 1

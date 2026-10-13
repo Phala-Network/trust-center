@@ -1,4 +1,5 @@
 import {
+  and,
   appsTable,
   eq,
   inArray,
@@ -13,54 +14,12 @@ import {
 import type {AppService} from './appService'
 import type {ProfileService} from './profileService'
 import type {QueueService} from './queue'
-
-function logErrorChain(prefix: string, error: unknown): void {
-  if (!(error instanceof Error)) {
-    console.error(prefix, error)
-    return
-  }
-
-  const errorWithQuery = error as Error & {
-    query?: unknown
-    params?: unknown
-  }
-  const query = errorWithQuery.query
-  const isQueryError = typeof query === 'string'
-
-  console.error(prefix, {
-    name: error.name,
-    message: isQueryError ? 'Database query failed' : error.message,
-    ...(isQueryError ? {queryLength: query.length} : {}),
-    ...(Array.isArray(errorWithQuery.params)
-      ? {parameterCount: errorWithQuery.params.length}
-      : {}),
-  })
-
-  let cause = error.cause
-  let depth = 1
-
-  while (cause !== undefined && depth <= 5) {
-    if (!(cause instanceof Error)) {
-      console.error(`${prefix} cause ${depth}:`, cause)
-      break
-    }
-
-    const causeDetails = Object.fromEntries(
-      Object.entries(cause).filter(
-        ([key]) => key !== 'cause' && key !== 'query' && key !== 'params',
-      ),
-    )
-
-    console.error(`${prefix} cause ${depth}:`, {
-      name: cause.name,
-      message: cause.message,
-      ...causeDetails,
-    })
-
-    cause = cause.cause
-    depth++
-  }
-}
+import {
+  createSyncEventService,
+  getSyncErrorMessage,
+  type SyncEventInput,
+} from './syncEventService'
+import {verificationTaskId} from './verificationTaskId'
 
 // Match teehouse parse_version (cloud-api.phala.com): first x.y.z in the
 // string, ignore prerelease/build suffixes. Unparseable -> 0.0.0, never throw.
@@ -162,7 +121,7 @@ function determineUser(app: UpstreamAppData): string | null {
 }
 
 // Helper function to convert upstream app data to app record
-function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
+export function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
   const {
     dstack_app_id,
     app_id,
@@ -235,6 +194,8 @@ export interface SyncService {
   syncAllTasks: () => Promise<{tasksCreated: number; apps: UpstreamAppData[]}>
   syncSelectedTasks: (
     appIds: string[],
+    eventId?: string,
+    onDispatched?: (appId: string) => Promise<void>,
   ) => Promise<{tasksCreated: number; apps: UpstreamAppData[]}>
   forceRefreshAllApps: () => Promise<{
     tasksCreated: number
@@ -254,6 +215,26 @@ export function createSyncService(
   profileService: ProfileService,
   appService: AppService,
 ): SyncService {
+  const db = appService.getDb()
+  const syncEventService = createSyncEventService(db)
+
+  const recordFailure = async (
+    event: Omit<SyncEventInput, 'result'>,
+    error: unknown,
+  ): Promise<void> => {
+    try {
+      // This runs outside the apply transaction, which may have rolled back.
+      await syncEventService.recordFailure({...event, rowsChanged: 0, error})
+    } catch (auditError) {
+      // Preserve the original failure even when the database is unavailable.
+      console.error(
+        '[SYNC] Failed to record sync error:',
+        getSyncErrorMessage(auditError),
+      )
+    }
+    console.error('[SYNC] Full sync failed:', getSyncErrorMessage(error))
+  }
+
   // Fetch from Phala Cloud API with Bearer auth
   const fetchFromApi = async (url: string, resourceName: string) => {
     const response = await fetch(url, {
@@ -263,9 +244,8 @@ export function createSyncService(
     })
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error')
       throw new Error(
-        `Phala Cloud ${resourceName} API error: ${response.status} ${response.statusText} - ${errorText}`,
+        `Phala Cloud ${resourceName} API error: HTTP ${response.status}`,
       )
     }
 
@@ -353,11 +333,7 @@ export function createSyncService(
       )
       return {tasksCreated: appsToVerify.length, apps: []}
     } catch (error) {
-      console.error('[SYNC] Sync all tasks error:', error)
-      console.error(
-        '[SYNC] Error details:',
-        error instanceof Error ? error.message : String(error),
-      )
+      console.error('[SYNC] Sync all tasks error:', getSyncErrorMessage(error))
       throw error
     }
   }
@@ -365,6 +341,8 @@ export function createSyncService(
   // Sync selected tasks by app IDs (dstack_app_id) - reads from current database
   const syncSelectedTasks = async (
     appIds: string[],
+    eventId?: string,
+    onDispatched?: (appId: string) => Promise<void>,
   ): Promise<{tasksCreated: number; apps: UpstreamAppData[]}> => {
     try {
       console.log(`[SYNC] Creating tasks for selected ${appIds.length} apps...`)
@@ -382,20 +360,29 @@ export function createSyncService(
       )
 
       // Add tasks directly to queue (they will be created in DB by the worker)
-      const jobPromises = validApps.map((app) =>
-        queueService.addTask({
-          appId: app.id, // Use dstack app ID (primary key)
+      // Finish every receipt before allowing an event retry to start. Promise.all
+      // rejects early and can leave successful sibling jobs unreceipted.
+      const outcomes = await Promise.allSettled(
+        validApps.map(async (app) => {
+          await queueService.addTask(
+            {appId: app.id},
+            eventId ? verificationTaskId(eventId, app.id) : undefined,
+          )
+          await onDispatched?.(app.id)
         }),
       )
-
-      await Promise.all(jobPromises)
+      const failure = outcomes.find((outcome) => outcome.status === 'rejected')
+      if (failure?.status === 'rejected') throw failure.reason
 
       console.log(
         `[SYNC] Added ${validApps.length} tasks to queue successfully`,
       )
       return {tasksCreated: validApps.length, apps: []}
     } catch (error) {
-      console.error('[SYNC] Sync selected tasks error:', error)
+      console.error(
+        '[SYNC] Sync selected tasks error:',
+        getSyncErrorMessage(error),
+      )
       throw error
     }
   }
@@ -437,7 +424,7 @@ export function createSyncService(
       )
       return {tasksCreated: validApps.length, apps: []}
     } catch (error) {
-      console.error('[SYNC] Force refresh error:', error)
+      console.error('[SYNC] Force refresh error:', getSyncErrorMessage(error))
       throw error
     }
   }
@@ -447,75 +434,81 @@ export function createSyncService(
     appsSynced: number
     apps: UpstreamAppData[]
   }> => {
+    const event = {
+      id: crypto.randomUUID(),
+      source: 'cron-apps' as const,
+      receivedAt: new Date(),
+      appCount: 0,
+    }
     try {
       console.log('[SYNC] Syncing apps from Phala Cloud API...')
 
       const apps = await fetchApps()
+      event.appCount = apps.length
       console.log(`[SYNC] Fetched ${apps.length} apps from Phala Cloud API`)
 
-      if (apps.length === 0) {
-        console.log('[SYNC] No apps to sync')
-        console.log('[SYNC] App sync completed: 0 apps synced')
-        return {appsSynced: 0, apps: []}
-      }
+      const appRecords = apps.map(convertToAppRecord)
+      const {changedCount, deletedCount, revivedCount} = await db.transaction(
+        async (tx) => {
+          // Serialize full reconciliation with partial push writes.
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(74190311)`)
+          let changedCount = 0
+          let deletedCount = 0
+          let revivedCount = 0
 
-      const appRecords = []
-      for (const app of apps) {
-        try {
-          appRecords.push(convertToAppRecord(app))
-        } catch (error) {
-          console.error(
-            `[SYNC] Skipping app ${app.dstack_app_id}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+          // Preserve the existing empty-snapshot safeguard: do not delete all apps.
+          if (apps.length > 0) {
+            const result = await appService.upsertApps(appRecords, tx)
+            changedCount = result.apps.length
+            revivedCount = result.revivedCount
+
+            const upstreamProfileIds = new Set(apps.map((app) => app.app_id))
+            const allApps = await appService.getAllApps(tx)
+            const idsToDelete = allApps
+              .filter(
+                (app) => !upstreamProfileIds.has(app.profileId) && !app.deleted,
+              )
+              .map((app) => app.id)
+
+            if (idsToDelete.length > 0) {
+              const deleted = await tx
+                .update(appsTable)
+                .set({deleted: true, updatedAt: new Date()})
+                .where(
+                  and(
+                    inArray(appsTable.id, idsToDelete),
+                    eq(appsTable.deleted, false),
+                  ),
+                )
+                .returning({id: appsTable.id})
+              deletedCount = deleted.length
+            }
+          }
+
+          await syncEventService.record(
+            {
+              ...event,
+              deletedAppCount: deletedCount,
+              rowsChanged: changedCount + deletedCount,
+              result: 'success',
+              finishedAt: new Date(),
+            },
+            tx,
           )
-        }
-      }
-      console.log(
-        `[SYNC] Converted ${appRecords.length} app records from ${apps.length} upstream apps`,
+          return {changedCount, deletedCount, revivedCount}
+        },
       )
-      if (appRecords.length === 0) {
-        throw new Error('No upstream apps could be converted')
-      }
 
-      // Upsert apps to database using appService
-      const {revivedCount} = await appService.upsertApps(appRecords)
-      console.log(`[SYNC] Upserted ${appRecords.length} apps to database`)
+      console.log(
+        `[SYNC] Changed ${changedCount} apps, marked ${deletedCount} apps as deleted`,
+      )
       if (revivedCount > 0) {
         console.log(`[SYNC] Revived ${revivedCount} apps, cleared failed tasks`)
       }
-
-      // Mark apps that are not in upstream as deleted (batch update)
-      const upstreamProfileIds = new Set(apps.map((app) => app.app_id))
-      const allApps = await appService.getAllApps()
-      const appsToMarkDeleted = allApps.filter(
-        (app) => !upstreamProfileIds.has(app.profileId) && !app.deleted,
-      )
-
-      if (appsToMarkDeleted.length > 0) {
-        const db = appService.getDb()
-        const idsToDelete = appsToMarkDeleted.map((app) => app.id)
-
-        // Batch update all apps to mark as deleted in a single query
-        await db
-          .update(appsTable)
-          .set({deleted: true, updatedAt: new Date()})
-          .where(inArray(appsTable.id, idsToDelete))
-
-        console.log(`[SYNC] Marked ${appsToMarkDeleted.length} apps as deleted`)
-      }
-
       console.log(`[SYNC] App sync completed: ${apps.length} apps synced`)
       return {appsSynced: apps.length, apps}
     } catch (error) {
-      console.error('[SYNC] Sync apps error:', error)
-      console.error(
-        '[SYNC] Error details:',
-        error instanceof Error ? error.message : String(error),
-      )
-      if (error instanceof Error && error.stack) {
-        console.error('[SYNC] Error stack:', error.stack)
-      }
+      await recordFailure(event, error)
       throw error
     }
   }
@@ -525,30 +518,46 @@ export function createSyncService(
     profilesSynced: number
     profiles: UpstreamProfileData[]
   }> => {
+    const event = {
+      id: crypto.randomUUID(),
+      source: 'cron-profiles' as const,
+      receivedAt: new Date(),
+      profileCount: 0,
+    }
     try {
       console.log('[SYNC] Syncing profiles from Phala Cloud API...')
 
       const profiles = await fetchProfiles()
+      event.profileCount = profiles.length
       console.log(
         `[SYNC] Fetched ${profiles.length} profiles from Phala Cloud API`,
       )
 
-      if (profiles.length === 0) {
-        console.log('[SYNC] No profiles to sync')
-        console.log('[SYNC] Profile sync completed: 0 profiles synced')
-        return {profilesSynced: 0, profiles: []}
-      }
-
-      // Sync profiles to database using profileService
-      // Pass profiles directly - they already have snake_case format from Phala Cloud API
-      await profileService.syncProfiles(profiles)
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(74190311)`)
+        // Keep the existing empty-snapshot safeguard for profiles, too.
+        const counts =
+          profiles.length > 0
+            ? await profileService.syncProfiles(profiles, tx)
+            : {upserted: 0, deleted: 0}
+        await syncEventService.record(
+          {
+            ...event,
+            deletedProfileCount: counts.deleted,
+            rowsChanged: counts.upserted + counts.deleted,
+            result: 'success',
+            finishedAt: new Date(),
+          },
+          tx,
+        )
+      })
 
       console.log(
         `[SYNC] Profile sync completed: ${profiles.length} profiles synced`,
       )
       return {profilesSynced: profiles.length, profiles}
     } catch (error) {
-      logErrorChain('[SYNC] Sync profiles error:', error)
+      await recordFailure(event, error)
       throw error
     }
   }

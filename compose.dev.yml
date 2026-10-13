@@ -108,13 +108,15 @@ services:
       # Cron API (required)
       CRON_API_KEY: ${CRON_API_KEY}
 
-      # Cron patterns (optional, defaults: profile=1min, app=1min, tasks=1min)
-      PROFILE_CRON_PATTERN: ${PROFILE_CRON_PATTERN:-*/1 * * * *}
+      # Cron patterns (optional, defaults: profile=10min, app=1min, tasks=1min)
+      PROFILE_CRON_PATTERN: ${PROFILE_CRON_PATTERN:-*/10 * * * *}
       APP_CRON_PATTERN: ${APP_CRON_PATTERN:-*/1 * * * *}
       TASKS_CRON_PATTERN: ${TASKS_CRON_PATTERN:-*/1 * * * *}
 
       # Phala Cloud API sync (optional)
       PHALA_CLOUD_API_KEY: ${PHALA_CLOUD_API_KEY:-}
+      # Dedicated push signing secret; empty disables webhook ingress
+      PHALA_CLOUD_WEBHOOK_SECRET: ${PHALA_CLOUD_WEBHOOK_SECRET:-}
 
       # Intel Trust Authority (optional)
       INTEL_TRUST_AUTHORITY_API_KEY: ${INTEL_TRUST_AUTHORITY_API_KEY:-}

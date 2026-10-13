@@ -2,9 +2,14 @@ import {VerificationService} from '@phala/dstack-verifier'
 
 import {env} from '../env'
 import {type AppService, createAppService} from './appService'
+import {
+  createPhalaCloudIngestService,
+  type PhalaCloudIngestService,
+} from './phalaCloudIngestService'
 import {createProfileService, type ProfileService} from './profileService'
 import {createQueueService, type QueueConfig, type QueueService} from './queue'
 import {createS3Service, type S3Config, type S3Service} from './s3'
+import {createSyncEventService, type SyncEventService} from './syncEventService'
 import {
   createSyncService,
   type SyncService,
@@ -23,6 +28,8 @@ export interface Services {
   profile: ProfileService
   app: AppService
   sync: SyncService | null
+  ingest: PhalaCloudIngestService
+  syncEvents: SyncEventService
 }
 
 export interface ServiceConfig {
@@ -77,7 +84,18 @@ const composeServices = (config: ServiceConfig): Services => {
     ? createSyncService(config.sync, queue, profile, app)
     : null
 
-  return {queue, s3, verificationTask, profile, app, sync}
+  // Push reception does not require an outbound Phala Cloud read credential.
+  const taskSync =
+    sync ?? createSyncService({phalaCloudApiKey: ''}, queue, profile, app)
+  const ingest = createPhalaCloudIngestService({
+    db: app.getDb(),
+    profileService: profile,
+    appService: app,
+    syncSelectedTasks: taskSync.syncSelectedTasks,
+  })
+  const syncEvents = createSyncEventService(app.getDb())
+
+  return {queue, s3, verificationTask, profile, app, sync, ingest, syncEvents}
 }
 
 // Service lifecycle management with functional approach

@@ -6,6 +6,19 @@ import {env} from '../env'
 import {getServices} from '../services'
 
 export const cronRoutes = new Elysia()
+  .use(
+    cron({
+      name: 'retry-webhook-verification',
+      pattern: '* * * * *',
+      run: async () => {
+        try {
+          await getServices().ingest.retryPending()
+        } catch {
+          console.error('[CRON:INGEST] Pending verification recovery failed')
+        }
+      },
+    }),
+  )
   // Cleanup failed tasks cron - runs daily to clean up old failed/cancelled tasks
   .use(
     cron({
@@ -150,10 +163,17 @@ export const cronRoutes = new Elysia()
               const profilesCron = store?.cron?.['sync-profiles']
               const appsCron = store?.cron?.['sync-apps']
               const tasksCron = store?.cron?.['sync-tasks']
+              const ingestCron = store?.cron?.['retry-webhook-verification']
 
               return {
                 success: true,
                 crons: [
+                  {
+                    name: 'retry-webhook-verification',
+                    pattern: '* * * * *',
+                    description: 'Recover committed webhook verification work',
+                    running: ingestCron?.running ?? false,
+                  },
                   {
                     name: 'cleanup-failed-tasks',
                     pattern: env.CLEANUP_CRON_PATTERN,
@@ -268,6 +288,7 @@ export const cronRoutes = new Elysia()
               if (profilesCron) profilesCron.start()
               if (appsCron) appsCron.start()
               if (tasksCron) tasksCron.start()
+              store?.cron?.['retry-webhook-verification']?.start()
 
               return {success: true, message: 'All crons started'}
             },
@@ -292,6 +313,7 @@ export const cronRoutes = new Elysia()
               if (profilesCron) profilesCron.stop()
               if (appsCron) appsCron.stop()
               if (tasksCron) tasksCron.stop()
+              store?.cron?.['retry-webhook-verification']?.stop()
 
               return {success: true, message: 'All crons stopped'}
             },
