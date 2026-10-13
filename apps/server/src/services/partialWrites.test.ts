@@ -1,9 +1,10 @@
 import {
   appsTable,
-  type DbExecutor,
+  type DbConnection,
   eq,
   type NewAppRecord,
   profilesTable,
+  syncEventsTable,
   type UpstreamProfileData,
   verificationTasksTable,
 } from '@phala/trust-center-db'
@@ -13,6 +14,7 @@ import {afterAll, beforeAll, beforeEach, describe, expect, test} from 'bun:test'
 
 import {type AppService, createAppService} from './appService'
 import {createProfileService, type ProfileService} from './profileService'
+import {createSyncEventService, type SyncEventService} from './syncEventService'
 
 // Requires a migrated, disposable loopback PostgreSQL database. For example:
 // TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55439/trust_center_ingest_test \
@@ -69,9 +71,10 @@ suite('Transactional partial writes with real PostgreSQL', () => {
   const schema = `partial_writes_${crypto.randomUUID().replaceAll('-', '')}`
   let admin: ReturnType<typeof postgres> | undefined
   let client: ReturnType<typeof postgres> | undefined
-  let db: DbExecutor
+  let db: DbConnection
   let profiles: ProfileService
   let apps: AppService
+  let events: SyncEventService
 
   beforeAll(async () => {
     admin = postgres(databaseUrl!, {max: 1})
@@ -79,17 +82,19 @@ suite('Transactional partial writes with real PostgreSQL', () => {
     await admin`CREATE TABLE ${admin(`${schema}.profiles`)} (LIKE public.profiles INCLUDING ALL)`
     await admin`CREATE TABLE ${admin(`${schema}.verification_tasks`)} (LIKE public.verification_tasks INCLUDING ALL)`
     await admin`CREATE TABLE ${admin(`${schema}.apps`)} (LIKE public.apps INCLUDING ALL)`
+    await admin`CREATE TABLE ${admin(`${schema}.sync_events`)} (LIKE public.sync_events INCLUDING ALL)`
     client = postgres(databaseUrl!, {
-      max: 1,
+      max: 2,
       connection: {search_path: schema},
     })
     db = drizzle(client, {casing: 'snake_case'})
     profiles = createProfileService(databaseUrl!)
     apps = createAppService(databaseUrl!)
+    events = createSyncEventService(db)
   })
 
   beforeEach(async () => {
-    await client!`TRUNCATE profiles, verification_tasks, apps`
+    await client!`TRUNCATE profiles, verification_tasks, apps, sync_events`
   })
 
   afterAll(async () => {
@@ -192,11 +197,17 @@ suite('Transactional partial writes with real PostgreSQL', () => {
     })
   })
 
-  test('unchanged app upserts return no changed rows and ignore sync timestamps', async () => {
+  test('unchanged app upserts return no changed rows but refresh sync timestamps', async () => {
     const initial = app()
     const first = await apps.upsertApps([initial], db)
     expect(first.apps).toHaveLength(1)
     expect(first.revivedCount).toBe(0)
+    const oldTimestamp = new Date('2020-01-01')
+    await db.update(appsTable).set({
+      updatedAt: oldTimestamp,
+      lastSyncedAt: oldTimestamp,
+    })
+    const beforeUpsert = Date.now()
     const second = await apps.upsertApps(
       [
         {
@@ -209,8 +220,11 @@ suite('Transactional partial writes with real PostgreSQL', () => {
     )
     expect(second).toEqual({apps: [], revivedCount: 0})
     const rows = await apps.getAllApps(db)
-    expect(rows[0]?.updatedAt).toEqual(first.apps[0]?.updatedAt)
-    expect(rows[0]?.lastSyncedAt).toEqual(first.apps[0]?.lastSyncedAt)
+    expect(rows[0]?.updatedAt?.getTime()).toBeGreaterThanOrEqual(beforeUpsert)
+    expect(rows[0]?.lastSyncedAt?.getTime()).toBeGreaterThanOrEqual(
+      beforeUpsert,
+    )
+    expect(rows[0]?.createdAt).toEqual(first.apps[0]?.createdAt)
   })
 
   test('every mapped app business column triggers an update', async () => {
@@ -236,16 +250,58 @@ suite('Transactional partial writes with real PostgreSQL', () => {
       {customUser: 'Customer'},
     ]
     for (const change of changes) {
+      const field = Object.keys(change)[0]! as keyof NewAppRecord
+      const previousValue = initial[field]
       Object.assign(initial, change)
-      expect((await apps.upsertApps([initial], db)).apps).toHaveLength(1)
+      const changed = await apps.upsertApps([initial], db)
+      expect(changed.apps).toHaveLength(1)
+      expect(changed.apps[0]?.[field]).toEqual(change[field])
       expect(await apps.upsertApps([initial], db)).toEqual({
         apps: [],
         revivedCount: 0,
       })
+      // Every nullable business field must also count non-null -> NULL.
+      if (previousValue === null) {
+        Object.assign(initial, {[field]: null})
+        expect((await apps.upsertApps([initial], db)).apps).toHaveLength(1)
+        expect((await apps.upsertApps([initial], db)).apps).toHaveLength(0)
+      }
     }
-    initial.email = null
-    expect((await apps.upsertApps([initial], db)).apps).toHaveLength(1)
-    expect((await apps.upsertApps([initial], db)).apps).toHaveLength(0)
+  })
+
+  test('omitted optional app fields compare using PostgreSQL defaults', async () => {
+    const minimal: NewAppRecord = {
+      id: 'minimal',
+      profileId: 101,
+      appName: 'Minimal',
+      appConfigType: 'phala_cloud',
+      contractAddress: '0xminimal',
+      domain: 'example.test',
+      workspaceId: 1,
+      creatorId: 2,
+      baseImage: '0.5.3',
+    }
+    expect((await apps.upsertApps([minimal], db)).apps).toHaveLength(1)
+    expect(await apps.upsertApps([minimal], db)).toEqual({
+      apps: [],
+      revivedCount: 0,
+    })
+    expect(
+      (
+        await apps.upsertApps(
+          [{...minimal, email: 'alice@example.test', isPublic: true}],
+          db,
+        )
+      ).apps,
+    ).toHaveLength(1)
+    const reset = await apps.upsertApps([minimal], db)
+    expect(reset.apps).toHaveLength(1)
+    expect(reset.apps[0]?.email).toBeNull()
+    expect(reset.apps[0]?.isPublic).toBe(false)
+    expect(await apps.upsertApps([minimal], db)).toEqual({
+      apps: [],
+      revivedCount: 0,
+    })
   })
 
   test('numeric app tombstones match profile IDs, not dstack IDs, and no others', async () => {
@@ -288,6 +344,50 @@ suite('Transactional partial writes with real PostgreSQL', () => {
     })
   })
 
+  test('concurrent transactional revivals count the transition and clear failed tasks once', async () => {
+    await apps.upsertApps([app()], db)
+    await apps.markAppDeleted(101, db)
+    await db.insert(verificationTasksTable).values({
+      id: 'concurrent-failed',
+      appId: 'dstack-one',
+      status: 'failed',
+    })
+    const results = await Promise.all([
+      db.transaction((tx) => apps.upsertApps([app()], tx)),
+      db.transaction((tx) => apps.upsertApps([app()], tx)),
+    ])
+    expect(results.map((result) => result.apps.length).sort()).toEqual([0, 1])
+    expect(
+      results.reduce((count, result) => count + result.revivedCount, 0),
+    ).toBe(1)
+    expect(await db.select().from(verificationTasksTable)).toHaveLength(0)
+    expect((await apps.getAllApps(db))[0]?.deleted).toBe(false)
+  })
+
+  test('unchanged metadata refresh rolls back with the caller transaction', async () => {
+    await apps.upsertApps([app()], db)
+    const oldTimestamp = new Date('2020-01-01')
+    await db
+      .update(appsTable)
+      .set({updatedAt: oldTimestamp, lastSyncedAt: oldTimestamp})
+    await expect(
+      db.transaction(async (tx) => {
+        expect(await apps.upsertApps([app()], tx)).toEqual({
+          apps: [],
+          revivedCount: 0,
+        })
+        const [row] = await apps.getAllApps(tx)
+        expect(row?.lastSyncedAt?.getTime()).toBeGreaterThan(
+          oldTimestamp.getTime(),
+        )
+        throw new Error('Rollback unchanged metadata')
+      }),
+    ).rejects.toThrow('Rollback unchanged metadata')
+    const [row] = await apps.getAllApps(db)
+    expect(row?.lastSyncedAt).toEqual(oldTimestamp)
+    expect(row?.updatedAt).toEqual(oldTimestamp)
+  })
+
   test('multi-batch app upserts deduplicate and count only changed rows', async () => {
     const snapshot = Array.from({length: 101}, (_, id) =>
       app(`dstack-${id}`, id),
@@ -298,16 +398,84 @@ suite('Transactional partial writes with real PostgreSQL', () => {
     )
     expect(first.apps).toHaveLength(101)
     expect(first.revivedCount).toBe(0)
+    const oldTimestamp = new Date('2020-01-01')
+    await db.update(appsTable).set({lastSyncedAt: oldTimestamp})
+    const beforeUpsert = Date.now()
     const second = await apps.upsertApps(
       [...snapshot, {...snapshot[0]!, appName: 'Last'}],
       db,
     )
     expect(second).toEqual({apps: [], revivedCount: 0})
+    const allRows = await apps.getAllApps(db)
+    expect(allRows).toHaveLength(101)
+    expect(
+      allRows.every((row) => row.lastSyncedAt!.getTime() >= beforeUpsert),
+    ).toBe(true)
     const rows = await db
       .select()
       .from(appsTable)
       .where(eq(appsTable.id, 'dstack-0'))
     expect(rows[0]?.appName).toBe('Last')
+  })
+
+  test('audit cleanup defaults to 30 days across all sources and results, including push IDs', async () => {
+    const now = Date.now()
+    const old = new Date(now - 31 * 24 * 60 * 60 * 1000)
+    const recent = new Date(now - 29 * 24 * 60 * 60 * 1000)
+    for (const source of ['push', 'cron-profiles', 'cron-apps'] as const) {
+      for (const result of ['success', 'error'] as const) {
+        await events.record({
+          source,
+          result,
+          receivedAt: old,
+          eventId: `old-${source}-${result}`,
+        })
+        await events.record({
+          source,
+          result,
+          receivedAt: recent,
+          eventId: `recent-${source}-${result}`,
+        })
+      }
+    }
+    expect(await events.cleanup()).toBe(6)
+    const rows = await db.select().from(syncEventsTable)
+    expect(rows).toHaveLength(6)
+    expect(rows.every((row) => row.eventId?.startsWith('recent-'))).toBe(true)
+    // Pruned successful push IDs no longer block reuse outside retention.
+    await events.record({
+      source: 'push',
+      result: 'success',
+      eventId: 'old-push-success',
+    })
+    expect(await events.cleanup()).toBe(0)
+    expect(await events.cleanup(28)).toBe(6)
+    expect(await events.list()).toHaveLength(1)
+  })
+
+  test('audit list selects only public audit fields', async () => {
+    await events.record({
+      source: 'push',
+      result: 'success',
+      eventId: 'public-event',
+    })
+    const [event] = await events.list()
+    expect(Object.keys(event!).sort()).toEqual(
+      [
+        'id',
+        'source',
+        'eventId',
+        'profileCount',
+        'deletedProfileCount',
+        'appCount',
+        'deletedAppCount',
+        'rowsChanged',
+        'result',
+        'errorMessage',
+        'receivedAt',
+        'finishedAt',
+      ].sort(),
+    )
   })
 
   test('caller transaction rolls back profile writes, tombstones, and revival cleanup', async () => {

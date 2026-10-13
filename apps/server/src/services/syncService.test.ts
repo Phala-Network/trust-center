@@ -1,7 +1,10 @@
 import {
   appsTable,
+  type DbExecutor,
   profilesTable,
+  sql,
   type UpstreamAppData,
+  UpstreamAppDataArraySchema,
   type UpstreamProfileData,
 } from '@phala/trust-center-db'
 import {drizzle} from 'drizzle-orm/postgres-js'
@@ -9,6 +12,7 @@ import postgres from 'postgres'
 import {
   afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -19,8 +23,12 @@ import {
 import {createAppService} from './appService'
 import {createProfileService} from './profileService'
 import type {QueueService} from './queue'
-import {createSyncEventService, getSyncErrorMessage} from './syncEventService'
-import {convertToAppRecord, createSyncService} from './syncService'
+import {createSyncEventService} from './syncEventService'
+import {
+  convertAppsWithTolerance,
+  convertToAppRecord,
+  createSyncService,
+} from './syncService'
 
 const url = process.env.TEST_DATABASE_URL
 if (
@@ -64,23 +72,66 @@ const app = (id: number): UpstreamAppData => ({
   docker_compose_file: null,
 })
 
-describe('sync error redaction', () => {
-  test('redacts SQL parameters even when hidden in a nested cause', () => {
-    const cause = Object.assign(new Error('query with private payload'), {
-      query: 'INSERT private payload',
-      params: ['secret'],
+describe('tolerant upstream app conversion', () => {
+  // Parsing normally produces plain objects; introduce an access fault only
+  // after validation to exercise the real converter's failure boundary.
+  const faultyApp = () => {
+    const [validated] = UpstreamAppDataArraySchema.parse([app(2)])
+    return Object.defineProperty(validated!, 'base_image', {
+      get() {
+        throw new Error('conversion access fault')
+      },
     })
-    expect(getSyncErrorMessage(new Error('wrapper secret', {cause}))).toBe(
-      'Database query failed',
+  }
+
+  test('a real converter fault skips only that app and keeps upstream IDs', () => {
+    const upstreamApps = [app(1), faultyApp(), app(3)]
+    expect(convertAppsWithTolerance(upstreamApps).map((row) => row.id)).toEqual(
+      ['app-1', 'app-3'],
     )
+    // Reconciliation must still use the complete upstream snapshot, including
+    // IDs whose conversion failed, rather than treating them as deletions.
+    expect(upstreamApps.map((row) => row.app_id)).toEqual([1, 2, 3])
+  })
+
+  test('an all-bad nonempty snapshot fails before reconciliation can mutate data', () => {
+    expect(() => convertAppsWithTolerance([faultyApp()])).toThrow(
+      'No upstream apps could be converted',
+    )
+  })
+
+  test('an empty snapshot remains a safe no-op', () => {
+    expect(convertAppsWithTolerance([])).toEqual([])
   })
 })
 
 suite('full sync audit with real PostgreSQL', () => {
-  const client = postgres(connectionUrl, {max: 5, onnotice: () => {}})
+  const schema = `full_sync_${crypto.randomUUID().replaceAll('-', '')}`
+  const admin = postgres(connectionUrl, {max: 1, onnotice: () => {}})
+  const client = postgres(connectionUrl, {
+    max: 5,
+    onnotice: () => {},
+    connection: {search_path: schema, application_name: schema},
+  })
   const db = drizzle(client, {casing: 'snake_case'})
-  const apps = createAppService(connectionUrl)
-  const profiles = createProfileService(connectionUrl)
+  const baseApps = createAppService(connectionUrl)
+  // The shared DB factory is a singleton. Route all fixture operations through
+  // our isolated executor without changing production service configuration.
+  const apps = {
+    ...baseApps,
+    getDb: () => db,
+    upsertApps: (
+      records: Parameters<typeof baseApps.upsertApps>[0],
+      tx: DbExecutor = db,
+    ) => baseApps.upsertApps(records, tx),
+    getAllApps: (tx: DbExecutor = db) => baseApps.getAllApps(tx),
+  }
+  const baseProfiles = createProfileService(connectionUrl)
+  const profiles = {
+    ...baseProfiles,
+    syncProfiles: (records: UpstreamProfileData[], tx: DbExecutor = db) =>
+      baseProfiles.syncProfiles(records, tx),
+  }
   const audit = createSyncEventService(db)
   // Full entity sync never uses the queue collaborator.
   const sync = createSyncService(
@@ -91,6 +142,19 @@ suite('full sync audit with real PostgreSQL', () => {
   )
   let fetchMock: ReturnType<typeof spyOn<typeof globalThis, 'fetch'>>
 
+  beforeAll(async () => {
+    await admin`CREATE SCHEMA ${admin(schema)}`
+    for (const table of [
+      'sync_events',
+      'profiles',
+      'verification_tasks',
+      'apps',
+    ]) {
+      await admin.unsafe(
+        `CREATE TABLE "${schema}"."${table}" (LIKE public."${table}" INCLUDING ALL)`,
+      )
+    }
+  })
   beforeEach(async () => {
     await client`TRUNCATE sync_events, profiles, verification_tasks, apps`
     fetchMock = spyOn(globalThis, 'fetch')
@@ -103,12 +167,107 @@ suite('full sync audit with real PostgreSQL', () => {
   })
   afterAll(async () => {
     await client.end()
+    try {
+      await admin`DROP SCHEMA IF EXISTS ${admin(schema)} CASCADE`
+    } finally {
+      await admin.end()
+    }
   })
 
   function upstream(data: unknown) {
     fetchMock.mockImplementation(
       Object.assign(async () => Response.json({data}), {preconnect: () => {}}),
     )
+  }
+
+  for (const entity of ['apps', 'profiles'] as const) {
+    test(`${entity} full snapshot is fetched only after an in-flight push releases the lock`, async () => {
+      const locked = Promise.withResolvers<void>()
+      const release = Promise.withResolvers<void>()
+      let latestName = 'Before push'
+      const push = db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(74190311)`)
+        locked.resolve()
+        await release.promise
+        if (entity === 'apps') {
+          await apps.upsertApps(
+            [convertToAppRecord({...app(1), app_name: 'After push'})],
+            tx,
+          )
+        } else {
+          await profiles.syncProfiles(
+            [{...profile(1), display_name: 'After push'}],
+            tx,
+          )
+        }
+        await audit.record(
+          {
+            id: crypto.randomUUID(),
+            source: 'push',
+            result: 'success',
+            rowsChanged: 1,
+            receivedAt: new Date(),
+            finishedAt: new Date(),
+          },
+          tx,
+        )
+        latestName = 'After push'
+      })
+      await locked.promise
+      fetchMock.mockImplementation(
+        Object.assign(
+          async () =>
+            Response.json({
+              data:
+                entity === 'apps'
+                  ? [{...app(1), app_name: latestName}]
+                  : [{...profile(1), display_name: latestName}],
+            }),
+          {preconnect: () => {}},
+        ),
+      )
+      const fullSync = entity === 'apps' ? sync.syncApps() : sync.syncProfiles()
+      try {
+        // Observe an actual PostgreSQL lock wait, not a timing-based assumption.
+        const deadline = Date.now() + 3000
+        let waiting = false
+        while (Date.now() < deadline) {
+          const [row] = await admin<{waiting: boolean}[]>`
+            SELECT EXISTS (
+              SELECT 1 FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid
+              WHERE l.locktype = 'advisory' AND l.objid = 74190311
+                AND NOT l.granted AND a.application_name = ${schema}
+            ) AS waiting`
+          if (row?.waiting) {
+            waiting = true
+            break
+          }
+          await Bun.sleep(10)
+        }
+        expect(waiting).toBe(true)
+        expect(fetchMock).not.toHaveBeenCalled()
+      } finally {
+        release.resolve()
+        await Promise.all([push, fullSync])
+      }
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      if (entity === 'apps') {
+        expect((await apps.getAllApps())[0]?.appName).toBe('After push')
+      } else {
+        expect((await db.select().from(profilesTable))[0]?.displayName).toBe(
+          'After push',
+        )
+      }
+      const events = await audit.list()
+      expect(events).toHaveLength(2)
+      expect(events.find((event) => event.source === 'push')?.rowsChanged).toBe(
+        1,
+      )
+      expect(
+        events.find((event) => event.source === `cron-${entity}`)?.rowsChanged,
+      ).toBe(0)
+      expect(events.every((event) => event.result === 'success')).toBe(true)
+    })
   }
 
   test('profile insert audit counts changes; an identical full snapshot changes zero rows', async () => {
@@ -132,7 +291,17 @@ suite('full sync audit with real PostgreSQL', () => {
   test('app insert audit counts changes; an identical full snapshot changes zero rows', async () => {
     upstream([app(1), app(2)])
     expect((await sync.syncApps()).appsSynced).toBe(2)
+    const firstSync = (await apps.getAllApps()).find(
+      (row) => row.id === 'app-1',
+    )
+    await Bun.sleep(10)
     expect((await sync.syncApps()).appsSynced).toBe(2)
+    const secondSync = (await apps.getAllApps()).find(
+      (row) => row.id === 'app-1',
+    )
+    expect(secondSync?.lastSyncedAt?.getTime()).toBeGreaterThan(
+      firstSync!.lastSyncedAt!.getTime(),
+    )
 
     const events = await audit.list({source: 'cron-apps'})
     expect(events).toHaveLength(2)
@@ -178,28 +347,6 @@ suite('full sync audit with real PostgreSQL', () => {
     expect((await audit.list()).map((event) => event.rowsChanged)).toEqual([
       0, 0,
     ])
-  })
-
-  test('upstream failures record safe errors for both sources without response bodies', async () => {
-    fetchMock.mockImplementation(
-      Object.assign(
-        async () => new Response('private upstream secret', {status: 503}),
-        {preconnect: () => {}},
-      ),
-    )
-    await expect(sync.syncProfiles()).rejects.toThrow('HTTP 503')
-    await expect(sync.syncApps()).rejects.toThrow('HTTP 503')
-    const events = await audit.list({result: 'error'})
-    expect(events).toHaveLength(2)
-    expect(new Set(events.map((event) => event.source))).toEqual(
-      new Set(['cron-apps', 'cron-profiles']),
-    )
-    for (const event of events) {
-      expect(event.errorMessage).toContain('HTTP 503')
-      expect(event.errorMessage).not.toContain('private upstream secret')
-      expect(event.rowsChanged).toBe(0)
-      expect(event.finishedAt).toBeInstanceOf(Date)
-    }
   })
 
   test('validation failures save a generic audit without the malformed payload', async () => {

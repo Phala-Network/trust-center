@@ -289,7 +289,7 @@ export const profilesTable = pgTable(
   ],
 )
 
-// Private sync audit and durable verification hand-off. Never exposed by public app APIs.
+// Private sync audit; push event IDs also provide 30-day application idempotency.
 export const syncEventsTable = pgTable(
   'sync_events',
   {
@@ -303,20 +303,12 @@ export const syncEventsTable = pgTable(
     appCount: integer().notNull().default(0),
     deletedAppCount: integer().notNull().default(0),
     rowsChanged: integer().notNull().default(0),
-    result: text({enum: ['pending', 'success', 'error']}).notNull(),
+    result: text({enum: ['success', 'error']}).notNull(),
     errorMessage: text(),
     receivedAt: timestamp().notNull().defaultNow(),
     finishedAt: timestamp(),
-    verificationAppIds: jsonb().$type<string[]>().notNull().default([]),
-    verificationPending: boolean().notNull().default(false),
-    verificationClaimId: text(),
-    verificationClaimedAt: timestamp(),
-    verificationDispatchedAppIds: jsonb()
-      .$type<string[]>()
-      .notNull()
-      .default([]),
   },
-  (t) => [index().on(t.receivedAt), index().on(t.verificationPending)],
+  (t) => [index().on(t.receivedAt)],
 )
 
 export type SyncEventRecord = typeof syncEventsTable.$inferSelect

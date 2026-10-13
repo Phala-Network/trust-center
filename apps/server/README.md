@@ -19,11 +19,11 @@ See [Phala Cloud ingest contract and deployment guide](PHALA_CLOUD_INGEST.md) fo
 
 ## Services
 
-- `queue.ts`, `queueProducer.ts`: BullMQ worker and bounded verification enqueue.
+- `queue.ts`: existing BullMQ queue and verification worker.
 - `taskService.ts`: verification-task database operations.
 - `appService.ts`, `profileService.ts`: transactional entity writes.
 - `syncService.ts`: full snapshot reconciliation and verification scheduling.
-- `phalaCloudIngestService.ts`: partial push application and durable verification hand-off.
+- `phalaCloudIngestService.ts`: partial push application and best-effort verification hint.
 - `syncEventService.ts`: private synchronization audit.
 - `s3.ts`: verification result storage.
 
@@ -52,7 +52,7 @@ APP_CRON_PATTERN='*/1 * * * *'
 TASKS_CRON_PATTERN='*/5 * * * *'
 ```
 
-`PHALA_CLOUD_API_KEY` is optional; without it full Cloud reads are disabled. `PHALA_CLOUD_WEBHOOK_SECRET` is independently optional; empty/unset disables ingress with 503. A configured webhook secret requires at least 32 characters. `CRON_API_KEY` is required.
+`PHALA_CLOUD_API_KEY` is optional; without it full Cloud reads are disabled. `PHALA_CLOUD_WEBHOOK_SECRET` is independently optional; empty/unset disables ingress with 503. An unset/short webhook secret returns 503 only for ingress; other server features remain available. A working webhook secret requires at least 32 characters. `CRON_API_KEY` is required. Verification task cron reads the local DB and remains enabled without the outbound Cloud credential.
 
 ## Development
 

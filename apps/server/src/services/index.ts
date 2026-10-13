@@ -28,6 +28,7 @@ export interface Services {
   profile: ProfileService
   app: AppService
   sync: SyncService | null
+  taskSync: Pick<SyncService, 'syncAllTasks'>
   ingest: PhalaCloudIngestService
   syncEvents: SyncEventService
 }
@@ -95,7 +96,17 @@ const composeServices = (config: ServiceConfig): Services => {
   })
   const syncEvents = createSyncEventService(app.getDb())
 
-  return {queue, s3, verificationTask, profile, app, sync, ingest, syncEvents}
+  return {
+    queue,
+    s3,
+    verificationTask,
+    profile,
+    app,
+    sync,
+    taskSync,
+    ingest,
+    syncEvents,
+  }
 }
 
 // Service lifecycle management with functional approach

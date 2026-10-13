@@ -48,7 +48,7 @@ export function createPhalaCloudWebhookRoutes(config: {
   return new Elysia({name: 'phala-cloud-webhook'}).post(
     '/webhooks/phala-cloud',
     async ({request, set}) => {
-      if (!config.secret) {
+      if (!config.secret || config.secret.length < 32) {
         set.status = 503
         return {error: 'Webhook not configured'}
       }

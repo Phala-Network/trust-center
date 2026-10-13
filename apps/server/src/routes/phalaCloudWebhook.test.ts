@@ -15,7 +15,6 @@ import {createProfileService} from '../services/profileService'
 import type {QueueService} from '../services/queue'
 import {createSyncEventService} from '../services/syncEventService'
 import {convertToAppRecord, createSyncService} from '../services/syncService'
-import {verificationTaskId} from '../services/verificationTaskId'
 import {
   createPhalaCloudWebhookRoutes,
   MAX_PUSH_BYTES,
@@ -191,49 +190,44 @@ describe('Phala Cloud authentication and transport', () => {
       ).status,
     ).toBe(400)
   })
-  test('task IDs have a stable independently computed UUID vector', () => {
-    expect(
-      verificationTaskId(
-        '00000000-0000-4000-8000-000000000001',
-        '000000000000000000000000000000000000000b',
-      ),
-    ).toBe('9ffa21c8-24b3-5394-a0b8-4cfd319bb5c6')
-  })
   test('body size is capped without trusting Content-Length', async () => {
     expect(
       (await api.handle(request(null, {raw: 'x'.repeat(MAX_PUSH_BYTES + 1)})))
         .status,
     ).toBe(413)
   })
-  test('unconfigured secret disables webhook ingress', async () => {
-    const disabled = createPhalaCloudWebhookRoutes({
-      ingest: async () => ({duplicate: false}),
-    })
-    expect((await disabled.handle(request(event()))).status).toBe(503)
+  test('missing or short secret disables only webhook ingress', async () => {
+    for (const signingSecret of [undefined, '', 'too-short']) {
+      const disabled = createPhalaCloudWebhookRoutes({
+        secret: signingSecret,
+        ingest: async () => ({duplicate: false}),
+      })
+      expect((await disabled.handle(request(event()))).status).toBe(503)
+    }
   })
 })
 
 suite('Phala Cloud webhook with real PostgreSQL', () => {
-  // Dispatch receipts use this same one-connection pool: holding a transaction
-  // across the queue hand-off would deadlock these real DB tests.
   const client = postgres(connectionUrl, {max: 1})
   const db = drizzle(client, {casing: 'snake_case'})
   const appService = createAppService(connectionUrl)
   const profiles = createProfileService(connectionUrl)
-  const queued: {appId: string; taskId?: string}[] = []
+  const queued: string[] = []
   let failQueue = false
-  let failAppId: string | null = null
-  // Redis/BullMQ is an external queue boundary; all DB and application code is real.
+  let attempts = 0
+  let onAttempt: (() => void) | undefined
+  // Only the Redis queue boundary is substituted; HTTP, services and DB are real.
   const queue = {
-    addTask: async (data: {appId: string}, taskId?: string) => {
-      if (failQueue || data.appId === failAppId)
-        throw new Error('test queue offline')
-      queued.push({appId: data.appId, taskId})
-      return taskId ?? crypto.randomUUID()
+    addTask: async (data: {appId: string}) => {
+      attempts++
+      onAttempt?.()
+      if (failQueue) throw new Error('test queue offline')
+      queued.push(data.appId)
+      return crypto.randomUUID()
     },
   } as QueueService
   const sync = createSyncService(
-    {phalaCloudApiKey: 'test-only'},
+    {phalaCloudApiKey: ''},
     queue,
     profiles,
     appService,
@@ -245,11 +239,20 @@ suite('Phala Cloud webhook with real PostgreSQL', () => {
     syncSelectedTasks: sync.syncSelectedTasks,
   })
   const api = createPhalaCloudWebhookRoutes({secret, ingest: ingest.ingest})
+  const waitForAttempts = (count: number) => {
+    if (attempts >= count) return Promise.resolve()
+    return new Promise<void>((resolve) => {
+      onAttempt = () => {
+        if (attempts >= count) resolve()
+      }
+    })
+  }
   beforeEach(async () => {
     await client`TRUNCATE sync_events, profiles, verification_tasks, apps`
     queued.length = 0
     failQueue = false
-    failAppId = null
+    attempts = 0
+    onAttempt = undefined
   })
   afterAll(async () => {
     await client.end()
@@ -257,10 +260,10 @@ suite('Phala Cloud webhook with real PostgreSQL', () => {
 
   test('pushing one profile leaves every unrelated profile intact', async () => {
     await profiles.syncProfiles([profile(1), profile(2)])
-    const response = await api.handle(
-      request(event({profiles: [profile(1, 'Changed')]})),
-    )
-    expect(response.status).toBe(200)
+    expect(
+      (await api.handle(request(event({profiles: [profile(1, 'Changed')]}))))
+        .status,
+    ).toBe(200)
     const rows = await db
       .select()
       .from(profilesTable)
@@ -315,12 +318,8 @@ suite('Phala Cloud webhook with real PostgreSQL', () => {
       responses.map((r) => r.json() as Promise<{duplicate: boolean}>),
     )
     expect(bodies.map((b) => b.duplicate).sort()).toEqual([false, true])
-    expect(queued).toEqual([
-      {
-        appId: pushed.dstack_app_id,
-        taskId: verificationTaskId(payload.event_id, pushed.dstack_app_id),
-      },
-    ])
+    await waitForAttempts(1)
+    expect(queued).toEqual([pushed.dstack_app_id])
     const replay = await api.handle(
       request({...payload, profiles: [profile(1, 'Ignored replay')]}),
     )
@@ -349,22 +348,16 @@ suite('Phala Cloud webhook with real PostgreSQL', () => {
   test('app push verifies exactly the pushed eligible IDs, not unrelated apps', async () => {
     await appService.upsertApps([convertToAppRecord(appRow(99))])
     const pushed = [appRow(11), appRow(12)]
-    const payload = event({apps: pushed})
-    expect((await api.handle(request(payload))).status).toBe(200)
-    expect(queued.map((q) => q.appId).sort()).toEqual(
-      pushed.map((a) => a.dstack_app_id).sort(),
-    )
+    expect((await api.handle(request(event({apps: pushed})))).status).toBe(200)
+    await waitForAttempts(2)
+    expect(queued.sort()).toEqual(pushed.map((a) => a.dstack_app_id).sort())
     expect((await db.select().from(appsTable)).length).toBe(3)
-    expect(
-      (await db.select().from(syncEventsTable))[0]?.verificationPending,
-    ).toBe(false)
   })
-  test('failure after profile writes rolls back the entire event and records a sanitized error', async () => {
+  test('failure after profile writes rolls back the entire event and records an error', async () => {
     await appService.upsertApps([convertToAppRecord(appRow(11))])
-    const conflicting = {...appRow(12), app_id: 11}
     const payload = event({
       profiles: [profile(1, 'must roll back')],
-      apps: [conflicting],
+      apps: [{...appRow(12), app_id: 11}],
     })
     expect((await api.handle(request(payload))).status).toBe(500)
     expect(await db.select().from(profilesTable)).toEqual([])
@@ -380,87 +373,82 @@ suite('Phala Cloud webhook with real PostgreSQL', () => {
     expect(
       (await api.handle(request({...payload, apps: [appRow(12)]}))).status,
     ).toBe(200)
+    await waitForAttempts(1)
     expect(await db.select().from(syncEventsTable)).toHaveLength(1)
     expect((await db.select().from(profilesTable))[0]?.displayName).toBe(
       'must roll back',
     )
   })
-  test('queue failure leaves committed durable work; retry dispatches without reapplying entities', async () => {
+  test('queue failure acknowledges committed entities; ordinary task sync without an outbound key recovers', async () => {
     const payload = event({profiles: [profile(1)], apps: [appRow(11)]})
     failQueue = true
-    expect((await api.handle(request(payload))).status).toBe(500)
+    expect((await api.handle(request(payload))).status).toBe(200)
+    await waitForAttempts(1)
+    // Yield one event-loop turn so the detached rejection handler can submit its
+    // audit update; the same one-connection DB pool orders the following read.
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    const audit = (await db.select().from(syncEventsTable))[0]
+    expect(audit?.result).toBe('success')
+    expect(audit?.errorMessage).toBe(
+      'Verification enqueue failed; task cron will retry',
+    )
     expect((await db.select().from(profilesTable))[0]?.displayName).toBe(
       'User 1',
     )
-    const pending = (await db.select().from(syncEventsTable))[0]
-    expect(pending?.verificationPending).toBe(true)
-    expect(pending?.result).toBe('error')
     failQueue = false
     const replay = await api.handle(
       request({...payload, profiles: [profile(1, 'Never reapplied')]}),
     )
-    expect(replay.status).toBe(200)
     expect(((await replay.json()) as {duplicate: boolean}).duplicate).toBe(true)
+    expect(attempts).toBe(1)
     expect((await db.select().from(profilesTable))[0]?.displayName).toBe(
       'User 1',
     )
-    expect(queued.map((q) => q.appId)).toEqual([appRow(11).dstack_app_id])
-    expect((await db.select().from(syncEventsTable))[0]?.result).toBe('success')
+    // The task cron invokes this local-DB path even when services.sync is null.
+    await sync.syncAllTasks()
+    expect(queued).toEqual([appRow(11).dstack_app_id])
   })
-  test('periodic recovery dispatches committed pending work without a sender retry', async () => {
-    failQueue = true
-    expect(
-      (await api.handle(request(event({apps: [appRow(11)]})))).status,
-    ).toBe(500)
-    failQueue = false
-    await ingest.retryPending()
-    await ingest.retryPending()
-    expect(queued.map((q) => q.appId)).toEqual([appRow(11).dstack_app_id])
-    expect(
-      (await db.select().from(syncEventsTable))[0]?.verificationPending,
-    ).toBe(false)
-  })
-  test('partial queue failure retries only unreceipted apps', async () => {
-    const payload = event({apps: [appRow(11), appRow(12)]})
-    failAppId = appRow(12).dstack_app_id
-    expect((await api.handle(request(payload))).status).toBe(500)
-    expect(queued.map((q) => q.appId)).toEqual([appRow(11).dstack_app_id])
-    const failed = (await db.select().from(syncEventsTable))[0]
-    expect(failed?.verificationDispatchedAppIds).toEqual([
-      appRow(11).dstack_app_id,
-    ])
-    expect(failed?.verificationClaimId).toBe(null)
-    failAppId = null
-    expect((await api.handle(request(payload))).status).toBe(200)
-    expect(queued.map((q) => q.appId)).toEqual([
-      appRow(11).dstack_app_id,
-      appRow(12).dstack_app_id,
-    ])
-  })
-  test('recovery respects active dispatch leases and reclaims expired leases', async () => {
-    const row = appRow(11)
-    await appService.upsertApps([convertToAppRecord(row)])
-    const eventId = crypto.randomUUID()
-    await db.insert(syncEventsTable).values({
-      source: 'push',
-      eventId,
-      result: 'pending',
-      verificationPending: true,
-      verificationAppIds: [row.dstack_app_id],
-      verificationClaimId: crypto.randomUUID(),
-      verificationClaimedAt: new Date(),
+  test('queue readiness never delays the HTTP acknowledgement', async () => {
+    let release!: () => void
+    const offline = new Promise<void>((resolve) => {
+      release = resolve
     })
-    await ingest.retryPending()
-    expect(queued).toEqual([])
-    await db
-      .update(syncEventsTable)
-      .set({verificationClaimedAt: new Date(Date.now() - 121000)})
-      .where(eq(syncEventsTable.eventId, eventId))
-    await ingest.retryPending()
-    expect(queued.map((q) => q.appId)).toEqual([row.dstack_app_id])
-    expect((await db.select().from(syncEventsTable))[0]?.result).toBe('success')
+    const delayedQueue = {
+      addTask: async (data: {appId: string}) => {
+        onAttempt?.()
+        await offline
+        queued.push(data.appId)
+        return crypto.randomUUID()
+      },
+    } as QueueService
+    const delayedSync = createSyncService(
+      {phalaCloudApiKey: ''},
+      delayedQueue,
+      profiles,
+      appService,
+    )
+    const delayed = createPhalaCloudIngestService({
+      db,
+      profileService: profiles,
+      appService,
+      syncSelectedTasks: delayedSync.syncSelectedTasks,
+    })
+    const delayedApi = createPhalaCloudWebhookRoutes({
+      secret,
+      ingest: delayed.ingest,
+    })
+    try {
+      expect(
+        (await delayedApi.handle(request(event({apps: [appRow(11)]})))).status,
+      ).toBe(200)
+      expect(queued).toEqual([])
+    } finally {
+      release()
+    }
+    // Let the queued hint finish before resetting the disposable tables.
+    await new Promise<void>((resolve) => setImmediate(resolve))
   })
-  test('audit list requires CRON_API_KEY and bounds pagination', async () => {
+  test('audit list requires CRON_API_KEY, bounds pagination and exposes only audit fields', async () => {
     await api.handle(request(event({profiles: [profile(1)]})))
     const admin = createSyncEventsRoutes({
       apiKey: 'admin-test-only',
@@ -485,9 +473,26 @@ suite('Phala Cloud webhook with real PostgreSQL', () => {
       query('/cron/sync-events?source=push&limit=1', 'admin-test-only'),
     )
     expect(response.status).toBe(200)
-    expect(
-      ((await response.json()) as {events: unknown[]}).events,
-    ).toHaveLength(1)
+    const rows = (
+      (await response.json()) as {events: Record<string, unknown>[]}
+    ).events
+    expect(rows).toHaveLength(1)
+    expect(Object.keys(rows[0]!).sort()).toEqual(
+      [
+        'id',
+        'source',
+        'eventId',
+        'profileCount',
+        'deletedProfileCount',
+        'appCount',
+        'deletedAppCount',
+        'rowsChanged',
+        'result',
+        'errorMessage',
+        'receivedAt',
+        'finishedAt',
+      ].sort(),
+    )
     expect(
       (await admin.handle(query('/api/sync-events', 'admin-test-only'))).status,
     ).toBe(404)

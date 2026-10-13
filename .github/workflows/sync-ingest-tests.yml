@@ -34,9 +34,7 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Install disposable Redis test server
-        run: sudo apt-get update && sudo apt-get install -y redis-server
       - name: Apply test database migrations
         run: bun run --cwd packages/db migrate
-      - name: Test HTTP ingest, transaction recovery and full-sync audit
+      - name: Test HTTP ingest, full-sync ordering and audit retention
         run: bun test apps/server/src --max-concurrency 1

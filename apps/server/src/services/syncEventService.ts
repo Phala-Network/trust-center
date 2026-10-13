@@ -4,13 +4,35 @@ import {
   type DbExecutor,
   desc,
   eq,
+  lt,
   type SyncEventRecord,
   syncEventsTable,
 } from '@phala/trust-center-db'
+import {subDays} from 'date-fns'
 
 export type SyncEventInput = typeof syncEventsTable.$inferInsert
 export type SyncEventSource = SyncEventRecord['source']
 export type SyncEventResult = SyncEventRecord['result']
+
+// Public audit fields only; never expose internal verification dispatch state.
+const auditColumns = {
+  id: syncEventsTable.id,
+  source: syncEventsTable.source,
+  eventId: syncEventsTable.eventId,
+  profileCount: syncEventsTable.profileCount,
+  deletedProfileCount: syncEventsTable.deletedProfileCount,
+  appCount: syncEventsTable.appCount,
+  deletedAppCount: syncEventsTable.deletedAppCount,
+  rowsChanged: syncEventsTable.rowsChanged,
+  result: syncEventsTable.result,
+  errorMessage: syncEventsTable.errorMessage,
+  receivedAt: syncEventsTable.receivedAt,
+  finishedAt: syncEventsTable.finishedAt,
+}
+export type SyncEventListRecord = Pick<
+  SyncEventRecord,
+  keyof typeof auditColumns
+>
 
 export interface SyncEventListOptions {
   limit?: number
@@ -86,9 +108,9 @@ export function createSyncEventService(db: DbConnection) {
     offset,
     source,
     result,
-  }: SyncEventListOptions = {}): Promise<SyncEventRecord[]> => {
+  }: SyncEventListOptions = {}): Promise<SyncEventListRecord[]> => {
     return db
-      .select()
+      .select(auditColumns)
       .from(syncEventsTable)
       .where(
         and(
@@ -101,7 +123,17 @@ export function createSyncEventService(db: DbConnection) {
       .offset(boundedInteger(offset, 0, 0, 10000))
   }
 
-  return {record, recordFailure, list}
+  // Retention applies to all audit sources/results, including push event IDs.
+  // Push deduplication is deliberately bounded by the audit retention window.
+  const cleanup = async (retentionDays = 30): Promise<number> => {
+    const deleted = await db
+      .delete(syncEventsTable)
+      .where(lt(syncEventsTable.receivedAt, subDays(new Date(), retentionDays)))
+      .returning({id: syncEventsTable.id})
+    return deleted.length
+  }
+
+  return {record, recordFailure, list, cleanup}
 }
 
 export type SyncEventService = ReturnType<typeof createSyncEventService>

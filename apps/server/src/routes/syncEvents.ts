@@ -8,7 +8,7 @@ const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).max(10000).default(0),
   source: z.enum(['push', 'cron-profiles', 'cron-apps']).optional(),
-  result: z.enum(['pending', 'success', 'error']).optional(),
+  result: z.enum(['success', 'error']).optional(),
 })
 
 export function createSyncEventsRoutes(config: {

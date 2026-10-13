@@ -32,6 +32,40 @@ export function computeRevivedAppIds(
   return batchIds.filter((id) => deletedSet.has(id))
 }
 
+// Keep these 17 upstream business fields in sync with the conflict update below
+// and convertToAppRecord. Timestamps are sync metadata; deleted is a revival.
+const APP_BUSINESS_FIELDS = [
+  'profileId',
+  'appName',
+  'appConfigType',
+  'contractAddress',
+  'domain',
+  'dstackVersion',
+  'workspaceId',
+  'creatorId',
+  'chainId',
+  'kmsContractAddress',
+  'baseImage',
+  'tproxyBaseDomain',
+  'gatewayDomainSuffix',
+  'isPublic',
+  'username',
+  'email',
+  'customUser',
+] as const satisfies readonly (keyof AppRecord)[]
+
+// Match INSERT defaults for omitted optional fields: NULL, except isPublic=false.
+function appBusinessValue(
+  app: NewAppRecord,
+  field: (typeof APP_BUSINESS_FIELDS)[number],
+) {
+  return app[field] === undefined
+    ? field === 'isPublic'
+      ? false
+      : null
+    : app[field]
+}
+
 // App service factory function
 export const createAppService = (
   databaseUrl: string = process.env.DATABASE_URL || '',
@@ -126,17 +160,34 @@ export const createAppService = (
       const batch = deduped.slice(i, i + BATCH_SIZE)
       const batchIds = batch.map((app) => app.id)
 
-      // Pre-query currently deleted apps in this batch; they are the ones
-      // about to revive (deleted true -> false)
-      const deletedRows = await executor
-        .select({id: appsTable.id})
+      // Capture business changes before writing, not from RETURNING: every
+      // observed app must refresh its sync metadata, even when unchanged.
+      // Lock existing rows for generic transactional callers. Full/push ingest
+      // also share an advisory lock, serializing inserts of not-yet-existing IDs.
+      const currentRows = await executor
+        .select()
         .from(appsTable)
-        .where(
-          and(inArray(appsTable.id, batchIds), eq(appsTable.deleted, true)),
-        )
+        .where(inArray(appsTable.id, batchIds))
+        .orderBy(appsTable.id)
+        .for('update')
+      const currentById = new Map(currentRows.map((row) => [row.id, row]))
+      const changedIds = new Set(
+        batch
+          .filter((app) => {
+            const current = currentById.get(app.id)
+            return (
+              !current ||
+              current.deleted ||
+              APP_BUSINESS_FIELDS.some(
+                (field) => current[field] !== appBusinessValue(app, field),
+              )
+            )
+          })
+          .map((app) => app.id),
+      )
       const revivedIds = computeRevivedAppIds(
         batchIds,
-        deletedRows.map((row) => row.id),
+        currentRows.filter((row) => row.deleted).map((row) => row.id),
       )
 
       const values = batch.map((app) => ({
@@ -173,47 +224,25 @@ export const createAppService = (
             lastSyncedAt: sql`EXCLUDED.last_synced_at`,
             deleted: sql`false`, // Reset deleted flag when app reappears in upstream
           },
-          // Sync timestamps are metadata, not business changes. Null-safe
-          // comparisons ensure transitions to/from NULL are counted as changes.
-          setWhere: sql`${appsTable.profileId} IS DISTINCT FROM EXCLUDED.profile_id
-            OR ${appsTable.appName} IS DISTINCT FROM EXCLUDED.app_name
-            OR ${appsTable.appConfigType} IS DISTINCT FROM EXCLUDED.app_config_type
-            OR ${appsTable.contractAddress} IS DISTINCT FROM EXCLUDED.contract_address
-            OR ${appsTable.domain} IS DISTINCT FROM EXCLUDED.domain
-            OR ${appsTable.dstackVersion} IS DISTINCT FROM EXCLUDED.dstack_version
-            OR ${appsTable.workspaceId} IS DISTINCT FROM EXCLUDED.workspace_id
-            OR ${appsTable.creatorId} IS DISTINCT FROM EXCLUDED.creator_id
-            OR ${appsTable.chainId} IS DISTINCT FROM EXCLUDED.chain_id
-            OR ${appsTable.kmsContractAddress} IS DISTINCT FROM EXCLUDED.kms_contract_address
-            OR ${appsTable.baseImage} IS DISTINCT FROM EXCLUDED.base_image
-            OR ${appsTable.tproxyBaseDomain} IS DISTINCT FROM EXCLUDED.tproxy_base_domain
-            OR ${appsTable.gatewayDomainSuffix} IS DISTINCT FROM EXCLUDED.gateway_domain_suffix
-            OR ${appsTable.isPublic} IS DISTINCT FROM EXCLUDED.is_public
-            OR ${appsTable.username} IS DISTINCT FROM EXCLUDED.username
-            OR ${appsTable.email} IS DISTINCT FROM EXCLUDED.email
-            OR ${appsTable.customUser} IS DISTINCT FROM EXCLUDED.custom_user
-            OR ${appsTable.deleted} IS DISTINCT FROM false`,
         })
         .returning()
 
       // Clear failed tasks for revived apps so the next tasks tick sees "no
       // tasks" and re-enqueues them instead of waiting out the permanent-
       // failure cooldown (up to 24h).
-      const changedIds = new Set(results.map((app) => app.id))
-      const changedRevivedIds = revivedIds.filter((id) => changedIds.has(id))
-      if (changedRevivedIds.length > 0) {
+      if (revivedIds.length > 0) {
         await executor
           .delete(verificationTasksTable)
           .where(
             and(
-              inArray(verificationTasksTable.appId, changedRevivedIds),
+              inArray(verificationTasksTable.appId, revivedIds),
               eq(verificationTasksTable.status, 'failed'),
             ),
           )
-        revivedCount += changedRevivedIds.length
+        revivedCount += revivedIds.length
       }
 
-      allResults.push(...results)
+      allResults.push(...results.filter((app) => changedIds.has(app.id)))
     }
 
     return {apps: allResults, revivedCount}

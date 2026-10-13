@@ -15,12 +15,11 @@ import {
   type NewVerificationTask,
   verificationTasksTable,
 } from '@phala/trust-center-db'
-import {type Job, UnrecoverableError, Worker} from 'bullmq'
+import {type Job, Queue, UnrecoverableError, Worker} from 'bullmq'
 import IORedis from 'ioredis'
 import {isAddress} from 'viem'
 
 import type {AppService} from './appService'
-import {createQueueProducer} from './queueProducer'
 import type {S3Service} from './s3'
 import type {VerificationTaskService} from './taskService'
 
@@ -85,12 +84,23 @@ export const createQueueService = (
     console.log('[QUEUE] Redis reconnecting...')
   })
 
-  const producer = createQueueProducer(config.redisUrl, config.queueName, {
-    attempts: config.maxAttempts,
-    removeOnComplete: {age: 3600, count: 100},
-    removeOnFail: {age: 86400, count: 1000},
+  const queue = new Queue(config.queueName, {
+    connection: redis,
+    defaultJobOptions: {
+      // Retry logic handled at application level with 30-minute cooldown
+      // (see appService.getAppsNeedingVerification). Default: 1 attempt (no retries)
+      attempts: config.maxAttempts,
+      // Auto-remove jobs from Redis after completion
+      removeOnComplete: {
+        age: 3600, // Keep completed jobs for 1 hour (3600 seconds)
+        count: 100, // Keep last 100 completed jobs
+      },
+      removeOnFail: {
+        age: 86400, // Keep failed jobs for 24 hours (86400 seconds)
+        count: 1000, // Keep last 1000 failed jobs
+      },
+    },
   })
-  const queue = producer.queue
 
   const worker = new Worker(
     config.queueName,
@@ -461,10 +471,7 @@ export const createQueueService = (
   }
 
   // Add new task (only adds to queue, worker will create DB record)
-  const addTask = async (
-    taskData: NewTaskData,
-    stableTaskId?: string,
-  ): Promise<string> => {
+  const addTask = async (taskData: NewTaskData): Promise<string> => {
     // Validate app exists
     const app = await appService.getAppById(taskData.appId)
     if (!app) {
@@ -472,16 +479,7 @@ export const createQueueService = (
     }
 
     // Create task ID
-    const taskId = stableTaskId ?? crypto.randomUUID()
-    if (stableTaskId) {
-      const [existing] = await appService
-        .getDb()
-        .select({id: verificationTasksTable.id})
-        .from(verificationTasksTable)
-        .where(eq(verificationTasksTable.id, taskId))
-        .limit(1)
-      if (existing) return taskId
-    }
+    const taskId = crypto.randomUUID()
 
     // Add to queue directly (worker will create DB record)
     const queueData: TaskData = {
@@ -492,7 +490,7 @@ export const createQueueService = (
     }
 
     try {
-      await producer.add('verification', queueData, {
+      const job = await queue.add('verification', queueData, {
         jobId: taskId,
       })
 
@@ -503,11 +501,7 @@ export const createQueueService = (
       return taskId
     } catch (error) {
       // Handle duplicate job ID error
-      if (
-        !stableTaskId &&
-        error instanceof Error &&
-        error.message.includes('job')
-      ) {
+      if (error instanceof Error && error.message.includes('job')) {
         console.warn(
           `[QUEUE] Job with ID ${taskId} may already exist, retrying with new ID`,
         )
@@ -520,7 +514,7 @@ export const createQueueService = (
 
   const close = async () => {
     await worker.close()
-    await producer.close()
+    await queue.close()
     await redis.quit()
   }
 

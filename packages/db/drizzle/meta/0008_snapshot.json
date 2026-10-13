@@ -1,5 +1,5 @@
 {
-  "id": "23bae8d0-6239-408e-8407-a2b15e7761d3",
+  "id": "9d3f53c8-4436-45b2-beed-e53f28f04c81",
   "prevId": "60c4f2d5-2948-46c7-8ebf-91a6b8da6d69",
   "version": "7",
   "dialect": "postgresql",
@@ -514,39 +514,6 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
-        },
-        "verification_app_ids": {
-          "name": "verification_app_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "verification_pending": {
-          "name": "verification_pending",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "verification_claim_id": {
-          "name": "verification_claim_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "verification_claimed_at": {
-          "name": "verification_claimed_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "verification_dispatched_app_ids": {
-          "name": "verification_dispatched_app_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
         }
       },
       "indexes": {
@@ -555,21 +522,6 @@
           "columns": [
             {
               "expression": "received_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "sync_events_verification_pending_index": {
-          "name": "sync_events_verification_pending_index",
-          "columns": [
-            {
-              "expression": "verification_pending",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
