@@ -1,8 +1,11 @@
 import {
+  and,
   createDbConnection,
   type DbConnection,
+  type DbExecutor,
   eq,
   inArray,
+  type ProfileEntityType,
   profilesTable,
   sql,
   type UpstreamProfileData,
@@ -10,7 +13,49 @@ import {
 } from '@phala/trust-center-db'
 
 export interface ProfileService {
-  syncProfiles: (profiles: UpstreamProfileData[]) => Promise<void>
+  upsertProfiles: (
+    profiles: UpstreamProfileData[],
+    executor?: DbExecutor,
+  ) => Promise<number>
+  deleteProfile: (
+    entityType: ProfileEntityType,
+    entityId: number,
+    executor?: DbExecutor,
+  ) => Promise<number>
+  syncProfiles: (
+    profiles: UpstreamProfileData[],
+    executor?: DbExecutor,
+  ) => Promise<{upserted: number; deleted: number}>
+}
+
+const BATCH_SIZE = 1000
+
+// Validate and keep the last row for each entity, avoiding duplicate conflicts.
+function validateProfiles(profiles: UpstreamProfileData[]) {
+  const upstreamMap = new Map<string, UpstreamProfileData>()
+  let skippedCount = 0
+
+  for (let index = 0; index < profiles.length; index++) {
+    const result = UpstreamProfileDataSchema.safeParse(profiles[index])
+    if (!result.success) {
+      console.warn(
+        `[PROFILE] Skipping invalid profile at index ${index}:`,
+        result.error.format(),
+      )
+      skippedCount++
+      continue
+    }
+    const profile = result.data
+    upstreamMap.set(`${profile.entity_type}:${profile.entity_id}`, profile)
+  }
+
+  if (skippedCount > 0) {
+    console.warn(
+      `[PROFILE] Skipped ${skippedCount} invalid profiles out of ${profiles.length}`,
+    )
+  }
+
+  return upstreamMap
 }
 
 export function createProfileService(
@@ -22,78 +67,11 @@ export function createProfileService(
 
   const db: DbConnection = createDbConnection(databaseUrl)
 
-  /**
-   * Sync profiles using full sync strategy (upsert + delete stale records)
-   * This ensures database is exactly in sync with upstream Metabase data
-   */
-  const syncProfiles = async (
+  const upsertValidatedProfiles = async (
     profiles: UpstreamProfileData[],
-  ): Promise<void> => {
-    if (profiles.length === 0) {
-      console.warn('[PROFILE] No profiles to sync, skipping sync')
-      return
-    }
-
-    console.log(`[PROFILE] Starting full sync for ${profiles.length} profiles`)
-
-    // Validate all profiles with Zod schema (skip invalid ones with warnings)
-    const validatedProfiles: UpstreamProfileData[] = []
-    let skippedCount = 0
-
-    for (let index = 0; index < profiles.length; index++) {
-      const p = profiles[index]
-      const result = UpstreamProfileDataSchema.safeParse(p)
-      if (!result.success) {
-        console.warn(
-          `[PROFILE] Skipping invalid profile at index ${index}:`,
-          result.error.format(),
-        )
-        skippedCount++
-        continue
-      }
-      validatedProfiles.push(result.data)
-    }
-
-    if (skippedCount > 0) {
-      console.warn(
-        `[PROFILE] Skipped ${skippedCount} invalid profiles out of ${profiles.length}`,
-      )
-    }
-
-    if (validatedProfiles.length === 0) {
-      console.warn(
-        '[PROFILE] No valid profiles after validation, skipping sync',
-      )
-      return
-    }
-
-    // Build composite keys map for upstream profiles
-    const upstreamMap = new Map<string, UpstreamProfileData>()
-    for (const profile of validatedProfiles) {
-      const key = `${profile.entity_type}:${profile.entity_id}`
-      upstreamMap.set(key, profile)
-    }
-
-    console.log(`[PROFILE] Processing ${upstreamMap.size} unique profiles`)
-
-    // Fetch all existing profiles in one query
-    const existingProfiles = await db.select().from(profilesTable)
-    console.log(`[PROFILE] Found ${existingProfiles.length} existing profiles`)
-
-    // Identify stale profiles (exist in DB but not in upstream)
-    const toDelete = existingProfiles
-      .filter((p) => !upstreamMap.has(`${p.entityType}:${p.entityId}`))
-      .map((p) => p.id)
-
-    // Delete stale profiles if any
-    if (toDelete.length > 0) {
-      await db.delete(profilesTable).where(inArray(profilesTable.id, toDelete))
-      console.log(`[PROFILE] Deleted ${toDelete.length} stale profiles`)
-    }
-
-    // Prepare values for upsert (insert new + update existing)
-    // Map snake_case upstream data to camelCase database fields
-    const values = Array.from(upstreamMap.values()).map((p) => ({
+    executor: DbExecutor,
+  ): Promise<number> => {
+    const values = profiles.map((p) => ({
       id: `${p.entity_type}:${p.entity_id}`,
       entityType: p.entity_type,
       entityId: p.entity_id,
@@ -103,16 +81,13 @@ export function createProfileService(
       customDomain: p.custom_domain,
       updatedAt: p.updated_at ? new Date(p.updated_at) : null,
     }))
+    let changed = 0
 
-    const BATCH_SIZE = 1000
-
-    // Process in batches to stay below the PostgreSQL parameter limit
+    // Stay below the PostgreSQL parameter limit, including large snapshots.
     for (let i = 0; i < values.length; i += BATCH_SIZE) {
-      const batch = values.slice(i, i + BATCH_SIZE)
-
-      await db
+      const results = await executor
         .insert(profilesTable)
-        .values(batch)
+        .values(values.slice(i, i + BATCH_SIZE))
         .onConflictDoUpdate({
           target: [profilesTable.entityType, profilesTable.entityId],
           set: {
@@ -122,15 +97,103 @@ export function createProfileService(
             customDomain: sql`EXCLUDED.custom_domain`,
             updatedAt: sql`EXCLUDED.updated_at`,
           },
+          setWhere: sql`${profilesTable.displayName} IS DISTINCT FROM EXCLUDED.display_name
+            OR ${profilesTable.avatarUrl} IS DISTINCT FROM EXCLUDED.avatar_url
+            OR ${profilesTable.description} IS DISTINCT FROM EXCLUDED.description
+            OR ${profilesTable.customDomain} IS DISTINCT FROM EXCLUDED.custom_domain
+            OR ${profilesTable.updatedAt} IS DISTINCT FROM EXCLUDED.updated_at`,
         })
+        .returning({id: profilesTable.id})
+      changed += results.length
     }
 
-    console.log(
-      `[PROFILE] Profile sync completed: ${values.length} profiles synced (${toDelete.length} deleted)`,
-    )
+    return changed
+  }
+
+  // Partial writes never delete profiles absent from the supplied list.
+  const upsertProfiles = async (
+    profiles: UpstreamProfileData[],
+    executor?: DbExecutor,
+  ): Promise<number> => {
+    const validated = Array.from(validateProfiles(profiles).values())
+    if (validated.length === 0) return 0
+    if (executor) return upsertValidatedProfiles(validated, executor)
+    return db.transaction((tx) => upsertValidatedProfiles(validated, tx))
+  }
+
+  const deleteProfile = async (
+    entityType: ProfileEntityType,
+    entityId: number,
+    executor: DbExecutor = db,
+  ): Promise<number> => {
+    const deleted = await executor
+      .delete(profilesTable)
+      .where(
+        and(
+          eq(profilesTable.entityType, entityType),
+          eq(profilesTable.entityId, entityId),
+        ),
+      )
+      .returning({id: profilesTable.id})
+    return deleted.length
+  }
+
+  // Only complete snapshots reconcile missing entities. Preserve the existing
+  // empty/all-invalid snapshot guard so upstream failures cannot wipe profiles.
+  const syncProfiles = async (
+    profiles: UpstreamProfileData[],
+    executor?: DbExecutor,
+  ): Promise<{upserted: number; deleted: number}> => {
+    if (profiles.length === 0) {
+      console.warn('[PROFILE] No profiles to sync, skipping sync')
+      return {upserted: 0, deleted: 0}
+    }
+
+    const upstreamMap = validateProfiles(profiles)
+    if (upstreamMap.size === 0) {
+      console.warn(
+        '[PROFILE] No valid profiles after validation, skipping sync',
+      )
+      return {upserted: 0, deleted: 0}
+    }
+
+    const reconcile = async (tx: DbExecutor) => {
+      const existingProfiles = await tx
+        .select({
+          id: profilesTable.id,
+          entityType: profilesTable.entityType,
+          entityId: profilesTable.entityId,
+        })
+        .from(profilesTable)
+      const toDelete = existingProfiles
+        .filter((p) => !upstreamMap.has(`${p.entityType}:${p.entityId}`))
+        .map((p) => p.id)
+      let deleted = 0
+
+      for (let i = 0; i < toDelete.length; i += BATCH_SIZE) {
+        const results = await tx
+          .delete(profilesTable)
+          .where(inArray(profilesTable.id, toDelete.slice(i, i + BATCH_SIZE)))
+          .returning({id: profilesTable.id})
+        deleted += results.length
+      }
+
+      const upserted = await upsertValidatedProfiles(
+        Array.from(upstreamMap.values()),
+        tx,
+      )
+      console.log(
+        `[PROFILE] Profile sync completed: ${upserted} profiles changed (${deleted} deleted)`,
+      )
+      return {upserted, deleted}
+    }
+
+    return executor ? reconcile(executor) : db.transaction(reconcile)
   }
 
   return {
+    upsertProfiles,
+    deleteProfile,
     syncProfiles,
   }
 }

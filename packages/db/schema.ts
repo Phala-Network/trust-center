@@ -289,6 +289,38 @@ export const profilesTable = pgTable(
   ],
 )
 
+// Private sync audit and durable verification hand-off. Never exposed by public app APIs.
+export const syncEventsTable = pgTable(
+  'sync_events',
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    source: text({enum: ['push', 'cron-profiles', 'cron-apps']}).notNull(),
+    eventId: text().unique(),
+    profileCount: integer().notNull().default(0),
+    deletedProfileCount: integer().notNull().default(0),
+    appCount: integer().notNull().default(0),
+    deletedAppCount: integer().notNull().default(0),
+    rowsChanged: integer().notNull().default(0),
+    result: text({enum: ['pending', 'success', 'error']}).notNull(),
+    errorMessage: text(),
+    receivedAt: timestamp().notNull().defaultNow(),
+    finishedAt: timestamp(),
+    verificationAppIds: jsonb().$type<string[]>().notNull().default([]),
+    verificationPending: boolean().notNull().default(false),
+    verificationClaimId: text(),
+    verificationClaimedAt: timestamp(),
+    verificationDispatchedAppIds: jsonb()
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+  },
+  (t) => [index().on(t.receivedAt), index().on(t.verificationPending)],
+)
+
+export type SyncEventRecord = typeof syncEventsTable.$inferSelect
+
 // Infer types from Zod schemas
 export type VerificationFlags = z.infer<typeof VerificationFlagsSchema>
 export type TaskCreateRequest = z.infer<typeof TaskCreateRequestSchema>

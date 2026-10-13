@@ -10,6 +10,10 @@ export function createDbConnection(databaseUrl: string) {
 }
 
 export type DbConnection = ReturnType<typeof createDbConnection>
+export type DbTransaction = Parameters<
+  Parameters<DbConnection['transaction']>[0]
+>[0]
+export type DbExecutor = DbConnection | DbTransaction
 
 export * from 'drizzle-orm'
 export {alias} from 'drizzle-orm/pg-core'

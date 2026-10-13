@@ -57,6 +57,13 @@
       "when": 1764041485518,
       "tag": "0007_moaning_magma",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791929352673,
+      "tag": "0008_sync_events",
+      "breakpoints": true
     }
   ]
 }
