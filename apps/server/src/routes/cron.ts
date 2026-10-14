@@ -6,7 +6,7 @@ import {env} from '../env'
 import {getServices} from '../services'
 
 export const cronRoutes = new Elysia()
-  // Cleanup failed tasks cron - runs daily to clean up old failed/cancelled tasks
+  // Daily cleanup of failed/cancelled tasks and 30-day sync audit/idempotency rows
   .use(
     cron({
       name: 'cleanup-failed-tasks',
@@ -17,10 +17,12 @@ export const cronRoutes = new Elysia()
         )
         try {
           const services = getServices()
-          const deletedCount =
-            await services.verificationTask.cleanupFailedTasks(48)
+          const [deletedCount, syncEventsDeleted] = await Promise.all([
+            services.verificationTask.cleanupFailedTasks(48),
+            services.syncEvents.cleanup(30),
+          ])
           console.log(
-            `[CRON:CLEANUP] Cleanup completed: ${deletedCount} old failed/cancelled tasks deleted`,
+            `[CRON:CLEANUP] Cleanup completed: ${deletedCount} old failed/cancelled tasks, ${syncEventsDeleted} expired sync events deleted`,
           )
         } catch (error) {
           console.error('[CRON:CLEANUP] Cleanup failed:', error)
@@ -103,14 +105,9 @@ export const cronRoutes = new Elysia()
         console.log('[CRON:TASKS] Running scheduled task creation...')
         try {
           const services = getServices()
-          if (!services.sync) {
-            console.warn(
-              '[CRON:TASKS] Sync service not configured, skipping...',
-            )
-            return
-          }
-
-          const tasksResult = await services.sync.syncAllTasks()
+          // Verification reads our local DB and must work without an outbound
+          // Phala Cloud credential (including push-only deployments).
+          const tasksResult = await services.taskSync.syncAllTasks()
           console.log(
             `[CRON:TASKS] Task creation completed: ${tasksResult.tasksCreated} tasks created`,
           )
@@ -157,7 +154,8 @@ export const cronRoutes = new Elysia()
                   {
                     name: 'cleanup-failed-tasks',
                     pattern: env.CLEANUP_CRON_PATTERN,
-                    description: 'Cleanup old failed/cancelled tasks (48h+)',
+                    description:
+                      'Cleanup failed tasks (48h+) and sync events (30 days)',
                     running: cleanupCron?.running ?? false,
                   },
                   {

@@ -4,6 +4,7 @@ import {
   appsTable,
   createDbConnection,
   type DbConnection,
+  type DbExecutor,
   eq,
   getTableColumns,
   inArray,
@@ -20,9 +21,8 @@ import {PERMANENT_FAILURE_PATTERNS} from './failureClassification'
 
 // Compute app IDs in this upsert batch that are currently marked deleted and
 // will therefore revive (deleted true -> false) when the batch is upserted.
-// Must be based strictly on the deleted flag transition: syncApps refreshes
-// lastSyncedAt every minute for all listed apps, so a lastSyncedAt-based
-// check would let transiently unreachable apps bypass the permanent-failure
+// Must be based strictly on the deleted flag transition, not timestamps:
+// otherwise transiently unreachable apps could bypass the permanent-failure
 // cooldown and churn.
 export function computeRevivedAppIds(
   batchIds: readonly string[],
@@ -30,6 +30,40 @@ export function computeRevivedAppIds(
 ): string[] {
   const deletedSet = new Set(deletedIds)
   return batchIds.filter((id) => deletedSet.has(id))
+}
+
+// Keep these 17 upstream business fields in sync with the conflict update below
+// and convertToAppRecord. Timestamps are sync metadata; deleted is a revival.
+const APP_BUSINESS_FIELDS = [
+  'profileId',
+  'appName',
+  'appConfigType',
+  'contractAddress',
+  'domain',
+  'dstackVersion',
+  'workspaceId',
+  'creatorId',
+  'chainId',
+  'kmsContractAddress',
+  'baseImage',
+  'tproxyBaseDomain',
+  'gatewayDomainSuffix',
+  'isPublic',
+  'username',
+  'email',
+  'customUser',
+] as const satisfies readonly (keyof AppRecord)[]
+
+// Match INSERT defaults for omitted optional fields: NULL, except isPublic=false.
+function appBusinessValue(
+  app: NewAppRecord,
+  field: (typeof APP_BUSINESS_FIELDS)[number],
+) {
+  return app[field] === undefined
+    ? field === 'isPublic'
+      ? false
+      : null
+    : app[field]
 }
 
 // App service factory function
@@ -88,16 +122,22 @@ export const createAppService = (
   // Processes in batches of 100 to avoid PostgreSQL parameter limit (65535)
   // Deduplicates by ID to avoid "ON CONFLICT DO UPDATE cannot affect row a second time" error
   //
-  // Returns the upserted apps plus the number of revived apps (apps whose
+  // Returns only changed/inserted apps plus the number of revived apps (apps whose
   // deleted flag flipped true -> false in this upsert). For revived apps,
   // failed verification tasks are cleared so the next tasks tick re-enqueues
   // them immediately instead of waiting out the permanent-failure cooldown.
   const upsertApps = async (
     appsData: NewAppRecord[],
+    executor?: DbExecutor,
   ): Promise<{apps: AppRecord[]; revivedCount: number}> => {
     if (!appsData || appsData.length === 0) {
       console.warn('[APP] upsertApps called with empty array, skipping')
       return {apps: [], revivedCount: 0}
+    }
+    // Keep every batch and revival cleanup atomic; reuse an ingest transaction
+    // when supplied instead of opening an independent transaction.
+    if (!executor) {
+      return db.transaction((tx) => upsertApps(appsData, tx))
     }
 
     // Deduplicate by ID - keep the last occurrence (most recent data)
@@ -120,26 +160,44 @@ export const createAppService = (
       const batch = deduped.slice(i, i + BATCH_SIZE)
       const batchIds = batch.map((app) => app.id)
 
-      // Pre-query currently deleted apps in this batch; they are the ones
-      // about to revive (deleted true -> false)
-      const deletedRows = await db
-        .select({id: appsTable.id})
+      // Capture business changes before writing, not from RETURNING: every
+      // observed app must refresh its sync metadata, even when unchanged.
+      // Lock existing rows for generic transactional callers. Full/push ingest
+      // also share an advisory lock, serializing inserts of not-yet-existing IDs.
+      const currentRows = await executor
+        .select()
         .from(appsTable)
-        .where(
-          and(inArray(appsTable.id, batchIds), eq(appsTable.deleted, true)),
-        )
+        .where(inArray(appsTable.id, batchIds))
+        .orderBy(appsTable.id)
+        .for('update')
+      const currentById = new Map(currentRows.map((row) => [row.id, row]))
+      const changedIds = new Set(
+        batch
+          .filter((app) => {
+            const current = currentById.get(app.id)
+            return (
+              !current ||
+              current.deleted ||
+              APP_BUSINESS_FIELDS.some(
+                (field) => current[field] !== appBusinessValue(app, field),
+              )
+            )
+          })
+          .map((app) => app.id),
+      )
       const revivedIds = computeRevivedAppIds(
         batchIds,
-        deletedRows.map((row) => row.id),
+        currentRows.filter((row) => row.deleted).map((row) => row.id),
       )
 
       const values = batch.map((app) => ({
         ...app,
         updatedAt: now,
         lastSyncedAt: now,
+        deleted: false, // Listed apps are active, including newly inserted rows.
       }))
 
-      const results = await db
+      const results = await executor
         .insert(appsTable)
         .values(values)
         .onConflictDoUpdate({
@@ -173,7 +231,7 @@ export const createAppService = (
       // tasks" and re-enqueues them instead of waiting out the permanent-
       // failure cooldown (up to 24h).
       if (revivedIds.length > 0) {
-        await db
+        await executor
           .delete(verificationTasksTable)
           .where(
             and(
@@ -184,15 +242,31 @@ export const createAppService = (
         revivedCount += revivedIds.length
       }
 
-      allResults.push(...results)
+      allResults.push(...results.filter((app) => changedIds.has(app.id)))
     }
 
     return {apps: allResults, revivedCount}
   }
 
-  // Get all apps
-  const getAllApps = async () => {
-    return await db.select().from(appsTable)
+  // Upstream deletion IDs are numeric app_id/profileId, not dstack IDs.
+  // Update every matching dstack ID and count only active -> deleted changes.
+  const markAppDeleted = async (
+    profileId: number,
+    executor: DbExecutor = db,
+  ): Promise<number> => {
+    const deleted = await executor
+      .update(appsTable)
+      .set({deleted: true, updatedAt: new Date()})
+      .where(
+        and(eq(appsTable.profileId, profileId), eq(appsTable.deleted, false)),
+      )
+      .returning({id: appsTable.id})
+    return deleted.length
+  }
+
+  // Get all apps, optionally within the caller's full-sync transaction.
+  const getAllApps = async (executor: DbExecutor = db) => {
+    return await executor.select().from(appsTable)
   }
 
   // Get apps that are valid for verification
@@ -311,6 +385,7 @@ export const createAppService = (
     getAppById,
     upsertApp,
     upsertApps,
+    markAppDeleted,
     getAllApps,
     getValidApps,
     getValidAppsByIds,

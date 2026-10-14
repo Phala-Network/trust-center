@@ -1,4 +1,5 @@
 import {
+  and,
   appsTable,
   eq,
   inArray,
@@ -13,6 +14,7 @@ import {
 import type {AppService} from './appService'
 import type {ProfileService} from './profileService'
 import type {QueueService} from './queue'
+import {createSyncEventService, type SyncEventInput} from './syncEventService'
 
 function logErrorChain(prefix: string, error: unknown): void {
   if (!(error instanceof Error)) {
@@ -162,7 +164,7 @@ function determineUser(app: UpstreamAppData): string | null {
 }
 
 // Helper function to convert upstream app data to app record
-function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
+export function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
   const {
     dstack_app_id,
     app_id,
@@ -220,6 +222,32 @@ function convertToAppRecord(app: UpstreamAppData): NewAppRecord {
   }
 }
 
+// Tolerate individual conversion failures, but never reconcile an all-bad
+// nonempty snapshot: that must fail before any database mutations.
+export function convertAppsWithTolerance(
+  apps: UpstreamAppData[],
+): NewAppRecord[] {
+  const appRecords: NewAppRecord[] = []
+  for (const app of apps) {
+    try {
+      appRecords.push(convertToAppRecord(app))
+    } catch (error) {
+      console.error(
+        `[SYNC] Skipping app ${app.dstack_app_id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+  }
+  console.log(
+    `[SYNC] Converted ${appRecords.length} app records from ${apps.length} upstream apps`,
+  )
+  if (apps.length > 0 && appRecords.length === 0) {
+    throw new Error('No upstream apps could be converted')
+  }
+  return appRecords
+}
+
 // Phala Cloud API endpoints
 const PHALA_CLOUD_APP_API =
   'https://cloud-api.phala.com/api/v1/stats/dstack_app'
@@ -254,6 +282,22 @@ export function createSyncService(
   profileService: ProfileService,
   appService: AppService,
 ): SyncService {
+  const db = appService.getDb()
+  const syncEventService = createSyncEventService(db)
+
+  const recordFailure = async (
+    event: Omit<SyncEventInput, 'result'>,
+    error: unknown,
+  ): Promise<void> => {
+    try {
+      // This runs outside the apply transaction, which may have rolled back.
+      await syncEventService.recordFailure({...event, rowsChanged: 0, error})
+    } catch (auditError) {
+      // Preserve the original failure even when the database is unavailable.
+      console.error('[SYNC] Failed to record sync error:', auditError)
+    }
+  }
+
   // Fetch from Phala Cloud API with Bearer auth
   const fetchFromApi = async (url: string, resourceName: string) => {
     const response = await fetch(url, {
@@ -447,67 +491,80 @@ export function createSyncService(
     appsSynced: number
     apps: UpstreamAppData[]
   }> => {
+    const event = {
+      id: crypto.randomUUID(),
+      source: 'cron-apps' as const,
+      receivedAt: new Date(),
+      appCount: 0,
+    }
     try {
       console.log('[SYNC] Syncing apps from Phala Cloud API...')
 
-      const apps = await fetchApps()
-      console.log(`[SYNC] Fetched ${apps.length} apps from Phala Cloud API`)
+      const {apps, changedCount, deletedCount, revivedCount} =
+        await db.transaction(async (tx) => {
+          // Fetch under the same lock as push writes, so a waiting full sync
+          // cannot apply a snapshot fetched before a newer push committed.
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(74190311)`)
+          const apps = await fetchApps()
+          event.appCount = apps.length
+          console.log(`[SYNC] Fetched ${apps.length} apps from Phala Cloud API`)
+          const appRecords = convertAppsWithTolerance(apps)
+          let changedCount = 0
+          let deletedCount = 0
+          let revivedCount = 0
 
-      if (apps.length === 0) {
-        console.log('[SYNC] No apps to sync')
-        console.log('[SYNC] App sync completed: 0 apps synced')
-        return {appsSynced: 0, apps: []}
-      }
+          // Preserve the existing empty-snapshot safeguard: do not delete all apps.
+          if (apps.length > 0) {
+            const result = await appService.upsertApps(appRecords, tx)
+            changedCount = result.apps.length
+            revivedCount = result.revivedCount
 
-      const appRecords = []
-      for (const app of apps) {
-        try {
-          appRecords.push(convertToAppRecord(app))
-        } catch (error) {
-          console.error(
-            `[SYNC] Skipping app ${app.dstack_app_id}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+            const upstreamProfileIds = new Set(apps.map((app) => app.app_id))
+            const allApps = await appService.getAllApps(tx)
+            const idsToDelete = allApps
+              .filter(
+                (app) => !upstreamProfileIds.has(app.profileId) && !app.deleted,
+              )
+              .map((app) => app.id)
+
+            if (idsToDelete.length > 0) {
+              const deleted = await tx
+                .update(appsTable)
+                .set({deleted: true, updatedAt: new Date()})
+                .where(
+                  and(
+                    inArray(appsTable.id, idsToDelete),
+                    eq(appsTable.deleted, false),
+                  ),
+                )
+                .returning({id: appsTable.id})
+              deletedCount = deleted.length
+            }
+          }
+
+          await syncEventService.record(
+            {
+              ...event,
+              deletedAppCount: deletedCount,
+              rowsChanged: changedCount + deletedCount,
+              result: 'success',
+              finishedAt: new Date(),
+            },
+            tx,
           )
-        }
-      }
-      console.log(
-        `[SYNC] Converted ${appRecords.length} app records from ${apps.length} upstream apps`,
-      )
-      if (appRecords.length === 0) {
-        throw new Error('No upstream apps could be converted')
-      }
+          return {apps, changedCount, deletedCount, revivedCount}
+        })
 
-      // Upsert apps to database using appService
-      const {revivedCount} = await appService.upsertApps(appRecords)
-      console.log(`[SYNC] Upserted ${appRecords.length} apps to database`)
+      console.log(
+        `[SYNC] Changed ${changedCount} apps, marked ${deletedCount} apps as deleted`,
+      )
       if (revivedCount > 0) {
         console.log(`[SYNC] Revived ${revivedCount} apps, cleared failed tasks`)
       }
-
-      // Mark apps that are not in upstream as deleted (batch update)
-      const upstreamProfileIds = new Set(apps.map((app) => app.app_id))
-      const allApps = await appService.getAllApps()
-      const appsToMarkDeleted = allApps.filter(
-        (app) => !upstreamProfileIds.has(app.profileId) && !app.deleted,
-      )
-
-      if (appsToMarkDeleted.length > 0) {
-        const db = appService.getDb()
-        const idsToDelete = appsToMarkDeleted.map((app) => app.id)
-
-        // Batch update all apps to mark as deleted in a single query
-        await db
-          .update(appsTable)
-          .set({deleted: true, updatedAt: new Date()})
-          .where(inArray(appsTable.id, idsToDelete))
-
-        console.log(`[SYNC] Marked ${appsToMarkDeleted.length} apps as deleted`)
-      }
-
       console.log(`[SYNC] App sync completed: ${apps.length} apps synced`)
       return {appsSynced: apps.length, apps}
     } catch (error) {
+      await recordFailure(event, error)
       console.error('[SYNC] Sync apps error:', error)
       console.error(
         '[SYNC] Error details:',
@@ -525,29 +582,46 @@ export function createSyncService(
     profilesSynced: number
     profiles: UpstreamProfileData[]
   }> => {
+    const event = {
+      id: crypto.randomUUID(),
+      source: 'cron-profiles' as const,
+      receivedAt: new Date(),
+      profileCount: 0,
+    }
     try {
       console.log('[SYNC] Syncing profiles from Phala Cloud API...')
 
-      const profiles = await fetchProfiles()
-      console.log(
-        `[SYNC] Fetched ${profiles.length} profiles from Phala Cloud API`,
-      )
-
-      if (profiles.length === 0) {
-        console.log('[SYNC] No profiles to sync')
-        console.log('[SYNC] Profile sync completed: 0 profiles synced')
-        return {profilesSynced: 0, profiles: []}
-      }
-
-      // Sync profiles to database using profileService
-      // Pass profiles directly - they already have snake_case format from Phala Cloud API
-      await profileService.syncProfiles(profiles)
+      const profiles = await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(74190311)`)
+        const profiles = await fetchProfiles()
+        event.profileCount = profiles.length
+        console.log(
+          `[SYNC] Fetched ${profiles.length} profiles from Phala Cloud API`,
+        )
+        // Keep the existing empty-snapshot safeguard for profiles, too.
+        const counts =
+          profiles.length > 0
+            ? await profileService.syncProfiles(profiles, tx)
+            : {upserted: 0, deleted: 0}
+        await syncEventService.record(
+          {
+            ...event,
+            deletedProfileCount: counts.deleted,
+            rowsChanged: counts.upserted + counts.deleted,
+            result: 'success',
+            finishedAt: new Date(),
+          },
+          tx,
+        )
+        return profiles
+      })
 
       console.log(
         `[SYNC] Profile sync completed: ${profiles.length} profiles synced`,
       )
       return {profilesSynced: profiles.length, profiles}
     } catch (error) {
+      await recordFailure(event, error)
       logErrorChain('[SYNC] Sync profiles error:', error)
       throw error
     }

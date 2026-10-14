@@ -289,6 +289,30 @@ export const profilesTable = pgTable(
   ],
 )
 
+// Private sync audit; push event IDs also provide 30-day application idempotency.
+export const syncEventsTable = pgTable(
+  'sync_events',
+  {
+    id: text()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    source: text({enum: ['push', 'cron-profiles', 'cron-apps']}).notNull(),
+    eventId: text().unique(),
+    profileCount: integer().notNull().default(0),
+    deletedProfileCount: integer().notNull().default(0),
+    appCount: integer().notNull().default(0),
+    deletedAppCount: integer().notNull().default(0),
+    rowsChanged: integer().notNull().default(0),
+    result: text({enum: ['success', 'error']}).notNull(),
+    errorMessage: text(),
+    receivedAt: timestamp().notNull().defaultNow(),
+    finishedAt: timestamp(),
+  },
+  (t) => [index().on(t.receivedAt)],
+)
+
+export type SyncEventRecord = typeof syncEventsTable.$inferSelect
+
 // Infer types from Zod schemas
 export type VerificationFlags = z.infer<typeof VerificationFlagsSchema>
 export type TaskCreateRequest = z.infer<typeof TaskCreateRequestSchema>
