@@ -38,10 +38,6 @@ export const env = createEnv({
 
     // Sync service configuration (Phala Cloud API)
     PHALA_CLOUD_API_KEY: z.string().optional(),
-    PHALA_CLOUD_WEBHOOK_SECRET: z.preprocess(
-      (value) => (value === '' ? undefined : value),
-      z.string().optional(),
-    ),
 
     // Cron API authentication (required)
     CRON_API_KEY: z.string().min(1, 'CRON_API_KEY must not be empty'),

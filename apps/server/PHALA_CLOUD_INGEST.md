@@ -28,7 +28,7 @@ Trust Center accepts current-state pushes without a per-entity Cloud read API. F
 
 ### Authentication
 
-Use a dedicated `PHALA_CLOUD_WEBHOOK_SECRET` shared by sender and receiver (at least 32 characters). Do not reuse `CRON_API_KEY` or the outbound Cloud credential. An empty/unset/short secret disables **only webhook ingress**, returning 503; other server functionality starts normally.
+Reuse Trust Center's **existing `PHALA_CLOUD_API_KEY`** as the HMAC key. It is the same value as Phala Cloud's existing **`STATS_API_TOKEN`**, already shared for the stats data channel. Do not add, rename, rotate or change any Trust Center deployment environment variable for this feature. There is no new minimum-length requirement. If the existing API key is empty/unset, webhook ingress returns 503; other server functionality starts normally. `CRON_API_KEY` remains exclusively for administrator endpoints, not webhook signing.
 
 ```text
 Content-Type: application/json
@@ -52,7 +52,7 @@ Compute HMAC-SHA256 with the shared secret, then lowercase hexadecimal encoding.
 | 400 | Invalid JSON/schema or contradictory tombstones | Permanent failure; fix payload |
 | 401 | Bad/missing signature or stale/future timestamp | Permanent failure; check signing/clock |
 | 413 | Body exceeds 2 MiB | Split into new batches |
-| 503 | Receiver secret is missing or too short | Backoff/retry |
+| 503 | Existing receiver Cloud API key is empty/unset | Backoff/retry; check deployment availability |
 | 500 | Database apply/audit failed | Backoff/retry the same event ID |
 
 ```json
@@ -67,7 +67,7 @@ Entity writes and the success/idempotency audit row commit in one PostgreSQL tra
 
 After commit, dispatch one asynchronous **best-effort** `syncSelectedTasks` call for the pushed `dstack_app_id` values. It uses the existing eligibility filter (nonempty domain/contract, not deleted). Profile-only pushes and tombstones do not queue verification. Redis readiness does not delay HTTP acknowledgement. Rejected enqueue logs the exception and stores a warning in the committed success row's `error_message`; this warning may arrive after the HTTP response.
 
-The existing `sync-tasks` cron, normally every five minutes, is the fallback for eligible apps lacking a recent report. It uses a separately exposed local-DB `taskSync`, so it runs in **push-only deployments without `PHALA_CLOUD_API_KEY`**. Existing recent-report and failure cooldowns remain unchanged: a recently verified or cooling-down app is not guaranteed another attempt within five minutes. There is no persistent verification outbox, lease, receipt, hash-based task ID, new queue producer or separate recovery cron.
+The existing `sync-tasks` cron, normally every five minutes, is the fallback for eligible apps lacking a recent report. It uses a separately exposed local-DB `taskSync`, so existing verification scheduling still runs without `PHALA_CLOUD_API_KEY`; in that configuration Cloud reads and webhook ingress are both disabled. Existing recent-report and failure cooldowns remain unchanged: a recently verified or cooling-down app is not guaranteed another attempt within five minutes. There is no persistent verification outbox, lease, receipt, hash-based task ID, new queue producer or separate recovery cron.
 
 Both full-sync paths take the same PostgreSQL advisory lock **before fetching their upstream snapshot**, then apply it and audit within that transaction. Push writes wait during a full fetch; a full sync waiting behind a push cannot use a pre-push snapshot. An upstream fetch can consume its existing 30-second timeout budget while holding the lock; each waiting push or full-sync run also holds a transaction and pool connection, so a slow upstream plus a push burst can exhaust the pool. This version adds no separate lock-wait timeout; senders should back off and retry network failures/5xx, and operators should watch connection pressure. Single-app conversion failures are logged and skipped, preserving the main branch's behavior; an all-unconvertible nonempty snapshot fails before mutation. Skipped app IDs remain in the full snapshot's presence set, so they are not falsely marked deleted.
 
@@ -85,7 +85,7 @@ One row per push event; failed retries update it. Each full-sync run gets a dist
 
 The existing daily cleanup cron deletes **all sync audit rows older than 30 days**, including push `event_id` idempotency markers. Normal sender retries span hours, not 30 days. After retention expires an old event may apply again; full sync is the repair fallback. This bounded replay horizon is intentional. Empty full snapshots retain the existing safeguard against wiping all entities.
 
-Use full-sync changed counts over several days before considering six-hour/daily intervals. This PR changes the profile default to ten minutes only; **app sync is not lowered**.
+Use full-sync changed counts over several days before considering six-hour/daily intervals. The application's fallback profile pattern is ten minutes only when no pattern is configured. **Existing deployment env values and both Compose files are unchanged**, including their one-minute profile fallback; this PR does not force a production cadence change. App sync is not lowered.
 
 ## Deployment (owner-controlled)
 
@@ -94,9 +94,9 @@ Use full-sync changed counts over several days before considering six-hour/daily
    bun run --cwd packages/db migrate
    ```
    Migration `0008_sync_events` creates only the private audit table. This PR is unmerged/undeployed; its revised migration replaces the earlier review version containing dispatch internals. A local test/preview database already migrated against that earlier version must be recreated or reconciled before re-running migration; do not treat editing an applied migration as a production upgrade procedure.
-2. Securely generate/store the dedicated shared secret on sender and receiver. Never commit/post it. Missing/short receiver secret returns 503 without preventing other server features.
-3. If production overrides the cron, explicitly set `PROFILE_CRON_PATTERN='*/10 * * * *'`; otherwise new application/Compose defaults apply. **Leave `APP_CRON_PATTERN` unchanged.** Recreate the server container after a Compose environment update; restarting an old container does not update its environment.
-4. Deploy receiver, confirm private audit access, then enable sender. Proxy must forward signing headers and unmodified body and allow up to 2 MiB.
+2. **Keep all Trust Center deployment environment variables and their values unchanged.** Receiver signing reads the existing `PHALA_CLOUD_API_KEY`; sender signs with its existing `STATS_API_TOKEN`. Never print/post either value. If the receiver key is currently absent, leave it absent: ingress returns 503 rather than requiring a new environment setting.
+3. Keep existing `PROFILE_CRON_PATTERN`, `APP_CRON_PATTERN` and all other overrides unchanged. Both Compose files preserve their pre-PR environment configuration. Only an unconfigured application uses the ten-minute profile code default.
+4. Deploy receiver using the existing environment, confirm private audit access, then enable sender against the receiver's existing server URL plus `/webhooks/phala-cloud`. Proxy must forward signing headers and unmodified body and allow up to 2 MiB.
 5. Observe errors/warnings and full-sync changed counts. Deployment and production changes remain the owner's decision; none are performed by this PR.
 
 ## Tests

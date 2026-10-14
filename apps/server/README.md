@@ -45,14 +45,13 @@ S3_BUCKET=verification-results
 # Supply secrets securely; do not commit real values.
 CRON_API_KEY=...
 PHALA_CLOUD_API_KEY=...
-PHALA_CLOUD_WEBHOOK_SECRET=...
 
-PROFILE_CRON_PATTERN='*/10 * * * *'
+PROFILE_CRON_PATTERN='*/1 * * * *'
 APP_CRON_PATTERN='*/1 * * * *'
 TASKS_CRON_PATTERN='*/5 * * * *'
 ```
 
-`PHALA_CLOUD_API_KEY` is optional; without it full Cloud reads are disabled. `PHALA_CLOUD_WEBHOOK_SECRET` is independently optional; empty/unset disables ingress with 503. An unset/short webhook secret returns 503 only for ingress; other server features remain available. A working webhook secret requires at least 32 characters. `CRON_API_KEY` is required. Verification task cron reads the local DB and remains enabled without the outbound Cloud credential.
+Reuse the existing `PHALA_CLOUD_API_KEY` for both Cloud reads and webhook HMAC verification; the sender uses the same existing value as `STATS_API_TOKEN`. Empty/unset disables reads and makes ingress return 503. No new environment variable or key-length requirement is introduced. `CRON_API_KEY` remains required for admin management only. Verification task cron reads the local DB and remains enabled without the Cloud credential. **Do not modify/add deployment environment settings for this feature**; existing cron overrides and Compose defaults stay unchanged. The application-only profile fallback is ten minutes when no pattern is supplied.
 
 ## Development
 

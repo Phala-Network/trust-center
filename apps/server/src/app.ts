@@ -44,7 +44,7 @@ export const createApp = () => {
     .use(cronRoutes)
     .use(
       createPhalaCloudWebhookRoutes({
-        secret: env.PHALA_CLOUD_WEBHOOK_SECRET,
+        secret: env.PHALA_CLOUD_API_KEY,
         ingest: (event) => getServices().ingest.ingest(event),
       }),
     )

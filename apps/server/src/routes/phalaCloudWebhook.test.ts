@@ -73,13 +73,20 @@ const event = (overrides: Record<string, unknown> = {}) => ({
 })
 function request(
   body: unknown,
-  options: {timestamp?: string; signature?: string; raw?: string} = {},
+  options: {
+    timestamp?: string
+    signature?: string
+    raw?: string
+    signingKey?: string
+  } = {},
 ) {
   const raw = options.raw ?? JSON.stringify(body)
   const timestamp = options.timestamp ?? String(Math.floor(Date.now() / 1000))
   const signature =
     options.signature ??
-    `sha256=${createHmac('sha256', secret).update(`${timestamp}.${raw}`).digest('hex')}`
+    `sha256=${createHmac('sha256', options.signingKey ?? secret)
+      .update(`${timestamp}.${raw}`)
+      .digest('hex')}`
   return new Request('http://localhost/webhooks/phala-cloud', {
     method: 'POST',
     headers: {
@@ -196,14 +203,32 @@ describe('Phala Cloud authentication and transport', () => {
         .status,
     ).toBe(413)
   })
-  test('missing or short secret disables only webhook ingress', async () => {
-    for (const signingSecret of [undefined, '', 'too-short']) {
+  test('an absent existing Cloud API key disables webhook ingress', async () => {
+    for (const signingKey of [undefined, '']) {
       const disabled = createPhalaCloudWebhookRoutes({
-        secret: signingSecret,
+        secret: signingKey,
         ingest: async () => ({duplicate: false}),
       })
       expect((await disabled.handle(request(event()))).status).toBe(503)
     }
+  })
+  test('reuses a nonempty existing Cloud API key without a new length requirement', async () => {
+    const cloudApiKey = 'legacy-key'
+    const existingKeyApi = createPhalaCloudWebhookRoutes({
+      secret: cloudApiKey,
+      ingest: async () => ({duplicate: false}),
+    })
+    expect(
+      (await existingKeyApi.handle(request(event(), {signingKey: cloudApiKey})))
+        .status,
+    ).toBe(200)
+    expect(
+      (
+        await existingKeyApi.handle(
+          request(event(), {signingKey: 'cron-admin-key'}),
+        )
+      ).status,
+    ).toBe(401)
   })
 })
 
