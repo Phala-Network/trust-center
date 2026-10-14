@@ -163,8 +163,35 @@ export function createProfileService(
           id: profilesTable.id,
           entityType: profilesTable.entityType,
           entityId: profilesTable.entityId,
+          displayName: profilesTable.displayName,
+          avatarUrl: profilesTable.avatarUrl,
+          description: profilesTable.description,
+          customDomain: profilesTable.customDomain,
+          updatedAt: profilesTable.updatedAt,
+          // PostgreSQL retains microseconds that its JS Date mapper truncates.
+          // Such rows still differ from the millisecond value sent by upsert.
+          hasSubmillisecondTimestamp: sql<boolean>`${profilesTable.updatedAt} IS DISTINCT FROM date_trunc('milliseconds', ${profilesTable.updatedAt})`,
         })
         .from(profilesTable)
+        // Keep comparisons stable until commit, including skipped upserts.
+        .orderBy(profilesTable.id)
+        .for('update')
+      const currentByEntity = new Map(
+        existingProfiles.map((p) => [`${p.entityType}:${p.entityId}`, p]),
+      )
+      const changedProfiles = Array.from(upstreamMap.values()).filter((p) => {
+        const current = currentByEntity.get(`${p.entity_type}:${p.entity_id}`)
+        return (
+          !current ||
+          current.displayName !== p.display_name ||
+          current.avatarUrl !== p.avatar_url ||
+          current.description !== p.description ||
+          current.customDomain !== p.custom_domain ||
+          current.hasSubmillisecondTimestamp ||
+          current.updatedAt?.getTime() !==
+            (p.updated_at ? new Date(p.updated_at).getTime() : undefined)
+        )
+      })
       const toDelete = existingProfiles
         .filter((p) => !upstreamMap.has(`${p.entityType}:${p.entityId}`))
         .map((p) => p.id)
@@ -178,10 +205,7 @@ export function createProfileService(
         deleted += results.length
       }
 
-      const upserted = await upsertValidatedProfiles(
-        Array.from(upstreamMap.values()),
-        tx,
-      )
+      const upserted = await upsertValidatedProfiles(changedProfiles, tx)
       console.log(
         `[PROFILE] Profile sync completed: ${upserted} profiles changed (${deleted} deleted)`,
       )

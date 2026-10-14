@@ -75,6 +75,12 @@ An upstream fetch can consume its existing 30-second timeout while holding the l
 
 Single-app conversion failures are logged and skipped, preserving existing behavior; an all-unconvertible nonempty snapshot fails before mutation. Skipped app IDs remain in the full snapshot's presence set, so they are not falsely marked deleted.
 
+### Full-profile write budget
+
+Full profile reconciliation locks existing rows in stable ID order, compares the five persisted fields (`display_name`, `avatar_url`, `description`, `custom_domain`, `updated_at`), and upserts only new/changed rows. The comparison preserves nulls, source timestamp offsets, and PostgreSQL microseconds that JavaScript `Date` truncates. Partial push upserts, snapshot deletion/empty safeguards, changed-row audit counts, and app `last_synced_at` refresh behavior are unchanged. The full SELECT reads more columns; a fully changed snapshot still uses the existing 1,000-row batches.
+
+A real local PostgreSQL benchmark with **36,000 synthetic profiles / 7,019,417-byte response** measured unchanged full-sync SQL queries falling from **41 to 5**, sequential protocol phases from **78 to 6**, and client-to-database bytes from **6,289,981 to 1,030**. Three total-time runs changed from **1.020 / 1.059 / 0.995s** to **0.237 / 0.208 / 0.207s**. These are local measurements with a substituted Cloud response, not production timings; server-to-client SELECT traffic increases, and initial population is not faster. The estimated database-RTT contribution after lock acquisition falls from roughly **76 × RTT to 4 × RTT** for an unchanged snapshot. Real Cloud fetch time, bandwidth, contention, and production RTT must still be measured. Audit `finished_at - received_at` also includes pool/lock waiting and is not a direct measurement of lock hold.
+
 Push-to-push source ordering is still unversioned: a delayed older push can overwrite newer state, corrected by a later full sync. No incremental cursor or 304 implementation is included.
 
 ## Private audit and retention
