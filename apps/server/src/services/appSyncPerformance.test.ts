@@ -27,6 +27,7 @@ const suite = url ? describe : describe.skip
 // Every chunk is forwarded unchanged at arrival + the current one-way delay.
 function latencyProxy(target: URL) {
   let delayMs = 0
+  let backendBytes = 0
   const sockets = new Set<net.Socket>()
   const timers = new Set<ReturnType<typeof setTimeout>>()
   const server = net.createServer((frontend) => {
@@ -48,6 +49,7 @@ function latencyProxy(target: URL) {
       [backend, frontend],
     ] as const) {
       source.on('data', (chunk: Buffer) => {
+        if (source === backend) backendBytes += chunk.length
         if (delayMs === 0) destination.write(chunk)
         else {
           const timer = setTimeout(() => {
@@ -61,6 +63,7 @@ function latencyProxy(target: URL) {
     }
   })
   return {
+    backendBytes: () => backendBytes,
     setDelay: (ms: number) => {
       delayMs = ms
     },
@@ -377,6 +380,123 @@ suite('app full-sync performance with real PostgreSQL', () => {
         ])
       } finally {
         clearTimeout(settlementTimer)
+        try {
+          if (created) await admin`DROP SCHEMA ${admin(schema)} CASCADE`
+        } finally {
+          await admin.end({timeout: 1})
+        }
+      }
+    }
+  }, 12000)
+
+  test('regression: app reconciliation excludes ten thousand historical deleted rows from database response traffic', async () => {
+    const connectionUrl = url!
+    const schema = `app_history_${crypto.randomUUID().replaceAll('-', '')}`
+    const admin = postgres(connectionUrl, {
+      max: 1,
+      onnotice: () => {},
+      connection: {statement_timeout: 2000},
+    })
+    const proxy = latencyProxy(new URL(connectionUrl))
+    let client: ReturnType<typeof postgres> | undefined
+    let created = false
+    let fetchMock:
+      | ReturnType<typeof spyOn<typeof globalThis, 'fetch'>>
+      | undefined
+    try {
+      await admin`CREATE SCHEMA ${admin(schema)}`
+      created = true
+      for (const table of ['apps', 'verification_tasks', 'sync_events']) {
+        await admin.unsafe(
+          `CREATE TABLE "${schema}"."${table}" (LIKE public."${table}" INCLUDING ALL)`,
+        )
+      }
+      const proxyUrl = new URL(connectionUrl)
+      proxyUrl.hostname = '127.0.0.1'
+      proxyUrl.port = String(await proxy.listen())
+      client = postgres(proxyUrl.toString(), {
+        max: 1,
+        onnotice: () => {},
+        connection: {search_path: `${schema},public`, statement_timeout: 8000},
+      })
+      const db = drizzle(client, {casing: 'snake_case'})
+      const baseApps = createAppService(connectionUrl)
+      const apps = {
+        ...baseApps,
+        getDb: () => db,
+        upsertApps: (
+          records: Parameters<typeof baseApps.upsertApps>[0],
+          tx: DbExecutor = db,
+        ) => baseApps.upsertApps(records, tx),
+        getAllApps: (tx: DbExecutor = db) => baseApps.getAllApps(tx),
+      }
+      const sync = createSyncService(
+        {phalaCloudApiKey: 'synthetic-test-only'},
+        {} as QueueService,
+        createProfileService(connectionUrl),
+        apps,
+      )
+      fetchMock = spyOn(globalThis, 'fetch').mockImplementation(
+        Object.assign(
+          async () => new Response(JSON.stringify({data: upstream})),
+          {preconnect: () => {}},
+        ),
+      )
+      await sync.syncApps()
+      // Synthetic history is deliberately absent from the upstream snapshot.
+      // Warm/setup queries use a separate connection and are not counted.
+      await admin.unsafe(`INSERT INTO "${schema}".apps
+        (id,profile_id,app_name,app_config_type,contract_address,domain,workspace_id,creator_id,base_image,deleted)
+        SELECT 'history-' || n,1000000+n,'Historical','phala_cloud','','',1,1,'0.5.3',true
+        FROM generate_series(1,10000) n`)
+      await admin.unsafe(`INSERT INTO "${schema}".apps
+        (id,profile_id,app_name,app_config_type,contract_address,domain,workspace_id,creator_id,base_image,deleted)
+        VALUES ('absent-active',2000000,'Absent active','phala_cloud','','',1,1,'0.5.3',false)`)
+      const beforeBytes = proxy.backendBytes()
+      expect((await sync.syncApps()).appsSynced).toBe(588)
+      const responseBytes = proxy.backendBytes() - beforeBytes
+      // The current-row read for the 588 observed apps is legitimate. Returning
+      // all historical business rows is not: old getAllApps exceeds this limit.
+      expect(responseBytes).toBeLessThan(1000000)
+      const [counts] = await admin.unsafe(`SELECT
+        count(*) FILTER (WHERE NOT deleted)::int AS active,
+        count(*) FILTER (WHERE deleted)::int AS deleted,
+        count(*) FILTER (WHERE id LIKE 'history-%' AND deleted AND updated_at IS NULL AND last_synced_at IS NULL)::int AS untouched_history
+        FROM "${schema}".apps`)
+      expect(counts).toMatchObject({
+        active: 588,
+        deleted: 10001,
+        untouched_history: 10000,
+      })
+      const [absent] = await admin.unsafe(
+        `SELECT deleted,updated_at,last_synced_at FROM "${schema}".apps WHERE id='absent-active'`,
+      )
+      expect(absent!.deleted).toBe(true)
+      expect(absent!.updated_at).not.toBeNull()
+      expect(absent!.last_synced_at).toBeNull()
+      const [audit] = await admin.unsafe(
+        `SELECT rows_changed,deleted_app_count,result FROM "${schema}".sync_events ORDER BY received_at DESC LIMIT 1`,
+      )
+      expect(audit).toMatchObject({
+        rows_changed: 1,
+        deleted_app_count: 1,
+        result: 'success',
+      })
+      await sync.syncApps()
+      const [repeat] = await admin.unsafe(
+        `SELECT rows_changed,deleted_app_count,result FROM "${schema}".sync_events ORDER BY received_at DESC LIMIT 1`,
+      )
+      expect(repeat).toMatchObject({
+        rows_changed: 0,
+        deleted_app_count: 0,
+        result: 'success',
+      })
+    } finally {
+      fetchMock?.mockRestore()
+      await proxy.close()
+      try {
+        await client?.end({timeout: 1})
+      } finally {
         try {
           if (created) await admin`DROP SCHEMA ${admin(schema)} CASCADE`
         } finally {
