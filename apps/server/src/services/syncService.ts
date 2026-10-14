@@ -519,27 +519,23 @@ export function createSyncService(
             changedCount = result.apps.length
             revivedCount = result.revivedCount
 
-            const upstreamProfileIds = new Set(apps.map((app) => app.app_id))
-            const allApps = await appService.getAllApps(tx)
-            const idsToDelete = allApps
-              .filter(
-                (app) => !upstreamProfileIds.has(app.profileId) && !app.deleted,
+            // Keep every upstream numeric ID present, even when conversion
+            // skipped its record. A single typed array avoids parameter limits
+            // without loading or returning historical, already-deleted rows.
+            const upstreamProfileIds = [
+              ...new Set(apps.map((app) => app.app_id)),
+            ]
+            const deleted = await tx
+              .update(appsTable)
+              .set({deleted: true, updatedAt: new Date()})
+              .where(
+                and(
+                  eq(appsTable.deleted, false),
+                  sql`${appsTable.profileId} <> ALL(${sql.param(upstreamProfileIds)}::bigint[])`,
+                ),
               )
-              .map((app) => app.id)
-
-            if (idsToDelete.length > 0) {
-              const deleted = await tx
-                .update(appsTable)
-                .set({deleted: true, updatedAt: new Date()})
-                .where(
-                  and(
-                    inArray(appsTable.id, idsToDelete),
-                    eq(appsTable.deleted, false),
-                  ),
-                )
-                .returning({id: appsTable.id})
-              deletedCount = deleted.length
-            }
+              .returning({id: appsTable.id})
+            deletedCount = deleted.length
           }
 
           await syncEventService.record(

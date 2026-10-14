@@ -75,6 +75,7 @@ suite('Transactional partial writes with real PostgreSQL', () => {
   let profiles: ProfileService
   let apps: AppService
   let events: SyncEventService
+  let queryMetrics: {query: string; parameters: number}[] | undefined
 
   beforeAll(async () => {
     admin = postgres(databaseUrl!, {max: 1})
@@ -86,6 +87,9 @@ suite('Transactional partial writes with real PostgreSQL', () => {
     client = postgres(databaseUrl!, {
       max: 2,
       connection: {search_path: schema},
+      debug: (_id, query, parameters) => {
+        queryMetrics?.push({query, parameters: parameters.length})
+      },
     })
     db = drizzle(client, {casing: 'snake_case'})
     profiles = createProfileService(databaseUrl!)
@@ -195,6 +199,139 @@ suite('Transactional partial writes with real PostgreSQL', () => {
       upserted: 0,
       deleted: 1000,
     })
+  })
+
+  test('regression: 588 unchanged apps refresh metadata within four SQL statements', async () => {
+    // Production evidence is the row count and >5s unchanged apply window,
+    // not these synthetic names. Exercise the real transactional write path.
+    const createdAt = new Date('2000-01-01')
+    const snapshot = Array.from({length: 588}, (_, id) => ({
+      ...app(`fixture-${id}`, id),
+      createdAt,
+    }))
+    await db.transaction((tx) => apps.upsertApps(snapshot, tx))
+    const oldTimestamp = new Date('2020-01-01')
+    await db
+      .update(appsTable)
+      .set({updatedAt: oldTimestamp, lastSyncedAt: oldTimestamp})
+    const beforeUpsert = Date.now()
+    const measured: {query: string; parameters: number}[] = []
+    queryMetrics = measured
+    let result: Awaited<ReturnType<AppService['upsertApps']>>
+    try {
+      result = await db.transaction((tx) => apps.upsertApps(snapshot, tx))
+    } finally {
+      queryMetrics = undefined
+    }
+    expect(result).toEqual({apps: [], revivedCount: 0})
+    expect(measured.length).toBeLessThanOrEqual(4)
+    expect(
+      measured.filter((q) => q.query.startsWith('insert into "apps"')),
+    ).toHaveLength(0)
+    expect(
+      measured.reduce((sum, q) => sum + q.parameters, 0),
+    ).toBeLessThanOrEqual(1178)
+    const rows = await apps.getAllApps(db)
+    expect(rows).toHaveLength(588)
+    expect(rows.every((row) => row.updatedAt!.getTime() >= beforeUpsert)).toBe(
+      true,
+    )
+    expect(
+      rows.every((row) => row.lastSyncedAt!.getTime() >= beforeUpsert),
+    ).toBe(true)
+    expect(
+      rows.every((row) => row.createdAt.getTime() === createdAt.getTime()),
+    ).toBe(true)
+  })
+
+  test('invariant: one business change among 588 apps preserves every metadata refresh', async () => {
+    const snapshot = Array.from({length: 588}, (_, id) =>
+      app(`fixture-${id}`, id),
+    )
+    await db.transaction((tx) => apps.upsertApps(snapshot, tx))
+    const oldTimestamp = new Date('2020-01-01')
+    await db
+      .update(appsTable)
+      .set({updatedAt: oldTimestamp, lastSyncedAt: oldTimestamp})
+    snapshot[0] = {...snapshot[0]!, appName: 'Renamed'}
+    const beforeUpsert = Date.now()
+    const measured: {query: string; parameters: number}[] = []
+    queryMetrics = measured
+    let result: Awaited<ReturnType<AppService['upsertApps']>>
+    try {
+      result = await db.transaction((tx) => apps.upsertApps(snapshot, tx))
+    } finally {
+      queryMetrics = undefined
+    }
+    expect(result.apps.map((row) => [row.id, row.appName])).toEqual([
+      ['fixture-0', 'Renamed'],
+    ])
+    expect(result.revivedCount).toBe(0)
+    expect(measured.length).toBeLessThanOrEqual(5)
+    const writes = measured.filter((q) =>
+      q.query.startsWith('insert into "apps"'),
+    )
+    expect(writes).toHaveLength(1)
+    expect(writes[0]!.parameters).toBeLessThanOrEqual(22)
+    const rows = await apps.getAllApps(db)
+    expect(rows).toHaveLength(588)
+    expect(
+      rows.every(
+        (row) =>
+          row.updatedAt!.getTime() >= beforeUpsert &&
+          row.lastSyncedAt!.getTime() >= beforeUpsert,
+      ),
+    ).toBe(true)
+  })
+
+  test('invariant: a later batch failure rolls back earlier unchanged metadata refreshes', async () => {
+    const snapshot = Array.from({length: 1000}, (_, id) =>
+      app(`fixture-${id}`, id),
+    )
+    await db.transaction((tx) => apps.upsertApps(snapshot, tx))
+    const oldTimestamp = new Date('2020-01-01')
+    await db
+      .update(appsTable)
+      .set({updatedAt: oldTimestamp, lastSyncedAt: oldTimestamp})
+    // This new dstack ID collides with an existing numeric profile ID in the
+    // second batch. The actual unique constraint must undo the first batch.
+    await expect(
+      db.transaction((tx) =>
+        apps.upsertApps([...snapshot, app('conflict', 0)], tx),
+      ),
+    ).rejects.toThrow()
+    const rows = await apps.getAllApps(db)
+    expect(rows).toHaveLength(1000)
+    expect(
+      rows.every(
+        (row) =>
+          row.updatedAt?.getTime() === oldTimestamp.getTime() &&
+          row.lastSyncedAt?.getTime() === oldTimestamp.getTime(),
+      ),
+    ).toBe(true)
+  })
+
+  test('regression: a raw database executor rolls back earlier batches when a later batch violates a constraint', async () => {
+    const snapshot = Array.from({length: 1000}, (_, id) => app(`raw-${id}`, id))
+    await db.transaction((tx) => apps.upsertApps(snapshot, tx))
+    const oldTimestamp = new Date('2020-01-01')
+    await db
+      .update(appsTable)
+      .set({updatedAt: oldTimestamp, lastSyncedAt: oldTimestamp})
+    // A DbConnection must be as atomic as an explicit DbTransaction. The new
+    // ID collides with profileId=0 only after the first batch refreshed rows.
+    await expect(
+      apps.upsertApps([...snapshot, app('raw-conflict', 0)], db),
+    ).rejects.toThrow()
+    const rows = await apps.getAllApps(db)
+    expect(rows).toHaveLength(1000)
+    expect(
+      rows.every(
+        (row) =>
+          row.updatedAt?.getTime() === oldTimestamp.getTime() &&
+          row.lastSyncedAt?.getTime() === oldTimestamp.getTime(),
+      ),
+    ).toBe(true)
   })
 
   test('unchanged app upserts return no changed rows but refresh sync timestamps', async () => {
@@ -388,15 +525,15 @@ suite('Transactional partial writes with real PostgreSQL', () => {
     expect(row?.updatedAt).toEqual(oldTimestamp)
   })
 
-  test('multi-batch app upserts deduplicate and count only changed rows', async () => {
-    const snapshot = Array.from({length: 101}, (_, id) =>
+  test('invariant: multi-batch app upserts deduplicate and count only changed rows', async () => {
+    const snapshot = Array.from({length: 1001}, (_, id) =>
       app(`dstack-${id}`, id),
     )
     const first = await apps.upsertApps(
       [...snapshot, {...snapshot[0]!, appName: 'Last'}],
       db,
     )
-    expect(first.apps).toHaveLength(101)
+    expect(first.apps).toHaveLength(1001)
     expect(first.revivedCount).toBe(0)
     const oldTimestamp = new Date('2020-01-01')
     await db.update(appsTable).set({lastSyncedAt: oldTimestamp})
@@ -407,7 +544,7 @@ suite('Transactional partial writes with real PostgreSQL', () => {
     )
     expect(second).toEqual({apps: [], revivedCount: 0})
     const allRows = await apps.getAllApps(db)
-    expect(allRows).toHaveLength(101)
+    expect(allRows).toHaveLength(1001)
     expect(
       allRows.every((row) => row.lastSyncedAt!.getTime() >= beforeUpsert),
     ).toBe(true)

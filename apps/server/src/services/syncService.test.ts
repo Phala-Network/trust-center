@@ -1,8 +1,10 @@
 import {
   appsTable,
   type DbExecutor,
+  eq,
   profilesTable,
   sql,
+  syncEventsTable,
   type UpstreamAppData,
   UpstreamAppDataArraySchema,
   type UpstreamProfileData,
@@ -179,6 +181,52 @@ suite('full sync audit with real PostgreSQL', () => {
       Object.assign(async () => Response.json({data}), {preconnect: () => {}}),
     )
   }
+
+  test('invariant: skipped conversion retains upstream presence during real app reconciliation', async () => {
+    await apps.upsertApps([1, 2, 3].map((id) => convertToAppRecord(app(id))))
+    const oldTimestamp = new Date('2020-01-01')
+    await db
+      .update(appsTable)
+      .set({updatedAt: oldTimestamp, lastSyncedAt: oldTimestamp})
+      .where(eq(appsTable.id, 'app-2'))
+    upstream([app(1), {...app(2), base_image: 'synthetic-conversion-fault'}])
+    // The source response and schema validation remain real. Inject a host
+    // string-operation fault only when the converter parses this valid string;
+    // never stub the converter, parser, app service or reconciliation itself.
+    const nativeMatch = String.prototype.match
+    const matchFault = spyOn(String.prototype, 'match').mockImplementation(
+      function (
+        this: string,
+        matcher:
+          | string
+          | RegExp
+          | {[Symbol.match](value: string): RegExpMatchArray | null},
+      ) {
+        if (String(this) === 'synthetic-conversion-fault')
+          throw new Error('Injected conversion string-operation fault')
+        return nativeMatch.call(this, matcher as RegExp)
+      },
+    )
+    try {
+      expect((await sync.syncApps()).appsSynced).toBe(2)
+    } finally {
+      matchFault.mockRestore()
+    }
+    const rows = await apps.getAllApps(db)
+    const skipped = rows.find((row) => row.id === 'app-2')
+    expect(skipped?.deleted).toBe(false)
+    expect(skipped?.lastSyncedAt).toEqual(oldTimestamp)
+    expect(skipped?.appName).toBe('App 2')
+    expect(rows.find((row) => row.id === 'app-3')?.deleted).toBe(true)
+    const [event] = await db.select().from(syncEventsTable)
+    expect(event).toMatchObject({
+      source: 'cron-apps',
+      result: 'success',
+      appCount: 2,
+      rowsChanged: 1,
+      deletedAppCount: 1,
+    })
+  })
 
   for (const entity of ['apps', 'profiles'] as const) {
     test(`${entity} full snapshot is fetched only after an in-flight push releases the lock`, async () => {
