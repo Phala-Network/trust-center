@@ -36,6 +36,7 @@ export const cronRoutes = new Elysia()
     cron({
       name: 'sync-profiles',
       pattern: env.PROFILE_CRON_PATTERN,
+      protect: true,
       run: async () => {
         console.log('[CRON:PROFILES] Running scheduled profile sync...')
         try {
@@ -69,6 +70,7 @@ export const cronRoutes = new Elysia()
     cron({
       name: 'sync-apps',
       pattern: env.APP_CRON_PATTERN,
+      protect: true,
       run: async () => {
         console.log('[CRON:APPS] Running scheduled app sync...')
         try {

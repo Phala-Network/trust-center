@@ -1,6 +1,7 @@
 import {Elysia} from 'elysia'
 import {createHmac, timingSafeEqual} from 'node:crypto'
 
+import {PhalaCloudIngestBusyError} from '../services/phalaCloudIngestService'
 import {
   type PhalaCloudPush,
   PhalaCloudPushSchema,
@@ -100,7 +101,11 @@ export function createPhalaCloudWebhookRoutes(config: {
           event_id: parsed.data.event_id,
           duplicate: result.duplicate,
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof PhalaCloudIngestBusyError) {
+          set.status = 503
+          return {error: error.message}
+        }
         set.status = 500
         return {error: 'Webhook processing failed; retry the same event_id'}
       }

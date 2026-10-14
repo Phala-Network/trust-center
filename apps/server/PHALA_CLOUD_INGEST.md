@@ -52,24 +52,28 @@ Compute HMAC-SHA256 with the shared secret, then lowercase hexadecimal encoding.
 | 400 | Invalid JSON/schema or contradictory tombstones | Permanent failure; fix payload |
 | 401 | Bad/missing signature or stale/future timestamp | Permanent failure; check signing/clock |
 | 413 | Body exceeds 2 MiB | Split into new batches |
-| 503 | Existing receiver Cloud API key is empty/unset | Backoff/retry; check deployment availability |
+| 503 | Existing receiver Cloud API key is empty/unset, or database lock wait exceeded five seconds | Backoff/retry the same event ID; check availability/lock pressure |
 | 500 | Database apply/audit failed | Backoff/retry the same event ID |
 
 ```json
 {"success": true, "event_id": "00000000-0000-4000-8000-000000000001", "duplicate": false}
 ```
 
-Replay returns `duplicate: true`, with no entity mutation or second verification hint. **200 acknowledges committed entity state, not successful verification enqueue.** Queue failure does not change an already-committed event to 500.
+Replay returns `duplicate: true`, with no entity mutation or second verification hint. Successful events are checked before acquiring the full-sync advisory lock; a second check under the lock prevents concurrent initial deliveries from applying twice. **200 acknowledges committed entity state, not successful verification enqueue.** Queue failure does not change an already-committed event to 500.
 
 ## Transactions and verification
 
-Entity writes and the success/idempotency audit row commit in one PostgreSQL transaction. Apply failure rolls back all writes; an error row is recorded outside the failed transaction. If PostgreSQL itself is unavailable, failure auditing cannot be persisted: return 500 and allow sender retry.
+Entity writes and the success/idempotency audit row commit in one PostgreSQL transaction. Ingest sets transaction-local `lock_timeout = '5s'` and applies inside a savepoint. A database lock timeout rolls back every apply write, records an error audit on the already-owned connection, commits that audit, and returns 503. This avoids sending error auditing back through a saturated connection pool. Other apply failures roll back the transaction and record an error outside it. Existing success records are never downgraded by a failed concurrent attempt. If PostgreSQL or failure auditing is unavailable, return 500 and allow sender retry.
 
 After commit, dispatch one asynchronous **best-effort** `syncSelectedTasks` call for the pushed `dstack_app_id` values. It uses the existing eligibility filter (nonempty domain/contract, not deleted). Profile-only pushes and tombstones do not queue verification. Redis readiness does not delay HTTP acknowledgement. Rejected enqueue logs the exception and stores a warning in the committed success row's `error_message`; this warning may arrive after the HTTP response.
 
 The existing `sync-tasks` cron, normally every five minutes, is the fallback for eligible apps lacking a recent report. It uses a separately exposed local-DB `taskSync`, so existing verification scheduling still runs without `PHALA_CLOUD_API_KEY`; in that configuration Cloud reads and webhook ingress are both disabled. Existing recent-report and failure cooldowns remain unchanged: a recently verified or cooling-down app is not guaranteed another attempt within five minutes. There is no persistent verification outbox, lease, receipt, hash-based task ID, new queue producer or separate recovery cron.
 
-Both full-sync paths take the same PostgreSQL advisory lock **before fetching their upstream snapshot**, then apply it and audit within that transaction. Push writes wait during a full fetch; a full sync waiting behind a push cannot use a pre-push snapshot. An upstream fetch can consume its existing 30-second timeout budget while holding the lock; each waiting push or full-sync run also holds a transaction and pool connection, so a slow upstream plus a push burst can exhaust the pool. This version adds no separate lock-wait timeout; senders should back off and retry network failures/5xx, and operators should watch connection pressure. Single-app conversion failures are logged and skipped, preserving the main branch's behavior; an all-unconvertible nonempty snapshot fails before mutation. Skipped app IDs remain in the full snapshot's presence set, so they are not falsely marked deleted.
+Both full-sync paths take the same PostgreSQL advisory lock **before fetching their upstream snapshot**, then apply it and audit within that transaction. A full sync waiting behind a push cannot use a pre-push snapshot. The scheduled profile/app jobs each skip a tick while their previous callback is still active; configured cron expressions and manual administrator triggers are unchanged. This protection is per job per process, not a cross-replica scheduler lease.
+
+An upstream fetch can consume its existing 30-second timeout while holding the lock. New push transactions stop a database lock wait after five seconds, but **this is not a total HTTP deadline**: pool acquisition, database/network stalls, and multiple sequential locks can add time. Even the duplicate fast-path needs a pool connection. The real-PG regression covers a ten-connection pool with one long-held full-sync lock, nine concurrent new pushes, and a committed duplicate; it does not promise that arbitrary larger bursts finish within the sender's ten-second timeout. Senders must back off/retry network failures and 5xx, and operators should watch connection pressure. HTTP client disconnect alone does not cancel an already-running database transaction.
+
+Single-app conversion failures are logged and skipped, preserving existing behavior; an all-unconvertible nonempty snapshot fails before mutation. Skipped app IDs remain in the full snapshot's presence set, so they are not falsely marked deleted.
 
 Push-to-push source ordering is still unversioned: a delayed older push can overwrite newer state, corrected by a later full sync. No incremental cursor or 304 implementation is included.
 
@@ -93,7 +97,7 @@ Use full-sync changed counts over several days before considering six-hour/daily
    ```sh
    bun run --cwd packages/db migrate
    ```
-   Migration `0008_sync_events` creates only the private audit table. This PR is unmerged/undeployed; its revised migration replaces the earlier review version containing dispatch internals. A local test/preview database already migrated against that earlier version must be recreated or reconciled before re-running migration; do not treat editing an applied migration as a production upgrade procedure.
+   Migration `0008_sync_events` from merged PR #74 creates only the private audit table. The lock-contention fix adds no migration; an existing receiver already running that schema needs no database change. A disposable test/preview database migrated against the earlier unmerged review version containing dispatch internals must be recreated or reconciled; never edit a production-applied migration as an upgrade procedure.
 2. **Keep all Trust Center deployment environment variables and their values unchanged.** Receiver signing reads the existing `PHALA_CLOUD_API_KEY`; sender signs with its existing `STATS_API_TOKEN`. Never print/post either value. If the receiver key is currently absent, leave it absent: ingress returns 503 rather than requiring a new environment setting.
 3. Keep existing `PROFILE_CRON_PATTERN`, `APP_CRON_PATTERN` and all other overrides unchanged. Both Compose files preserve their pre-PR environment configuration. Only an unconfigured application uses the ten-minute profile code default.
 4. Deploy receiver using the existing environment, confirm private audit access, then enable sender against the receiver's existing server URL plus `/webhooks/phala-cloud`. Proxy must forward signing headers and unmodified body and allow up to 2 MiB.
