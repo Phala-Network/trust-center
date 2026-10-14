@@ -355,6 +355,323 @@ suite('Phala Cloud webhook with real PostgreSQL', () => {
     expect(await db.select().from(syncEventsTable)).toHaveLength(1)
     expect(queued).toHaveLength(1)
   })
+  test('regression: a committed duplicate is acknowledged while a full-sync lock is held', async () => {
+    const payload = event({profiles: [profile(1)]})
+    expect((await api.handle(request(payload))).status).toBe(200)
+    const originalAudit = await db.select().from(syncEventsTable)
+    expect(originalAudit).toHaveLength(1)
+    const holder = postgres(connectionUrl, {max: 1})
+    const acquired = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const holding = holder.begin(async (tx) => {
+      await tx.unsafe('SELECT pg_advisory_xact_lock(74190311)')
+      acquired.resolve()
+      await release.promise
+    })
+    await acquired.promise
+    const pending = api.handle(
+      request({...payload, profiles: [profile(1, 'Must not reapply')]}),
+    )
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const response = await Promise.race([
+        pending,
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), 500)
+        }),
+      ])
+      expect(response?.status).toBe(200)
+      expect(await response?.json()).toMatchObject({
+        event_id: payload.event_id,
+        duplicate: true,
+      })
+      expect((await db.select().from(profilesTable))[0]?.displayName).toBe(
+        'User 1',
+      )
+      expect(await db.select().from(syncEventsTable)).toEqual(originalAudit)
+      expect(queued).toEqual([])
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+      release.resolve()
+      await holding
+      await pending
+      await holder.end()
+    }
+  })
+  test('regression: lock contention returns 503 with an error audit and the same event can retry', async () => {
+    await profiles.upsertProfiles([profile(2)])
+    await appService.upsertApps([convertToAppRecord(appRow(12))])
+    const payload = event({
+      profiles: [profile(1)],
+      deleted_profiles: [{entity_type: 'user', entity_id: 2}],
+      apps: [appRow(11)],
+      deleted_apps: [12],
+    })
+    const originalTimeout = (await client`SHOW lock_timeout`)[0]?.lock_timeout
+    const holder = postgres(connectionUrl, {max: 1})
+    const acquired = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const holding = holder.begin(async (tx) => {
+      await tx.unsafe('SELECT pg_advisory_xact_lock(74190311)')
+      acquired.resolve()
+      await release.promise
+    })
+    await acquired.promise
+    const startedAt = performance.now()
+    const pending = api.handle(request(payload))
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const response = await Promise.race([
+        pending,
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), 7000)
+        }),
+      ])
+      expect(response?.status).toBe(503)
+      expect(performance.now() - startedAt).toBeLessThan(9000)
+      expect(await response?.json()).toEqual({
+        error: 'Database lock wait timed out; retry the same event_id',
+      })
+      expect(
+        (await db.select().from(profilesTable)).map((p) => p.entityId),
+      ).toEqual([2])
+      expect(
+        (await db.select().from(appsTable)).map((a) => [
+          a.profileId,
+          a.deleted,
+        ]),
+      ).toEqual([[12, false]])
+      expect(queued).toEqual([])
+      expect(await db.select().from(syncEventsTable)).toMatchObject([
+        {
+          eventId: payload.event_id,
+          result: 'error',
+          rowsChanged: 0,
+          profileCount: 1,
+          deletedProfileCount: 1,
+          appCount: 1,
+          deletedAppCount: 1,
+          errorMessage: 'Database lock wait timed out; retry the same event_id',
+        },
+      ])
+      expect((await client`SHOW lock_timeout`)[0]?.lock_timeout).toBe(
+        originalTimeout,
+      )
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+      release.resolve()
+      await holding
+      await pending
+      await holder.end()
+    }
+    const retried = await api.handle(request(payload))
+    expect(retried.status).toBe(200)
+    expect(await retried.json()).toMatchObject({
+      event_id: payload.event_id,
+      duplicate: false,
+    })
+    await waitForAttempts(1)
+    expect(
+      (await db.select().from(profilesTable)).map((p) => p.entityId),
+    ).toEqual([1])
+    expect(await db.select().from(syncEventsTable)).toMatchObject([
+      {
+        eventId: payload.event_id,
+        result: 'success',
+        rowsChanged: 4,
+        errorMessage: null,
+      },
+    ])
+    expect(await (await api.handle(request(payload))).json()).toMatchObject({
+      duplicate: true,
+    })
+    expect(queued).toEqual([appRow(11).dstack_app_id])
+  }, 15000)
+  test('regression: a saturated ten-connection pool returns busy responses without requeuing audits', async () => {
+    const ready = Promise.withResolvers<void>()
+    let lockAttempts = 0
+    const applicationName = `ingest-pool-regression-${crypto.randomUUID()}`
+    const pool = postgres(connectionUrl, {
+      max: 10,
+      connection: {application_name: applicationName},
+      debug: (_connection, query) => {
+        if (query.includes('pg_advisory_xact_lock') && ++lockAttempts === 10) {
+          ready.resolve()
+        }
+      },
+    })
+    const pooledDb = drizzle(pool, {casing: 'snake_case'})
+    const pooledIngest = createPhalaCloudIngestService({
+      db: pooledDb,
+      profileService: profiles,
+      appService,
+      syncSelectedTasks: sync.syncSelectedTasks,
+    })
+    const pooledApi = createPhalaCloudWebhookRoutes({
+      secret,
+      ingest: pooledIngest.ingest,
+    })
+    const committed = event({profiles: [profile(99)]})
+    expect((await pooledApi.handle(request(committed))).status).toBe(200)
+    lockAttempts = 0
+    const acquired = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const holding = pool.begin(async (tx) => {
+      await tx.unsafe('SELECT pg_advisory_xact_lock(74190311)')
+      acquired.resolve()
+      await release.promise
+    })
+    await acquired.promise
+    const payloads = Array.from({length: 9}, (_, index) =>
+      event({profiles: [profile(index + 1)]}),
+    )
+    const startedAt = performance.now()
+    const pending = payloads.map((payload) =>
+      pooledApi.handle(request(payload)),
+    )
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let readinessTimer: ReturnType<typeof setTimeout> | undefined
+    let duplicate: Promise<Response> | undefined
+    try {
+      await Promise.race([
+        ready.promise,
+        new Promise<never>((_, reject) => {
+          readinessTimer = setTimeout(
+            () => reject(new Error('pushes did not occupy the pool')),
+            2000,
+          )
+        }),
+      ])
+      const [activity] = await client`
+        SELECT count(*)::int AS transactions FROM pg_stat_activity
+        WHERE application_name = ${applicationName} AND xact_start IS NOT NULL`
+      expect(activity?.transactions).toBe(10)
+      // Even the fast-path may wait for a pool slot. Bounded lock wait releases
+      // the saturated slots; no second pool acquisition is needed for errors.
+      duplicate = pooledApi.handle(
+        request({...committed, profiles: [profile(99, 'Must not reapply')]}),
+      )
+      const responses = await Promise.race([
+        Promise.all([...pending, duplicate]),
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), 8500)
+        }),
+      ])
+      expect(responses?.slice(0, 9).map((r) => r.status)).toEqual(
+        Array(9).fill(503),
+      )
+      expect(performance.now() - startedAt).toBeLessThan(9000)
+      expect(responses?.[9]?.status).toBe(200)
+      expect(await responses?.[9]?.json()).toMatchObject({
+        event_id: committed.event_id,
+        duplicate: true,
+      })
+      expect(
+        (await db.select().from(profilesTable)).map((p) => [
+          p.entityId,
+          p.displayName,
+        ]),
+      ).toEqual([[99, 'User 99']])
+      expect(await db.select().from(appsTable)).toEqual([])
+      const audit = await db.select().from(syncEventsTable)
+      expect(audit).toHaveLength(10)
+      expect(
+        audit
+          .filter((row) => row.result === 'error')
+          .map((row) => row.eventId)
+          .sort(),
+      ).toEqual(payloads.map((payload) => payload.event_id).sort())
+      for (const row of audit.filter((row) => row.result === 'error')) {
+        expect(row).toMatchObject({
+          source: 'push',
+          profileCount: 1,
+          rowsChanged: 0,
+          errorMessage: 'Database lock wait timed out; retry the same event_id',
+        })
+      }
+      expect(queued).toEqual([])
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+      if (readinessTimer !== undefined) clearTimeout(readinessTimer)
+      release.resolve()
+      await holding
+      await Promise.all(pending)
+      await duplicate
+      await pool.end()
+    }
+    expect((await api.handle(request(payloads[0]))).status).toBe(200)
+    expect(
+      (await db.select().from(profilesTable))
+        .map((p) => p.entityId)
+        .sort((a, b) => a - b),
+    ).toEqual([1, 99])
+  }, 15000)
+  test('invariant: a later row-lock timeout rolls back earlier profile writes', async () => {
+    await appService.upsertApps([convertToAppRecord(appRow(11))])
+    const payload = event({
+      profiles: [profile(1)],
+      apps: [{...appRow(11), app_name: 'Blocked change'}],
+    })
+    const holder = postgres(connectionUrl, {max: 1})
+    const acquired = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const holding = holder.begin(async (tx) => {
+      await tx.unsafe('SELECT id FROM apps WHERE id = $1 FOR UPDATE', [
+        appRow(11).dstack_app_id,
+      ])
+      acquired.resolve()
+      await release.promise
+    })
+    await acquired.promise
+    const pending = api.handle(request(payload))
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const response = await Promise.race([
+        pending,
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), 7000)
+        }),
+      ])
+      expect(response?.status).toBe(503)
+      expect(await db.select().from(profilesTable)).toEqual([])
+      expect(
+        (await appService.getAppById(appRow(11).dstack_app_id))?.appName,
+      ).toBe('App 11')
+      expect(await db.select().from(syncEventsTable)).toMatchObject([
+        {
+          eventId: payload.event_id,
+          result: 'error',
+          rowsChanged: 0,
+          profileCount: 1,
+          appCount: 1,
+        },
+      ])
+      expect(queued).toEqual([])
+    } finally {
+      if (timer !== undefined) clearTimeout(timer)
+      release.resolve()
+      await holding
+      await pending
+      await holder.end()
+    }
+    expect((await api.handle(request(payload))).status).toBe(200)
+    await waitForAttempts(1)
+    expect((await db.select().from(profilesTable))[0]?.displayName).toBe(
+      'User 1',
+    )
+    expect(
+      (await appService.getAppById(appRow(11).dstack_app_id))?.appName,
+    ).toBe('Blocked change')
+    expect(await db.select().from(syncEventsTable)).toMatchObject([
+      {
+        eventId: payload.event_id,
+        result: 'success',
+        rowsChanged: 2,
+        errorMessage: null,
+      },
+    ])
+    expect(queued).toEqual([appRow(11).dstack_app_id])
+  }, 15000)
   test('authentication failures write neither entities nor audit records', async () => {
     const payload = event({profiles: [profile(1)]})
     expect(

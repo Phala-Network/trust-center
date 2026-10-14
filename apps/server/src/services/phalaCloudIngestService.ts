@@ -1,6 +1,7 @@
 import {
   and,
   type DbConnection,
+  type DbExecutor,
   eq,
   sql,
   syncEventsTable,
@@ -12,6 +13,25 @@ import type {ProfileService} from './profileService'
 import {convertToAppRecord, type SyncService} from './syncService'
 
 const APPLY_LOCK = 74190311
+
+export class PhalaCloudIngestBusyError extends Error {
+  constructor() {
+    super('Database lock wait timed out; retry the same event_id')
+    this.name = 'PhalaCloudIngestBusyError'
+  }
+}
+
+function isLockTimeout(error: unknown): boolean {
+  for (
+    let depth = 0;
+    depth < 5 && error && typeof error === 'object';
+    depth++
+  ) {
+    if ('code' in error && error.code === '55P03') return true
+    error = 'cause' in error ? error.cause : undefined
+  }
+  return false
+}
 
 export function createPhalaCloudIngestService(config: {
   db: DbConnection
@@ -31,67 +51,101 @@ export function createPhalaCloudIngestService(config: {
       appCount: body.apps.length,
       deletedAppCount: body.deleted_apps.length,
     }
-    let duplicate: boolean
-    try {
-      duplicate = await db.transaction(async (tx) => {
-        await tx.execute(sql`SELECT pg_advisory_xact_lock(${APPLY_LOCK})`)
-        const [previous] = await tx
-          .select()
-          .from(syncEventsTable)
-          .where(eq(syncEventsTable.eventId, body.event_id))
-        if (previous?.result === 'success') return true
-        const appRecords = body.apps.map(convertToAppRecord)
-        let rowsChanged = await profileService.upsertProfiles(body.profiles, tx)
-        for (const p of body.deleted_profiles) {
-          rowsChanged += await profileService.deleteProfile(
-            p.entity_type,
-            p.entity_id,
-            tx,
-          )
-        }
-        rowsChanged += (await appService.upsertApps(appRecords, tx)).apps.length
-        for (const appId of new Set(body.deleted_apps)) {
-          rowsChanged += await appService.markAppDeleted(appId, tx)
-        }
-        const values = {
-          source: 'push' as const,
-          eventId: body.event_id,
-          ...counts,
-          rowsChanged,
-          result: 'success' as const,
-          errorMessage: null,
-          receivedAt,
-          finishedAt: new Date(),
-        }
-        await tx.insert(syncEventsTable).values(values).onConflictDoUpdate({
-          target: syncEventsTable.eventId,
-          set: values,
-        })
-        return false
-      })
-    } catch (error) {
-      await db
+    // A lost HTTP acknowledgement must not make an already committed retry
+    // wait behind a full snapshot. The locked check below still closes races.
+    const [committed] = await db
+      .select({id: syncEventsTable.id})
+      .from(syncEventsTable)
+      .where(
+        and(
+          eq(syncEventsTable.eventId, body.event_id),
+          eq(syncEventsTable.result, 'success'),
+        ),
+      )
+      .limit(1)
+    if (committed) return {duplicate: true}
+
+    const recordFailure = (executor: DbExecutor, errorMessage: string) =>
+      executor
         .insert(syncEventsTable)
         .values({
           source: 'push',
           eventId: body.event_id,
           ...counts,
           result: 'error',
-          errorMessage: 'Database apply failed',
+          errorMessage,
           receivedAt,
           finishedAt: new Date(),
         })
         .onConflictDoUpdate({
           target: syncEventsTable.eventId,
-          set: {
-            result: 'error',
-            errorMessage: 'Database apply failed',
-            finishedAt: new Date(),
-          },
-          setWhere: and(eq(syncEventsTable.result, 'error')),
+          set: {result: 'error', errorMessage, finishedAt: new Date()},
+          setWhere: eq(syncEventsTable.result, 'error'),
         })
+
+    let outcome: {duplicate: boolean; busy?: true}
+    try {
+      outcome = await db.transaction(async (connection) => {
+        await connection.execute(sql`SET LOCAL lock_timeout = '5s'`)
+        try {
+          const duplicate = await connection.transaction(async (tx) => {
+            await tx.execute(sql`SELECT pg_advisory_xact_lock(${APPLY_LOCK})`)
+            const [previous] = await tx
+              .select()
+              .from(syncEventsTable)
+              .where(eq(syncEventsTable.eventId, body.event_id))
+            if (previous?.result === 'success') return true
+            const appRecords = body.apps.map(convertToAppRecord)
+            let rowsChanged = await profileService.upsertProfiles(
+              body.profiles,
+              tx,
+            )
+            for (const p of body.deleted_profiles) {
+              rowsChanged += await profileService.deleteProfile(
+                p.entity_type,
+                p.entity_id,
+                tx,
+              )
+            }
+            rowsChanged += (await appService.upsertApps(appRecords, tx)).apps
+              .length
+            for (const appId of new Set(body.deleted_apps)) {
+              rowsChanged += await appService.markAppDeleted(appId, tx)
+            }
+            const values = {
+              source: 'push' as const,
+              eventId: body.event_id,
+              ...counts,
+              rowsChanged,
+              result: 'success' as const,
+              errorMessage: null,
+              receivedAt,
+              finishedAt: new Date(),
+            }
+            await tx.insert(syncEventsTable).values(values).onConflictDoUpdate({
+              target: syncEventsTable.eventId,
+              set: values,
+            })
+            return false
+          })
+          return {duplicate}
+        } catch (error) {
+          if (!isLockTimeout(error)) throw error
+          // Rollback to the savepoint removed every apply write. Audit on this
+          // already-owned connection: rejoining a saturated pool delays 503s.
+          await recordFailure(
+            connection,
+            new PhalaCloudIngestBusyError().message,
+          )
+          return {duplicate: false, busy: true as const}
+        }
+      })
+    } catch (error) {
+      await recordFailure(db, 'Database apply failed')
       throw error
     }
+    if (outcome.busy) throw new PhalaCloudIngestBusyError()
+    const {duplicate} = outcome
 
     if (!duplicate && body.apps.length > 0) {
       // The event is already committed. Verification is only a best-effort hint;
