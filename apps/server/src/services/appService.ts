@@ -119,7 +119,7 @@ export const createAppService = (
   }
 
   // Batch upsert apps (optimized for bulk operations)
-  // Processes in batches of 100 to avoid PostgreSQL parameter limit (65535)
+  // 1000 rows × 22 columns stays below PostgreSQL's 65535 parameter limit.
   // Deduplicates by ID to avoid "ON CONFLICT DO UPDATE cannot affect row a second time" error
   //
   // Returns only changed/inserted apps plus the number of revived apps (apps whose
@@ -134,10 +134,11 @@ export const createAppService = (
       console.warn('[APP] upsertApps called with empty array, skipping')
       return {apps: [], revivedCount: 0}
     }
-    // Keep every batch and revival cleanup atomic; reuse an ingest transaction
-    // when supplied instead of opening an independent transaction.
-    if (!executor) {
-      return db.transaction((tx) => upsertApps(appsData, tx))
+    // PgTransaction exposes rollback(); a raw PgDatabase does not. Wrap either
+    // raw connection so read locks, metadata writes and revival cleanup stay
+    // atomic, while reusing a supplied transaction without a new savepoint.
+    if (!executor || !('rollback' in executor)) {
+      return (executor ?? db).transaction((tx) => upsertApps(appsData, tx))
     }
 
     // Deduplicate by ID - keep the last occurrence (most recent data)
@@ -150,7 +151,7 @@ export const createAppService = (
       )
     }
 
-    const BATCH_SIZE = 100
+    const BATCH_SIZE = 1000
     const now = new Date()
     const allResults: AppRecord[] = []
     let revivedCount = 0
@@ -190,42 +191,57 @@ export const createAppService = (
         currentRows.filter((row) => row.deleted).map((row) => row.id),
       )
 
-      const values = batch.map((app) => ({
-        ...app,
-        updatedAt: now,
-        lastSyncedAt: now,
-        deleted: false, // Listed apps are active, including newly inserted rows.
-      }))
+      const values = batch
+        .filter((app) => changedIds.has(app.id))
+        .map((app) => ({
+          ...app,
+          updatedAt: now,
+          lastSyncedAt: now,
+          deleted: false, // Listed apps are active, including newly inserted rows.
+        }))
 
-      const results = await executor
-        .insert(appsTable)
-        .values(values)
-        .onConflictDoUpdate({
-          target: appsTable.id,
-          set: {
-            profileId: sql`EXCLUDED.profile_id`,
-            appName: sql`EXCLUDED.app_name`,
-            appConfigType: sql`EXCLUDED.app_config_type`,
-            contractAddress: sql`EXCLUDED.contract_address`,
-            domain: sql`EXCLUDED.domain`,
-            dstackVersion: sql`EXCLUDED.dstack_version`,
-            workspaceId: sql`EXCLUDED.workspace_id`,
-            creatorId: sql`EXCLUDED.creator_id`,
-            chainId: sql`EXCLUDED.chain_id`,
-            kmsContractAddress: sql`EXCLUDED.kms_contract_address`,
-            baseImage: sql`EXCLUDED.base_image`,
-            tproxyBaseDomain: sql`EXCLUDED.tproxy_base_domain`,
-            gatewayDomainSuffix: sql`EXCLUDED.gateway_domain_suffix`,
-            isPublic: sql`EXCLUDED.is_public`,
-            username: sql`EXCLUDED.username`,
-            email: sql`EXCLUDED.email`,
-            customUser: sql`EXCLUDED.custom_user`,
-            updatedAt: sql`EXCLUDED.updated_at`,
-            lastSyncedAt: sql`EXCLUDED.last_synced_at`,
-            deleted: sql`false`, // Reset deleted flag when app reappears in upstream
-          },
-        })
-        .returning()
+      const results =
+        values.length > 0
+          ? await executor
+              .insert(appsTable)
+              .values(values)
+              .onConflictDoUpdate({
+                target: appsTable.id,
+                set: {
+                  profileId: sql`EXCLUDED.profile_id`,
+                  appName: sql`EXCLUDED.app_name`,
+                  appConfigType: sql`EXCLUDED.app_config_type`,
+                  contractAddress: sql`EXCLUDED.contract_address`,
+                  domain: sql`EXCLUDED.domain`,
+                  dstackVersion: sql`EXCLUDED.dstack_version`,
+                  workspaceId: sql`EXCLUDED.workspace_id`,
+                  creatorId: sql`EXCLUDED.creator_id`,
+                  chainId: sql`EXCLUDED.chain_id`,
+                  kmsContractAddress: sql`EXCLUDED.kms_contract_address`,
+                  baseImage: sql`EXCLUDED.base_image`,
+                  tproxyBaseDomain: sql`EXCLUDED.tproxy_base_domain`,
+                  gatewayDomainSuffix: sql`EXCLUDED.gateway_domain_suffix`,
+                  isPublic: sql`EXCLUDED.is_public`,
+                  username: sql`EXCLUDED.username`,
+                  email: sql`EXCLUDED.email`,
+                  customUser: sql`EXCLUDED.custom_user`,
+                  updatedAt: sql`EXCLUDED.updated_at`,
+                  lastSyncedAt: sql`EXCLUDED.last_synced_at`,
+                  deleted: sql`false`, // Reset deleted flag when app reappears in upstream
+                },
+              })
+              .returning()
+          : []
+
+      // Unchanged business rows still count as freshly observed. Keep this in
+      // the caller transaction with the same clock and activation semantics.
+      const unchangedIds = batchIds.filter((id) => !changedIds.has(id))
+      if (unchangedIds.length > 0) {
+        await executor
+          .update(appsTable)
+          .set({updatedAt: now, lastSyncedAt: now, deleted: sql`false`})
+          .where(inArray(appsTable.id, unchangedIds))
+      }
 
       // Clear failed tasks for revived apps so the next tasks tick sees "no
       // tasks" and re-enqueues them instead of waiting out the permanent-
