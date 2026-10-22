@@ -20,10 +20,13 @@ const mapErrorResponse = (code: string | number, error: unknown) => {
 
   const response =
     errorMap[codeStr as keyof typeof errorMap] || errorMap.DEFAULT
+  // Internal error text (DB, S3, upstream) stays in the logs, not the response.
   const message =
-    error instanceof Error
-      ? error.message
-      : error?.toString() || 'Unknown error'
+    response === errorMap.DEFAULT
+      ? response.error
+      : error instanceof Error
+        ? error.message
+        : error?.toString() || 'Unknown error'
 
   return {
     status: response.status,
@@ -34,12 +37,16 @@ const mapErrorResponse = (code: string | number, error: unknown) => {
 // Pure app factory
 export const createApp = () => {
   const app = new Elysia()
+    // The route map is not published in production; the port is reachable
+    // through the dstack gateway.
     .use(
-      openapi({
-        mapJsonSchema: {
-          zod: z.toJSONSchema,
-        },
-      }),
+      env.NODE_ENV === 'production'
+        ? new Elysia()
+        : openapi({
+            mapJsonSchema: {
+              zod: z.toJSONSchema,
+            },
+          }),
     )
     .use(cronRoutes)
     .use(

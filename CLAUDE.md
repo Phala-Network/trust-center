@@ -35,7 +35,7 @@ The system supports **four verification phases** for **three entity types**:
 - **Type Safety**: Strict TypeScript with modular type definitions across packages
 - **Code Quality**: Biome for formatting and linting (single quotes, minimal semicolons)
 - **Database**: PostgreSQL with Drizzle ORM in shared `@phala/trust-center-db` package
-- **Background Worker**: BullMQ-based queue processing (no HTTP API)
+- **Background Worker**: BullMQ-based queue processing plus a small HTTP surface (health, CRON_API_KEY admin routes, Phala Cloud webhook)
 - **Queue System**: Redis-based BullMQ for background verification processing
 - **Storage**: S3-compatible object storage for verification results
 - **Frontend**: Next.js web application with shadcn/ui components
@@ -167,7 +167,7 @@ Background worker service with queue-based verification processing.
 - Redis-based BullMQ queue for background processing
 - S3-compatible storage for verification results
 - Database polling via dbMonitor service
-- No HTTP API endpoints (removed, webapp uses direct DB access)
+- No data API for the webapp (webapp uses direct DB access); HTTP routes are `/health`, `/cron/*` (CRON_API_KEY, timing-safe, rate limited), `/webhooks/phala-cloud` (HMAC), and `/openapi` outside production
 
 **Services:**
 - `queue.ts`: BullMQ queue and worker management
@@ -340,7 +340,7 @@ bun run typecheck        # Type check all packages
 
 ### Data Security
 
-- **No API Endpoints**: Server is a background worker only, no HTTP exposure
+- **Server HTTP surface**: The server port is reachable through the dstack gateway. Admin routes require CRON_API_KEY; `/openapi` is disabled in production; 500 responses and `/health/detailed` never include internal error text
 - **Direct Database Access**: Webapp uses Drizzle for type-safe database queries
 - **Input Validation**: Zod schemas validate all external data
 - **Environment Isolation**: Separate environments for dev/prod with different credentials
