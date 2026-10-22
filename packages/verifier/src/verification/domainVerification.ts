@@ -4,6 +4,7 @@ import {safeParseQuoteExt} from '../schemas'
 import type {AcmeInfo, CTLogEntry, CTResult} from '../types'
 import {verifyQuote} from '../utils/dcap-qvl'
 import {isUpToDate} from './hardwareVerification'
+import {TRUSTED_GATEWAY_ROOT_CERTIFICATES} from './trustedRoots'
 
 /** HTTP headers that mimic Chrome browser requests for external API calls */
 const CHROME_USER_AGENT_HEADERS = {
@@ -137,16 +138,13 @@ export function verifyCertificateKey(acmeInfo: AcmeInfo): {
       }
     }
 
-    // Verify root certificate trust
-    const rootCertificate = certificateChain[certificateChain.length - 1]
-    if (
-      certificateChain.length > 1 &&
-      rootCertificate &&
-      !isRootCertificateTrusted(rootCertificate)
-    ) {
+    // Verify the chain is anchored to one of the expected roots. A chain that
+    // merely ends in some self-signed certificate is not trusted.
+    if (!isChainAnchoredToTrustedRoot(certificateChain)) {
+      const lastCertificate = certificateChain[certificateChain.length - 1]
       return {
         isValid: false,
-        error: `Certificate verification failed: Root certificate is not trusted (issuer: ${rootCertificate.issuer})`,
+        error: `Certificate verification failed: Root certificate is not trusted (issuer: ${lastCertificate?.issuer})`,
       }
     }
 
@@ -381,26 +379,83 @@ function verifyCertificateChain(certificates: X509Certificate[]): boolean {
   return true
 }
 
-function isRootCertificateTrusted(rootCertificate: X509Certificate): boolean {
-  const trustedRootCaIssuers = [
-    'C=US\nO=Internet Security Research Group\nCN=ISRG Root X1',
-    'C=US\nO=Digital Signature Trust Co.\nCN=DST Root CA X3',
-  ]
+interface TrustedRootAnchor {
+  name: string
+  certificate: X509Certificate
+  spkiSha256: string
+}
 
-  try {
-    return rootCertificate.issuer === rootCertificate.subject
-      ? rootCertificate.verify(rootCertificate.publicKey)
-      : trustedRootCaIssuers.includes(rootCertificate.issuer)
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : 'Unknown root certificate trust verification error'
-    console.error('Root certificate trust verification error:', errorMessage)
-    throw new Error(
-      `Root certificate trust verification failed: ${errorMessage}`,
-    )
+function getSpkiSha256(certificate: X509Certificate): string {
+  const spki = certificate.publicKey.export({type: 'spki', format: 'der'})
+  return createHash('sha256').update(spki).digest('hex')
+}
+
+function loadTrustedRootAnchors(): TrustedRootAnchor[] {
+  return TRUSTED_GATEWAY_ROOT_CERTIFICATES.map((root) => {
+    const certificate = new X509Certificate(root.pem)
+    const fingerprint = certificate.fingerprint256
+      .replaceAll(':', '')
+      .toLowerCase()
+    if (fingerprint !== root.sha256Fingerprint) {
+      throw new Error(
+        `Trusted root ${root.name} does not match its pinned fingerprint`,
+      )
+    }
+    return {
+      name: root.name,
+      certificate,
+      spkiSha256: getSpkiSha256(certificate),
+    }
+  })
+}
+
+const TRUSTED_ROOT_ANCHORS = loadTrustedRootAnchors()
+
+/**
+ * Returns true when an already link-verified chain (see verifyCertificateChain)
+ * is anchored to one of TRUSTED_GATEWAY_ROOT_CERTIFICATES:
+ * - some certificate in the chain carries a trusted root's public key (the root
+ *   itself, or a cross-signed copy of it), or
+ * - the last certificate is signed by a trusted root and names it as issuer.
+ *
+ * Any other self-signed certificate at the end of the chain is rejected.
+ */
+export function isChainAnchoredToTrustedRoot(
+  certificates: X509Certificate[],
+): boolean {
+  const lastCertificate = certificates[certificates.length - 1]
+  if (!lastCertificate) {
+    return false
   }
+
+  const trustedSpkis = new Set(
+    TRUSTED_ROOT_ANCHORS.map((anchor) => anchor.spkiSha256),
+  )
+  for (const certificate of certificates) {
+    if (trustedSpkis.has(getSpkiSha256(certificate))) {
+      return true
+    }
+  }
+
+  for (const anchor of TRUSTED_ROOT_ANCHORS) {
+    if (lastCertificate.issuer !== anchor.certificate.subject) {
+      continue
+    }
+    try {
+      if (lastCertificate.verify(anchor.certificate.publicKey)) {
+        return true
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown verification error'
+      console.error(
+        `Root certificate trust verification against ${anchor.name} failed:`,
+        errorMessage,
+      )
+    }
+  }
+
+  return false
 }
 
 async function queryCTLogs(domainName: string): Promise<CTLogEntry[]> {

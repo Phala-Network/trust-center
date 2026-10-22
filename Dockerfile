@@ -18,7 +18,7 @@
 # ------------------------------------------------------------------------------
 # Stage 1: Base - Workspace setup
 # ------------------------------------------------------------------------------
-FROM oven/bun:1.3.0-slim AS base
+FROM oven/bun:1.4.4-slim@sha256:1846adf22496bd711036aae8be147e57bdebbaea2e5264e3e0b5af1db187d9a4 AS base
 WORKDIR /app
 
 # Copy workspace configuration
@@ -42,7 +42,7 @@ RUN bun install
 
 # dcap-qvl: Intel DCAP Quote Verification Library (Rust)
 # Build on Debian bookworm so the binary links against a glibc compatible with
-# the oven/bun:1.3.0-slim runtime image.
+# the oven/bun:1.4.4-slim runtime image.
 FROM rust:1.89.0-slim-bookworm AS dcap-qvl-builder
 RUN apt-get update && \
     apt-get install -y build-essential pkg-config libssl-dev && \
@@ -104,8 +104,15 @@ RUN go install github.com/kvinwang/dstack-mr@latest
 FROM deps AS runtime
 
 # Install runtime dependencies for QEMU and dcap-qvl TLS trust.
+# dcap-qvl verifies TLS against this system store. ca-certificates
+# 20250419~deb12u2 (bookworm-security) blacklists emSign ECC Root CA - G3 and
+# Comodo AAA, the roots above the compromised eMudhra intermediate CAs; fail
+# the build on anything older.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates libglib2.0-0 libslirp0 && \
+    ca_version="$(dpkg-query -W -f='${Version}' ca-certificates)" && \
+    echo "ca-certificates ${ca_version}" && \
+    dpkg --compare-versions "${ca_version}" ge '20250419~deb12u2' && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy verification tool binaries

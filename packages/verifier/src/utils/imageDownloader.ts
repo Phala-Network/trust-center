@@ -1,5 +1,7 @@
 import { exec } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
+  createReadStream,
   createWriteStream,
   existsSync,
   mkdirSync,
@@ -14,6 +16,7 @@ import { promisify } from 'node:util'
 
 import type { NormalizedVersionString } from '../types/metadata'
 import { createNormalizedVersion } from '../types/metadata'
+import { DSTACK_IMAGE_SHA256 } from './dstackImageHashes'
 
 const execAsync = promisify(exec)
 
@@ -129,6 +132,58 @@ function parseImageFolderName(folderName: string): ImageInfo {
   )
 }
 
+// Written into an extracted image folder once its tarball matched the pinned
+// SHA-256, so cached folders from before pinning (or from a failed check) are
+// not trusted.
+const VERIFIED_SHA256_MARKER = '.verified-sha256'
+
+/**
+ * Returns the pinned SHA-256 for an image tarball URL, keyed by asset file name.
+ * Throws when the image has no pinned digest: unpinned images are not used.
+ */
+export function getPinnedImageSha256(downloadUrl: string): string {
+  const assetName = new URL(downloadUrl).pathname.split('/').pop() ?? ''
+  const expectedSha256 = DSTACK_IMAGE_SHA256[assetName]
+  if (!expectedSha256) {
+    throw new Error(
+      `No pinned SHA-256 for dstack image ${assetName}; add it to dstackImageHashes.ts before it can be used`,
+    )
+  }
+  return expectedSha256
+}
+
+/**
+ * Computes the SHA-256 of a file as lowercase hex.
+ */
+export function sha256File(path: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256')
+    const stream = createReadStream(path)
+    stream.on('data', (chunk) => hash.update(chunk))
+    stream.on('error', reject)
+    stream.on('end', () => resolve(hash.digest('hex')))
+  })
+}
+
+/**
+ * True when an extracted image folder is complete and was verified against
+ * the expected tarball digest.
+ */
+function isVerifiedImage(imagePath: string, expectedSha256: string): boolean {
+  if (!existsSync(join(imagePath, 'metadata.json'))) {
+    return false
+  }
+  try {
+    const recorded = readFileSync(
+      join(imagePath, VERIFIED_SHA256_MARKER),
+      'utf-8',
+    ).trim()
+    return recorded === expectedSha256
+  } catch {
+    return false
+  }
+}
+
 /**
  * Sleep for a specified duration
  */
@@ -189,14 +244,17 @@ function isLockStale(lockPath: string): boolean {
  * @param downloadUrl - URL to download from
  * @param imageFolderName - Target folder name
  * @param imagesDir - Base directory for images
+ * @param expectedSha256 - Pinned SHA-256 of the tarball
  * @param attempt - Current retry attempt (internal use)
+ * @returns The verified SHA-256 of the downloaded tarball
  */
 async function downloadAndExtract(
   downloadUrl: string,
   imageFolderName: string,
   imagesDir: string,
+  expectedSha256: string,
   attempt = 1,
-): Promise<void> {
+): Promise<string> {
   const tarballPath = join(imagesDir, `${imageFolderName}.tar.gz`)
   const targetDir = join(imagesDir, imageFolderName)
   const lockPath = join(imagesDir, `${imageFolderName}.lock`)
@@ -253,7 +311,16 @@ async function downloadAndExtract(
       createTimeout(DOWNLOAD_TIMEOUT_MS, 'Download'),
     ])
 
-    console.log('Download complete, extracting tarball...')
+    // Verify the tarball against its pinned digest before extracting it. The
+    // download itself only relies on public-CA TLS.
+    const actualSha256 = await sha256File(tarballPath)
+    if (actualSha256 !== expectedSha256) {
+      throw new Error(
+        `SHA-256 mismatch for ${imageFolderName}: expected ${expectedSha256}, got ${actualSha256}`,
+      )
+    }
+
+    console.log('Download complete and SHA-256 verified, extracting tarball...')
 
     // Extract tarball into the target directory, stripping the root folder
     await execAsync(
@@ -265,6 +332,8 @@ async function downloadAndExtract(
       throw new Error('Extraction failed: metadata.json not found')
     }
 
+    writeFileSync(join(targetDir, VERIFIED_SHA256_MARKER), `${expectedSha256}\n`)
+
     // Clean up tarball
     rmSync(tarballPath, {force: true})
 
@@ -272,6 +341,7 @@ async function downloadAndExtract(
     rmSync(lockPath, {force: true})
 
     console.log(`Successfully downloaded and extracted ${imageFolderName}`)
+    return actualSha256
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
@@ -290,7 +360,13 @@ async function downloadAndExtract(
         `Download failed: ${errorMessage}. Retrying in ${RETRY_DELAY_MS}ms...`,
       )
       await sleep(RETRY_DELAY_MS)
-      return downloadAndExtract(downloadUrl, imageFolderName, imagesDir, attempt + 1)
+      return downloadAndExtract(
+        downloadUrl,
+        imageFolderName,
+        imagesDir,
+        expectedSha256,
+        attempt + 1,
+      )
     }
 
     throw new Error(
@@ -371,10 +447,20 @@ export async function ensureDstackImage(
         mkdirSync(imagesDir, {recursive: true})
       }
 
-      // Check if already downloaded and valid (complete with metadata)
-      if (existsSync(metadataPath)) {
+      // Resolve the download URL and its pinned digest first: images without a
+      // pinned digest are refused, cached or not.
+      const imageInfo = parseImageFolderName(normalizedFolderName)
+      const expectedSha256 = getPinnedImageSha256(imageInfo.downloadUrl)
+
+      // Check if already downloaded and verified against the pinned digest
+      if (isVerifiedImage(imagePath, expectedSha256)) {
         console.log(`[imageDownloader] Using cached dstack image: ${normalizedFolderName}`)
         return imagePath
+      }
+      if (existsSync(metadataPath)) {
+        console.log(
+          `[imageDownloader] Cached dstack image ${normalizedFolderName} has no matching SHA-256 record, downloading it again`,
+        )
       }
 
       // Check if another process is downloading (lock file exists and not stale)
@@ -388,23 +474,28 @@ export async function ensureDstackImage(
         while (existsSync(lockPath) && !isLockStale(lockPath) && attempts < maxWaitAttempts) {
           await sleep(10000) // Wait 10 seconds
           attempts++
-          if (existsSync(metadataPath)) {
+          if (isVerifiedImage(imagePath, expectedSha256)) {
             console.log(`[imageDownloader] Download completed by another process: ${normalizedFolderName}`)
             return imagePath
           }
         }
       }
 
-      // Parse folder name to get download URL
-      const imageInfo = parseImageFolderName(normalizedFolderName)
-
-      // Download and extract (with retries built-in)
-      await downloadAndExtract(imageInfo.downloadUrl, normalizedFolderName, imagesDir)
+      // Download, verify and extract (with retries built-in)
+      const verifiedSha256 = await downloadAndExtract(
+        imageInfo.downloadUrl,
+        normalizedFolderName,
+        imagesDir,
+        expectedSha256,
+      )
 
       // Final verification
-      if (!existsSync(metadataPath)) {
+      if (
+        verifiedSha256 !== expectedSha256 ||
+        !isVerifiedImage(imagePath, expectedSha256)
+      ) {
         throw new Error(
-          `Downloaded dstack image ${normalizedFolderName} is missing metadata.json after extraction`,
+          `Downloaded dstack image ${normalizedFolderName} is missing metadata.json or its SHA-256 record after extraction`,
         )
       }
 
