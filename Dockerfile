@@ -18,7 +18,7 @@
 # ------------------------------------------------------------------------------
 # Stage 1: Base - Workspace setup
 # ------------------------------------------------------------------------------
-FROM oven/bun:1.3.0-slim AS base
+FROM oven/bun:1.4.4-slim@sha256:1846adf22496bd711036aae8be147e57bdebbaea2e5264e3e0b5af1db187d9a4 AS base
 WORKDIR /app
 
 # Copy workspace configuration
@@ -42,7 +42,7 @@ RUN bun install
 
 # dcap-qvl: Intel DCAP Quote Verification Library (Rust)
 # Build on Debian bookworm so the binary links against a glibc compatible with
-# the oven/bun:1.3.0-slim runtime image.
+# the oven/bun:1.4.4-slim runtime image.
 FROM rust:1.89.0-slim-bookworm AS dcap-qvl-builder
 RUN apt-get update && \
     apt-get install -y build-essential pkg-config libssl-dev && \
