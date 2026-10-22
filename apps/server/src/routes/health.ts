@@ -40,12 +40,12 @@ const handleDetailedHealth = async () => {
     const services = getServices()
     return await buildDetailedHealthResponse(services)
   } catch (error) {
+    // Public endpoint: keep internal error text in the logs only.
     console.error('[HEALTH] Error getting services:', error)
     const baseHealth = buildBasicHealthResponse()
     return {
       ...baseHealth,
       latestCompletedReportTime: null,
-      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }

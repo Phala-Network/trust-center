@@ -1,9 +1,11 @@
-import {bearer} from '@elysiajs/bearer'
 import {cron} from '@elysiajs/cron'
 import {Elysia, t} from 'elysia'
 
 import {env} from '../env'
 import {getServices} from '../services'
+import {createAdminAuth} from './adminAuth'
+
+const authorizeAdmin = createAdminAuth({apiKey: env.CRON_API_KEY})
 
 export const cronRoutes = new Elysia()
   // Daily cleanup of failed/cancelled tasks and 30-day sync audit/idempotency rows
@@ -128,15 +130,10 @@ export const cronRoutes = new Elysia()
   )
   // Cron management endpoints (authentication required)
   .group('/cron', (app) =>
-    app.use(bearer()).guard(
+    app.guard(
       {
-        beforeHandle({bearer, set}) {
-          if (!bearer || bearer !== env.CRON_API_KEY) {
-            set.status = 401
-            set.headers['WWW-Authenticate'] =
-              'Bearer realm="cron", error="invalid_token"'
-            return 'Unauthorized'
-          }
+        beforeHandle({request, set}) {
+          return authorizeAdmin(request.headers.get('authorization'), set)
         },
       },
       (app) =>
