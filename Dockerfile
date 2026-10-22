@@ -104,8 +104,15 @@ RUN go install github.com/kvinwang/dstack-mr@latest
 FROM deps AS runtime
 
 # Install runtime dependencies for QEMU and dcap-qvl TLS trust.
+# dcap-qvl verifies TLS against this system store. ca-certificates
+# 20250419~deb12u2 (bookworm-security) blacklists emSign ECC Root CA - G3 and
+# Comodo AAA, the roots above the compromised eMudhra intermediate CAs; fail
+# the build on anything older.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates libglib2.0-0 libslirp0 && \
+    ca_version="$(dpkg-query -W -f='${Version}' ca-certificates)" && \
+    echo "ca-certificates ${ca_version}" && \
+    dpkg --compare-versions "${ca_version}" ge '20250419~deb12u2' && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy verification tool binaries
