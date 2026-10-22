@@ -46,10 +46,11 @@ export interface ProfileDisplay {
 }
 
 // App with profile information (from apps table + profiles)
+// Serialized into RSC payloads: never add Phala Cloud integer ids
+// (profileId, workspaceId, creatorId); they let clients map apps to owners.
 export interface App {
   // From apps table
   id: string // dstack app ID
-  profileId: number
   appName: string
   appConfigType: 'redpill' | 'phala_cloud'
   contractAddress: string
@@ -63,8 +64,6 @@ export interface App {
    *  Phala Cloud may return the literal string "phala" as a sentinel for
    *  hosted KMS — combine with chainId before treating as a real contract. */
   kmsContractAddress: string | null
-  workspaceId: number
-  creatorId: number
   isPublic: boolean
   deleted: boolean
   customUser: string | null
@@ -186,7 +185,6 @@ function resultToAppWithTask(result: {
   // Build App object
   const app: App = {
     id: appData.id,
-    profileId: appData.profileId,
     appName: appData.appName,
     appConfigType: appData.appConfigType as 'redpill' | 'phala_cloud',
     contractAddress: appData.contractAddress,
@@ -194,8 +192,6 @@ function resultToAppWithTask(result: {
     dstackVersion: appData.dstackVersion,
     chainId: appData.chainId ?? null,
     kmsContractAddress: appData.kmsContractAddress ?? null,
-    workspaceId: appData.workspaceId,
-    creatorId: appData.creatorId,
     isPublic: appData.isPublic,
     deleted: appData.deleted,
     customUser: appData.customUser,
