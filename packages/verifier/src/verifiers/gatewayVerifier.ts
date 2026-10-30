@@ -2,7 +2,6 @@ import {GatewayDataObjectGenerator} from '../dataObjects/gatewayDataObjectGenera
 import {
   AcmeInfoSchema,
   KeyProviderSchema,
-  safeParseEventLog,
   safeParseQuoteExt,
   TcbInfoSchema,
   VmConfigSchema,
@@ -33,6 +32,7 @@ import {
 import {isUpToDate, verifyTeeQuote} from '../verification/hardwareVerification'
 import {
   formatOSVerificationFailure,
+  verifyDstackEvidence,
   verifyOSIntegrityDetailed,
 } from '../verification/osVerification'
 import {verifyComposeHash} from '../verification/sourceCodeVerification'
@@ -88,16 +88,23 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
   }
 
   /**
-   * Retrieves the TEE quote and event log from ACME account information.
+   * Keeps the current Gateway quote, event log and VM config together.
+   * ACME account quotes are persisted/shared account evidence and may describe
+   * another compose or instance; they are only used by domain verification.
    */
   protected async getQuote(): Promise<QuoteData> {
-    const acmeInfo = await this.getAcmeInfo()
-    const extendedQuoteData = safeParseQuoteExt(acmeInfo.account_quote)
+    const guest = this.systemInfo.gateway_guest_agent_info
+    const leaf = guest?.app_certificates?.find((cert) => !cert.is_ca)
+    if (!guest || !leaf?.quote) {
+      throw new Error('Current Gateway attestation is unavailable')
+    }
 
+    const quote = leaf.quote.startsWith('0x') ? leaf.quote : `0x${leaf.quote}`
     return {
-      quote: `0x${extendedQuoteData.quote}` as const,
-      eventlog: safeParseEventLog(extendedQuoteData.event_log),
-      vm_config: extendedQuoteData.vm_config,
+      quote: quote as `0x${string}`,
+      eventlog: guest.tcb_info.event_log,
+      vm_config: guest.vm_config,
+      instance_id: guest.instance_id,
     }
   }
 
@@ -349,7 +356,61 @@ export class GatewayVerifier extends Verifier implements OwnDomain {
     error?: string
   }> {
     const acmeInfo = await this.getAcmeInfo()
-    return verifyTeeControlledKey(acmeInfo)
+    const keyResult = await verifyTeeControlledKey(acmeInfo)
+    if (!keyResult.isValid) return keyResult
+
+    // Switching execution checks to the current quote must not drop the OS and
+    // identity appraisal previously applied to the ACME account quote.
+    try {
+      const account = safeParseQuoteExt(acmeInfo.account_quote)
+      const currentConfig = JSON.parse(
+        this.systemInfo.gateway_guest_agent_info?.vm_config || 'null',
+      )
+      const accountConfig = account.vm_config
+        ? JSON.parse(account.vm_config)
+        : null
+      const isModern = (config: unknown) =>
+        config !== null &&
+        typeof config === 'object' &&
+        ('spec_version' in config || 'tdx_attestation_variant' in config)
+      if (isModern(currentConfig) || isModern(accountConfig)) {
+        if (!account.vm_config) {
+          throw new Error('ACME account VM configuration is unavailable')
+        }
+        const result = await verifyDstackEvidence({
+          quote: account.quote,
+          event_log: account.event_log,
+          vm_config: account.vm_config,
+        })
+        if (!result.is_valid) {
+          throw new Error(
+            result.reason || 'ACME account attestation is invalid',
+          )
+        }
+        if (result.details.tcb_status !== 'UpToDate') {
+          throw new Error('ACME account attestation is not UpToDate')
+        }
+        const normalize = (id: string) => id.replace(/^0x/, '').toLowerCase()
+        const expectedId = this.systemInfo.kms_info.gateway_app_id
+        if (
+          !expectedId ||
+          normalize(result.details.app_info!.app_id) !==
+            normalize(expectedId) ||
+          normalize(this.systemInfo.gateway_guest_agent_info?.app_id || '') !==
+            normalize(expectedId)
+        ) {
+          throw new Error(
+            'ACME account evidence does not match the Gateway app',
+          )
+        }
+      }
+      return keyResult
+    } catch (error) {
+      return {
+        isValid: false,
+        error: `TEE controlled key verification failed: ${error instanceof Error ? error.message : String(error)}`,
+      }
+    }
   }
 
   /**
