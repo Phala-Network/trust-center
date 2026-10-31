@@ -13,6 +13,11 @@ export const PERMANENT_FAILURE_PATTERNS: readonly string[] = [
   'do not authorize ACME account',
   'not found or is currently down on Phala Cloud',
   'Invalid VM configuration in attestation evidence',
+  // Guest-agent-info proxy: 404 unknown/deleted app or instance
+  'guest-agent-info returned 404',
+  // Guest-agent-info proxy: 401 means the verifier's Cloud token is missing
+  // or invalid — a config error, not an app error
+  'guest-agent-info returned 401',
 ]
 
 export function isPermanentFailure(

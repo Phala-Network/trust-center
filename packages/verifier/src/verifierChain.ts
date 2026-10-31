@@ -53,9 +53,7 @@ export function createVerifiers(
       : !systemInfo.kms_guest_agent_info
         ? 'kms_guest_agent_info not available'
         : 'gateway_guest_agent_info not available'
-    console.log(
-      `[VerifierChain] Using stub verifiers: ${reason}`,
-    )
+    console.log(`[VerifierChain] Using stub verifiers: ${reason}`)
     // Legacy Phala Cloud app: use stub verifiers + PhalaApp verifier
     verifiers.push(
       new LegacyKmsStubVerifier(systemInfo, collector),
@@ -65,17 +63,24 @@ export function createVerifiers(
         appConfig.domain,
         appMetadata,
         collector,
+        appConfig.phalaCloudApiKey,
       ),
     )
   } else {
     verifiers.push(
       new PhalaCloudKmsVerifier(kmsMetadata, systemInfo, collector),
-      new GatewayVerifier(gatewayMetadata, systemInfo, collector, appConfig.domain),
+      new GatewayVerifier(
+        gatewayMetadata,
+        systemInfo,
+        collector,
+        appConfig.domain,
+      ),
       new PhalaCloudVerifier(
         systemInfo,
         appConfig.domain,
         appMetadata,
         collector,
+        appConfig.phalaCloudApiKey,
       ),
     )
   }
