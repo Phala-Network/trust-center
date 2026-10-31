@@ -280,7 +280,7 @@ describe('App OS verification via Rust service', () => {
           ]),
           app_id: appId,
         })
-      if (url.endsWith('/prpc/Info')) return Response.json(makeAppInfo())
+      if (url.endsWith('/guest-agent-info')) return Response.json(makeAppInfo())
       if (url.endsWith('/verify')) {
         verifierRequests++
         const evidence = JSON.parse(String(init?.body))
@@ -427,7 +427,7 @@ describe('new verifier orchestration', () => {
           ]),
           app_id: appId,
         })
-      if (url.endsWith('/prpc/Info')) return Response.json(makeAppInfo())
+      if (url.endsWith('/guest-agent-info')) return Response.json(makeAppInfo())
       if (url.endsWith('/verify')) {
         verificationRequests++
         return Response.json(serviceResponse)
@@ -465,7 +465,7 @@ describe('new verifier orchestration', () => {
           ]),
           app_id: appId,
         })
-      if (url.endsWith('/prpc/Info')) return Response.json(makeAppInfo())
+      if (url.endsWith('/guest-agent-info')) return Response.json(makeAppInfo())
       if (url.endsWith('/verify'))
         return Response.json({
           ...serviceResponse,
@@ -654,7 +654,7 @@ describe('pinned Rust verifier integration', () => {
             gateway_guest_agent_info: guest,
           })
         }
-        if (url.endsWith('/prpc/Info')) return Response.json(info)
+        if (url.endsWith('/guest-agent-info')) return Response.json(info)
         if (url.endsWith('/.dstack/acme-info'))
           return Response.json({
             account_uri: 'https://acme.test/account',
@@ -754,7 +754,8 @@ describe('app instance evidence binding', () => {
             ]),
             app_id: appId,
           })
-        if (url.endsWith('/prpc/Info')) return Response.json(makeAppInfo())
+        if (url.endsWith('/guest-agent-info'))
+          return Response.json(makeAppInfo())
         if (url.endsWith('/verify')) {
           serviceCalls++
           return Response.json(
@@ -803,4 +804,188 @@ describe('app instance evidence binding', () => {
       expect(collector.getAllObjects()).toHaveLength(0)
     })
   }
+})
+
+describe('guest-agent-info proxy', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  const makeMetadata = () => ({
+    osSource: {
+      version: createImageVersion('dstack-0.6.0-rc0'),
+      github_repo: 'https://github.com/Dstack-TEE/dstack',
+      git_commit: '',
+    },
+    hardware: createDefaultHardwareInfo(),
+    governance: {type: 'HostedBy' as const, host: 'Phala' as const},
+  })
+
+  const mockAttestations = () => {
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+      const url = String(input)
+      if (url.endsWith('/attestations'))
+        return Response.json({
+          ...makeSystemInfoPayload([
+            {
+              quote: 'abcd',
+              eventlog: [],
+              image_version: 'dstack-0.6.0-rc0',
+              instance_id: instanceId,
+            },
+          ]),
+          app_id: appId,
+        })
+      throw new Error(`Unexpected network request: ${url}`)
+    }) as unknown as typeof fetch
+  }
+
+  const makeVerifier = (apiKey?: string) =>
+    new PhalaCloudVerifier(
+      systemInfoCache,
+      'example.test',
+      makeMetadata(),
+      new DataObjectCollector(),
+      apiKey,
+    )
+
+  // Populated by the first test that needs it; getSystemInfo is cached per
+  // process by the tests above, so build lazily against the current mock.
+  let systemInfoCache: Awaited<
+    ReturnType<typeof PhalaCloudVerifier.getSystemInfo>
+  >
+
+  test('never contacts the app port-8090 host and sends the Bearer token', async () => {
+    let guestAgentUrl = ''
+    let authorization = ''
+    let verifyCalls = 0
+    globalThis.fetch = (async (
+      input: Parameters<typeof fetch>[0],
+      init?: Parameters<typeof fetch>[1],
+    ) => {
+      const url = String(input)
+      if (url.endsWith('/attestations'))
+        return Response.json({
+          ...makeSystemInfoPayload([
+            {
+              quote: 'abcd',
+              eventlog: [],
+              image_version: 'dstack-0.6.0-rc0',
+              instance_id: instanceId,
+            },
+          ]),
+          app_id: appId,
+        })
+      if (url.endsWith('/guest-agent-info')) {
+        guestAgentUrl = url
+        authorization = String(new Headers(init?.headers).get('authorization'))
+        return Response.json(makeAppInfo())
+      }
+      if (url.endsWith('/verify')) {
+        verifyCalls++
+        return Response.json(serviceResponse)
+      }
+      throw new Error(`Unexpected network request: ${url}`)
+    }) as unknown as typeof fetch
+
+    systemInfoCache = await PhalaCloudVerifier.getSystemInfo(appId as AppId)
+    const verifier = makeVerifier('test-api-key')
+    expect((await verifier.verifyOperatingSystem()).isValid).toBe(true)
+
+    expect(guestAgentUrl).toBe(
+      `https://cloud-api.phala.com/api/v1/stats/trust-center/apps/${appId}/guest-agent-info`,
+    )
+    expect(guestAgentUrl).not.toContain('-8090.')
+    expect(authorization).toBe('Bearer test-api-key')
+    expect(verifyCalls).toBeGreaterThan(0)
+  })
+
+  for (const [status, message] of [
+    [401, 'guest-agent-info returned 401'],
+    [404, 'guest-agent-info returned 404'],
+    [503, 'guest-agent-info request failed: 503'],
+  ] as const) {
+    test(`maps proxy ${status} to the right error`, async () => {
+      mockAttestations()
+      systemInfoCache = await PhalaCloudVerifier.getSystemInfo(appId as AppId)
+      globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+        const url = String(input)
+        if (url.endsWith('/attestations'))
+          return Response.json({
+            ...makeSystemInfoPayload([
+              {
+                quote: 'abcd',
+                eventlog: [],
+                image_version: 'dstack-0.6.0-rc0',
+                instance_id: instanceId,
+              },
+            ]),
+            app_id: appId,
+          })
+        if (url.endsWith('/guest-agent-info'))
+          return new Response('upstream', {status})
+        throw new Error(`Unexpected network request: ${url}`)
+      }) as unknown as typeof fetch
+
+      const verifier = makeVerifier('test-api-key')
+      await expect(verifier.verifyOperatingSystem()).rejects.toThrow(message)
+    })
+  }
+
+  test('legacy guests read Worker.Info fields through the same proxy', async () => {
+    const legacySystemInfo = {
+      ...makeSystemInfoPayload([
+        {
+          quote: 'abcd',
+          eventlog: [],
+          image_version: 'dstack-0.4.0',
+          instance_id: instanceId,
+        },
+      ]),
+      app_id: appId,
+      kms_info: {
+        contract_address: null,
+        chain_id: null,
+        version: 'v0.4.0',
+        url: 'https://kms.example.test',
+        gateway_app_id: null,
+        gateway_app_url: 'https://gateway.example.test',
+      },
+    }
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+      const url = String(input)
+      if (url.endsWith('/attestations')) return Response.json(legacySystemInfo)
+      if (url.endsWith('/guest-agent-info'))
+        return Response.json({
+          app_id: appId,
+          instance_id: instanceId,
+          app_cert: '',
+          app_name: 'legacy-app',
+          public_logs: true,
+          public_sysinfo: true,
+          tcb_info: JSON.stringify({
+            rootfs_hash: 'ff'.repeat(32),
+            mrtd: '01'.repeat(48),
+            rtmr0: '02'.repeat(48),
+            rtmr1: '03'.repeat(48),
+            rtmr2: '04'.repeat(48),
+            rtmr3: '05'.repeat(48),
+            event_log: [],
+            app_compose: '{}',
+          }),
+        })
+      if (url.endsWith('/verify')) return Response.json(serviceResponse)
+      throw new Error(`Unexpected network request: ${url}`)
+    }) as unknown as typeof fetch
+
+    const systemInfo = await PhalaCloudVerifier.getSystemInfo(appId as AppId)
+    const verifier = new PhalaCloudVerifier(
+      systemInfo,
+      'example.test',
+      makeMetadata(),
+      new DataObjectCollector(),
+      'test-api-key',
+    )
+    expect((await verifier.verifyOperatingSystem()).isValid).toBe(true)
+  })
 })

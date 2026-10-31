@@ -27,7 +27,6 @@ import {
 } from '../types'
 import type {DataObjectCollector} from '../utils/dataObjectCollector'
 import {DstackApp} from '../utils/dstackContract'
-import {fetchDstack} from '../utils/fetchDstack'
 import {
   createImageVersion,
   createKmsVersion,
@@ -67,6 +66,9 @@ function isValidDstackInstance(
 export class PhalaCloudVerifier extends Verifier {
   public registrySmartContract?: DstackApp
   public appId: AppId
+  // The app's own guest-agent URL, shown as the `endpoint` field on the
+  // public report. Info is no longer fetched from it directly (see
+  // guestAgentInfoUrl); it stays purely for display.
   private rpcEndpoint: string
   private dataObjectGenerator: AppDataObjectGenerator
   private appMetadata: CompleteAppMetadata
@@ -84,6 +86,7 @@ export class PhalaCloudVerifier extends Verifier {
     domain: string,
     metadata: CompleteAppMetadata,
     collector: DataObjectCollector,
+    private phalaCloudApiKey?: string,
   ) {
     super(metadata, 'app', collector)
     this.appId = systemInfo.app_id
@@ -105,6 +108,55 @@ export class PhalaCloudVerifier extends Verifier {
 
     this.rpcEndpoint = `https://${this.appId}-8090.${domain}`
     this.dataObjectGenerator = new AppDataObjectGenerator(metadata)
+  }
+
+  /**
+   * Guest-agent Info is always read through the Phala Cloud proxy endpoint,
+   * never directly from the app's port 8090 (owner constraint, applies
+   * whatever the app's 8090 setting is). The proxy authenticates with the
+   * shared Phala Cloud API key and selects the app's current CVM by default.
+   * 503 means CVM not running / guest agent unreachable / timeout (transient);
+   * 404 means unknown or deleted app or instance (permanent).
+   */
+  private guestAgentInfoUrl(): string {
+    return `https://cloud-api.phala.com/api/v1/stats/trust-center/apps/${this.appId}/guest-agent-info`
+  }
+
+  private async fetchGuestAgentInfo(infoUrl: string): Promise<unknown> {
+    const headers: Record<string, string> = {}
+    if (this.phalaCloudApiKey) {
+      headers.Authorization = `Bearer ${this.phalaCloudApiKey}`
+    }
+
+    let response: Response
+    try {
+      response = await fetch(infoUrl, {headers})
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown network error'
+      throw new Error(
+        `Network error contacting Phala Cloud guest-agent-info (${infoUrl}): ${errorMessage}`,
+      )
+    }
+
+    if (response.status === 401) {
+      throw new Error(
+        'Phala Cloud guest-agent-info returned 401: missing or invalid Phala Cloud API token',
+      )
+    }
+    if (response.status === 404) {
+      throw new Error(
+        'Phala Cloud guest-agent-info returned 404: unknown or deleted app or instance',
+      )
+    }
+    if (!response.ok) {
+      // 503 = CVM not running, guest agent unreachable, or timeout: transient.
+      throw new Error(
+        `Phala Cloud guest-agent-info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
+      )
+    }
+
+    return response.json()
   }
 
   /**
@@ -153,15 +205,9 @@ export class PhalaCloudVerifier extends Verifier {
 
   protected async getAppInfo(): Promise<AppInfo> {
     if (supportsInfoRpcEndpoint(this.systemInfo.kms_info.version)) {
-      const infoUrl = `${this.rpcEndpoint}/prpc/Info`
+      const infoUrl = this.guestAgentInfoUrl()
       try {
-        const response = await fetchDstack(infoUrl)
-        if (!response.ok) {
-          throw new Error(
-            `Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
-          )
-        }
-        const responseData = await response.json()
+        const responseData = await this.fetchGuestAgentInfo(infoUrl)
         const appInfo = parseJsonFields(
           responseData as Record<string, unknown>,
           {
@@ -201,15 +247,9 @@ export class PhalaCloudVerifier extends Verifier {
         throw new Error(`Failed to fetch Phala Cloud app info: ${errorMessage}`)
       }
     } else {
-      const infoUrl = `${this.rpcEndpoint}/prpc/Worker.Info`
+      const infoUrl = this.guestAgentInfoUrl()
       try {
-        const response = await fetchDstack(infoUrl)
-        if (!response.ok) {
-          throw new Error(
-            `Phala Cloud app info request failed: ${response.status} ${response.statusText} (URL: ${infoUrl})`,
-          )
-        }
-        const responseData = await response.json()
+        const responseData = await this.fetchGuestAgentInfo(infoUrl)
 
         const legacyAppInfo = parseJsonFields(
           responseData as Record<string, unknown>,
