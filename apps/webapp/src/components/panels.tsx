@@ -1,7 +1,6 @@
 'use client'
 
 import {useAtom, useSetAtom} from 'jotai'
-import Cookies from 'js-cookie'
 import {useRouter, useSearchParams} from 'next/navigation'
 import {Fragment, useEffect, useRef} from 'react'
 import type {ImperativePanelGroupHandle} from 'react-resizable-panels'
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui/resizable'
 import Panel from '@/components/visualization/panel'
 import {useLayout} from '@/hooks/use-layout'
+import {safeSetCookie} from '@/lib/safe-storage'
 import {
   PANEL_CONFIG,
   PANEL_LAYOUT_STORAGE_KEY,
@@ -72,7 +72,8 @@ export default function Panels({defaultLayout}: PanelsProps) {
   // Handle layout changes and save to cookie
   const onLayout = (sizes: number[]) => {
     if (typeof window !== 'undefined') {
-      Cookies.set(PANEL_LAYOUT_STORAGE_KEY, JSON.stringify(sizes))
+      // Best-effort: document.cookie throws in sandboxed opaque-origin iframes
+      safeSetCookie(PANEL_LAYOUT_STORAGE_KEY, JSON.stringify(sizes))
     }
   }
 

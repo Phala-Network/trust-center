@@ -36,14 +36,20 @@ const WHITELISTED_APP_IDS = [
   '88b5c6a7c5f2975e5851f311fba51dc995c0736f',
 ]
 
-// Deleted apps are not served on any per-app route. apps.deleted alone only
-// means "absent from /stats/dstack_app", which also covers stopped CVMs; Phala
-// Cloud drops the app's entity_profile only when the project itself is
-// deleted, so both must be gone. Unlisted apps stay reachable by direct link.
+// Hidden apps are not served on any per-app route:
+// - Unlisted apps (isPublic=false) are hidden unconditionally — owner decision:
+//   an unlisted app's page must behave exactly like a deleted app's (no
+//   existence leak). The authenticated Cloud status API still reports them.
+// - apps.deleted alone only means "absent from /stats/dstack_app", which also
+//   covers stopped CVMs; Phala Cloud drops the app's entity_profile only when
+//   the project itself is deleted, so both must be gone. Whitelisted apps stay
+//   accessible even then.
 const isHiddenApp = (
-  app: {id: string; deleted: boolean},
+  app: {id: string; deleted: boolean; isPublic: boolean},
   hasAppProfile: boolean,
-) => app.deleted && !hasAppProfile && !WHITELISTED_APP_IDS.includes(app.id)
+) =>
+  !app.isPublic ||
+  (app.deleted && !hasAppProfile && !WHITELISTED_APP_IDS.includes(app.id))
 
 // Unified profile display type used for all entity types (app, workspace, user)
 export interface ProfileDisplay {
@@ -731,7 +737,8 @@ export async function getUsers(): Promise<
   return owners
 }
 
-// Get a single app by ID (latest task for this app); null for deleted apps
+// Get a single app by ID (latest task for this app); null for deleted or
+// unlisted apps
 export async function getApp(appId: string): Promise<AppWithTask | null> {
   // Start from apps table, JOIN to latest completed task and profiles
   const results = await db
@@ -832,9 +839,8 @@ export async function getTaskById(taskId: string): Promise<AppWithTask | null> {
     : null
 }
 
-// Get task by app and task ID
-// Note: No isPublic check - allows direct access via URL even if not listed publicly;
-// deleted apps return null
+// Get task by app and task ID.
+// Deleted and unlisted apps return null (same hiding rules as getApp).
 export async function getTask(
   appId: string,
   taskId: string,
@@ -955,7 +961,11 @@ async function fetchLatestTaskByStatus(
 async function isHiddenAppId(appId: string) {
   const [row] = await db
     .select({
-      app: {id: appsTable.id, deleted: appsTable.deleted},
+      app: {
+        id: appsTable.id,
+        deleted: appsTable.deleted,
+        isPublic: appsTable.isPublic,
+      },
       appProfileId: appProfileTable.id,
     })
     .from(appsTable)
@@ -969,6 +979,70 @@ async function isHiddenAppId(appId: string) {
     .where(eq(appsTable.id, appId))
     .limit(1)
   return row ? isHiddenApp(row.app, row.appProfileId !== null) : false
+}
+
+// Status snapshot for the Phala Cloud integration API
+// (GET /api/cloud/apps/[app-id]/status). Reports exactly what Cloud needs to
+// decide between embedding the report, showing a "preparing" state, or a CTA.
+export interface CloudAppStatus {
+  // We know this app at all (apps row exists, or a task row exists)
+  present: boolean
+  // apps.isPublic — the `listed` flag as last received from Phala Cloud
+  listed: boolean
+  deleted: boolean
+  // Unlisted and deleted-without-profile apps are not served on any per-app
+  // route (so `indexed` is false for them)
+  hidden: boolean
+  hasCompletedTask: boolean
+  lastIndexedAt: string | null
+  latestTask: TaskApiInfo | null
+}
+
+export async function getCloudAppStatus(
+  appId: string,
+): Promise<CloudAppStatus> {
+  const [appRow, completed, latest] = await Promise.all([
+    db
+      .select({
+        app: {
+          id: appsTable.id,
+          isPublic: appsTable.isPublic,
+          deleted: appsTable.deleted,
+        },
+        appProfileId: appProfileTable.id,
+      })
+      .from(appsTable)
+      .leftJoin(
+        appProfileTable,
+        and(
+          eq(appProfileTable.entityType, 'app'),
+          eq(appProfileTable.entityId, appsTable.profileId),
+        ),
+      )
+      .where(eq(appsTable.id, appId))
+      .limit(1),
+    fetchLatestTaskByStatus(appId, 'completed'),
+    db
+      .select(taskApiSelection)
+      .from(verificationTasksTable)
+      .where(eq(verificationTasksTable.appId, appId))
+      .orderBy(desc(verificationTasksTable.createdAt))
+      .limit(1),
+  ])
+
+  const app = appRow[0]
+  const hidden = app ? isHiddenApp(app.app, app.appProfileId !== null) : false
+  const latestTask = latest[0] ? toTaskApiInfo(latest[0]) : null
+
+  return {
+    present: Boolean(app) || Boolean(latestTask),
+    listed: app?.app.isPublic ?? false,
+    deleted: app?.app.deleted ?? false,
+    hidden,
+    hasCompletedTask: Boolean(completed),
+    lastIndexedAt: completed?.finishedAt ?? null,
+    latestTask,
+  }
 }
 
 // Returns the task result for a given app, preferring the latest 'completed' task
