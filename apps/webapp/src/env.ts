@@ -4,6 +4,10 @@ import {z} from 'zod'
 export const env = createEnv({
   server: {
     DATABASE_POSTGRES_URL: z.string(),
+
+    // Shared secret with Phala Cloud. Signs webhook pushes (server app) and the
+    // Cloud status API (this app); same value as the server's PHALA_CLOUD_API_KEY.
+    PHALA_CLOUD_API_KEY: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_S3_BUCKET_URL: z.url(),

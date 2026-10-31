@@ -971,6 +971,69 @@ async function isHiddenAppId(appId: string) {
   return row ? isHiddenApp(row.app, row.appProfileId !== null) : false
 }
 
+// Status snapshot for the Phala Cloud integration API
+// (GET /api/cloud/apps/[app-id]/status). Reports exactly what Cloud needs to
+// decide between embedding the report, showing a "preparing" state, or a CTA.
+export interface CloudAppStatus {
+  // We know this app at all (apps row exists, or a task row exists)
+  present: boolean
+  // apps.isPublic — the `listed` flag as last received from Phala Cloud
+  listed: boolean
+  deleted: boolean
+  // Deleted-without-profile apps are not served on any per-app route
+  hidden: boolean
+  hasCompletedTask: boolean
+  lastIndexedAt: string | null
+  latestTask: TaskApiInfo | null
+}
+
+export async function getCloudAppStatus(
+  appId: string,
+): Promise<CloudAppStatus> {
+  const [appRow, completed, latest] = await Promise.all([
+    db
+      .select({
+        app: {
+          id: appsTable.id,
+          isPublic: appsTable.isPublic,
+          deleted: appsTable.deleted,
+        },
+        appProfileId: appProfileTable.id,
+      })
+      .from(appsTable)
+      .leftJoin(
+        appProfileTable,
+        and(
+          eq(appProfileTable.entityType, 'app'),
+          eq(appProfileTable.entityId, appsTable.profileId),
+        ),
+      )
+      .where(eq(appsTable.id, appId))
+      .limit(1),
+    fetchLatestTaskByStatus(appId, 'completed'),
+    db
+      .select(taskApiSelection)
+      .from(verificationTasksTable)
+      .where(eq(verificationTasksTable.appId, appId))
+      .orderBy(desc(verificationTasksTable.createdAt))
+      .limit(1),
+  ])
+
+  const app = appRow[0]
+  const hidden = app ? isHiddenApp(app.app, app.appProfileId !== null) : false
+  const latestTask = latest[0] ? toTaskApiInfo(latest[0]) : null
+
+  return {
+    present: Boolean(app) || Boolean(latestTask),
+    listed: app?.app.isPublic ?? false,
+    deleted: app?.app.deleted ?? false,
+    hidden,
+    hasCompletedTask: Boolean(completed),
+    lastIndexedAt: completed?.finishedAt ?? null,
+    latestTask,
+  }
+}
+
 // Returns the task result for a given app, preferring the latest 'completed' task
 // over the latest 'failed' one. Used by the public GET /api/app/[app-id] endpoint.
 // Returns null if the app has neither a completed nor a failed task, or is deleted.
