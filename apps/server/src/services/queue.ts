@@ -19,6 +19,7 @@ import {type Job, Queue, UnrecoverableError, Worker} from 'bullmq'
 import IORedis from 'ioredis'
 import {isAddress} from 'viem'
 
+import {env} from '../env'
 import type {AppService} from './appService'
 import type {S3Service} from './s3'
 import type {VerificationTaskService} from './taskService'
@@ -175,6 +176,9 @@ export const createQueueService = (
             appId: toAppId(app.id),
             domain: app.domain,
             metadata: appMetadata,
+            // Authenticates guest-agent-info proxy reads (replaces direct
+            // port-8090 fetches). Same value as the webhook secret.
+            phalaCloudApiKey: env.PHALA_CLOUD_API_KEY,
           }
 
           // Create a new VerificationService instance for each task to avoid state pollution

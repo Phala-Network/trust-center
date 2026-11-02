@@ -48,6 +48,12 @@ export const PhalaCloudConfigSchema = z.object({
   domain: z.string().min(1),
   /** Verifier metadata (optional - will be generated from systemInfo if not provided) */
   metadata: AppMetadataSchema.optional(),
+  /**
+   * Phala Cloud API key (same value as the server's PHALA_CLOUD_API_KEY).
+   * Authenticates the guest-agent-info proxy reads that replaced direct
+   * port-8090 fetches.
+   */
+  phalaCloudApiKey: z.string().optional(),
 })
 
 /**
