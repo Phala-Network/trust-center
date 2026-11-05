@@ -3,6 +3,7 @@ import {Elysia} from 'elysia'
 import z from 'zod'
 
 import {env} from './env'
+import {createCloudStatusRoutes} from './routes/cloudStatus'
 import {cronRoutes} from './routes/cron'
 import {healthRoutes} from './routes/health'
 import {createPhalaCloudWebhookRoutes} from './routes/phalaCloudWebhook'
@@ -59,6 +60,12 @@ export const createApp = () => {
       createSyncEventsRoutes({
         apiKey: env.CRON_API_KEY,
         events: {list: (options) => getServices().syncEvents.list(options)},
+      }),
+    )
+    .use(
+      createCloudStatusRoutes({
+        secret: env.PHALA_CLOUD_API_KEY,
+        getStatus: (appId) => getServices().cloudStatus.getStatus(appId),
       }),
     )
     .group('/health', (app) => app.use(healthRoutes))

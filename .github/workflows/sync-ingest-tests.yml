@@ -24,9 +24,19 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgres://postgres:test-only@127.0.0.1:5432/trust_center_ingest_test
       TEST_DATABASE_URL: postgres://postgres:test-only@127.0.0.1:5432/trust_center_ingest_test
+      TEST_REDIS_URL: redis://127.0.0.1:6379
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -36,5 +46,5 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Apply test database migrations
         run: bun run --cwd packages/db migrate
-      - name: Test HTTP ingest, full-sync ordering and audit retention
+      - name: Test HTTP ingest, cloud status, full-sync ordering and audit retention
         run: bun test apps/server/src --max-concurrency 1
