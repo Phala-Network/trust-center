@@ -3,6 +3,10 @@ import {VerificationService} from '@phala/dstack-verifier'
 import {env} from '../env'
 import {type AppService, createAppService} from './appService'
 import {
+  type CloudStatusService,
+  createCloudStatusService,
+} from './cloudStatusService'
+import {
   createPhalaCloudIngestService,
   type PhalaCloudIngestService,
 } from './phalaCloudIngestService'
@@ -31,6 +35,7 @@ export interface Services {
   taskSync: Pick<SyncService, 'syncAllTasks'>
   ingest: PhalaCloudIngestService
   syncEvents: SyncEventService
+  cloudStatus: CloudStatusService
 }
 
 export interface ServiceConfig {
@@ -95,6 +100,7 @@ const composeServices = (config: ServiceConfig): Services => {
     syncSelectedTasks: taskSync.syncSelectedTasks,
   })
   const syncEvents = createSyncEventService(app.getDb())
+  const cloudStatus = createCloudStatusService(config.databaseUrl)
 
   return {
     queue,
@@ -106,6 +112,7 @@ const composeServices = (config: ServiceConfig): Services => {
     taskSync,
     ingest,
     syncEvents,
+    cloudStatus,
   }
 }
 
