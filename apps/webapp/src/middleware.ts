@@ -1,85 +1,45 @@
-import type {NextRequest} from 'next/server'
 import {NextResponse} from 'next/server'
 
-export function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname
+// Maintenance mode: every request (pages, /api/*, Server Actions, sitemap,
+// OG images, static chunks) gets this 503 page. Restore by reverting this
+// commit, which also brings back the /app/:id/embed referer guard.
+const MAINTENANCE_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Phala Trust Center - Under construction</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: system-ui, -apple-system, sans-serif; background: #fff; color: #111; }
+  @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #eee; } }
+  main { text-align: center; padding: 24px 16px; max-width: 480px; }
+  h1 { font-size: 24px; font-weight: 600; margin: 0 0 12px; }
+  p { margin: 4px 0; opacity: .7; line-height: 1.5; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Under construction</h1>
+  <p>Phala Trust Center is temporarily unavailable for maintenance.</p>
+</main>
+</body>
+</html>`
 
-  // Check if this is an embed route
-  if (pathname.includes('/embed')) {
-    const referer = request.headers.get('referer') || ''
-    const origin = request.headers.get('origin') || ''
-    const host = request.headers.get('host') || ''
-
-    // Allow localhost for development
-    const isDevelopment =
-      host.includes('localhost') || host.includes('127.0.0.1')
-
-    // Check if the request is from an allowed domain
-    const allowedDomains = [
-      '.phala.com',
-      '.phala.network',
-      '.clawdi.ai',
-      '.redpill.ai',
-    ]
-    const isAllowedHost = (url: string) => {
-      try {
-        const hostname = new URL(url).hostname
-        if (hostname === 'localhost' || hostname === '127.0.0.1') return true
-        return allowedDomains.some(
-          (domain) =>
-            hostname === domain.slice(1) || hostname.endsWith(domain),
-        )
-      } catch {
-        return false
-      }
-    }
-    const isAllowedReferer = isAllowedHost(referer)
-    const isAllowedOrigin = isAllowedHost(origin)
-
-    // For direct access (no referer/origin), only allow in development
-    const isDirectAccess = !referer && !origin
-    if (isDirectAccess && !isDevelopment) {
-      return new NextResponse(
-        'Forbidden: Embed only accessible via iframe from *.phala.com, *.phala.network, *.clawdi.ai, or *.redpill.ai',
-        {
-          status: 403,
-          headers: {
-            'Content-Type': 'text/plain',
-          },
-        },
-      )
-    }
-
-    // For iframe access, check if from allowed domain
-    if (
-      !isDirectAccess &&
-      !isAllowedReferer &&
-      !isAllowedOrigin &&
-      !isDevelopment
-    ) {
-      return new NextResponse(
-        'Forbidden: Embed only accessible via iframe from *.phala.com, *.phala.network, *.clawdi.ai, or *.redpill.ai',
-        {
-          status: 403,
-          headers: {
-            'Content-Type': 'text/plain',
-          },
-        },
-      )
-    }
-
-    // Set Content-Security-Policy to allow embedding from specific domains
-    const response = NextResponse.next()
-    response.headers.set(
-      'Content-Security-Policy',
-      "frame-ancestors 'self' https://*.phala.com https://*.phala.network https://*.clawdi.ai https://*.redpill.ai http://localhost:* https://localhost:* http://*.localhost:* https://*.localhost:*",
-    )
-    return response
-  }
-
-  return NextResponse.next()
+export function middleware() {
+  return new NextResponse(MAINTENANCE_HTML, {
+    status: 503,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Retry-After': '3600',
+      'X-Robots-Tag': 'noindex, nofollow',
+    },
+  })
 }
 
 export const config = {
-  matcher: ['/app/:path*/embed'],
+  matcher: '/:path*',
 }
