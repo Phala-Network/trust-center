@@ -4,12 +4,12 @@ import {NextResponse} from 'next/server'
 // OG images, static chunks) gets this 503 page. Restore by reverting this
 // commit, which also brings back the /app/:id/embed referer guard.
 const MAINTENANCE_HTML = `<!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Phala Trust Center - 建设中</title>
+<title>Phala Trust Center - Under construction</title>
 <style>
   :root { color-scheme: light dark; }
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -22,8 +22,7 @@ const MAINTENANCE_HTML = `<!doctype html>
 </head>
 <body>
 <main>
-  <h1>建设中 · Under construction</h1>
-  <p>Phala Trust Center 正在维护，暂时无法访问。</p>
+  <h1>Under construction</h1>
   <p>Phala Trust Center is temporarily unavailable for maintenance.</p>
 </main>
 </body>
